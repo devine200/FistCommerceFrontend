@@ -9,12 +9,14 @@
   },
   "dependencies": {
     "@fontsource/outfit": "^5.2.8",
+    "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-query": "latest",
     "@types/node": "^25.5.0",
     "clsx": "^2.1.1",
     "react": "latest",
     "react-dom": "latest",
     "react-router-dom": "^7.13.1",
+    "uuid": "^13.0.0",
     "viem": "latest",
     "wagmi": "latest"
   },

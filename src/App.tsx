@@ -1,6 +1,8 @@
 import { useConnect, useConnection, useConnectors, useDisconnect } from 'wagmi'
+import { RouterProvider, createBrowserRouter } from 'react-router-dom'
+import OnboardingPage from './pages/OnboardingPage'
 
-function App() {
+const DefaultWagmiPage = () => {
   const connection = useConnection()
   const { connect, status, error } = useConnect()
   const connectors = useConnectors()
@@ -41,7 +43,22 @@ function App() {
         <div>{error?.message}</div>
       </div>
     </>
-  )
+  ) 
+}
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <DefaultWagmiPage />,
+  },
+  {
+    path: '/onboarding',
+    element: <OnboardingPage />,
+  }
+])
+
+function App() {
+  return <RouterProvider router={router} />
 }
 
 export default App
