@@ -1,8 +1,9 @@
-import OnboardingStep from './OnboardingStep'
+import OnboardingStep from '@/components/onboarding/onboarding-steps/OnboardingStep'
 import logo from '@/assets/logo.png'
 import { v4 as uuidv4 } from 'uuid'
+import { Outlet } from 'react-router-dom'
 
-const OnboardingLayout = () => {
+const MerchantLayout = () => {
     const steps = [
         {
             title: 'Choose Your Role',
@@ -20,14 +21,14 @@ const OnboardingLayout = () => {
             active: false
         },
         {
-            title: 'Prepare to Start Investing',
-            description: 'Learn how the lending pool works, expected returns, and how your capital will be used to fund verified receivables.',
+            title: 'Business Profile',
+            description: 'Provide your business details, financial information, and verification documents to enable access to receivable financing.',
             active: false
         },
     ]
 
     return (
-        <div className="flex justify items-center h-screen p-5">
+        <div className="flex items-center gap-x-[80px] h-screen p-5">
             <div className="flex gap-4 justify-between w-[450px] bg-[#F5F5F5] rounded-xl py-12 px-4">
                 <div className="flex flex-col gap-8">
                     <div className="flex flex-start gap-2">
@@ -35,12 +36,20 @@ const OnboardingLayout = () => {
                         <h2 className="font-bold text-[32px] text-black">Fist Commerce</h2>
                     </div>
                     {steps.map((step) => (
-                        <OnboardingStep key={uuidv4()} active={step.active} title={step.title} description={step.description} />
+                        <OnboardingStep
+                            key={uuidv4()}
+                            active={step.active}
+                            title={step.title}
+                            description={step.description}
+                        />
                     ))}
                 </div>
+            </div>
+            <div className="flex justify-center items-center">
+                <Outlet />
             </div>
         </div>
     )
 }
 
-export default OnboardingLayout
+export default MerchantLayout

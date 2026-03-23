@@ -1,12 +1,7 @@
-import React from 'react'
-import OnboardingLayout from '@/components/onboarding/Layout'
+import { Outlet } from 'react-router-dom'
 
 const OnboardingPage = () => {
-  return (
-    <div>
-        <OnboardingLayout />
-    </div>
-  )
+    return <Outlet />
 }
 
 export default OnboardingPage

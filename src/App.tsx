@@ -1,6 +1,18 @@
 import { useConnect, useConnection, useConnectors, useDisconnect } from 'wagmi'
-import { RouterProvider, createBrowserRouter } from 'react-router-dom'
-import OnboardingPage from './pages/OnboardingPage'
+import { Navigate, RouterProvider, createBrowserRouter } from 'react-router-dom'
+import OnboardingPage from '@/pages/OnboardingPage'
+import OnboardingCompleted, { OnboardingCompletedVariant } from '@/pages/OnboardingCompleted'
+import MerchantLayout from '@/layouts/MerchantOnboardingLayout'
+import InvestorLayout from '@/layouts/InvestorOnboardingLayout'
+
+import ChooseRole from '@/components/onboarding/onboarding-steps/ChooseRole'
+import ConnectWallet from '@/components/onboarding/onboarding-steps/ConnectWallet'
+import InvestorRegistration from '@/components/onboarding/onboarding-steps/investor/InvestorRegistration'
+import InvestmentExplainer from '@/components/onboarding/onboarding-steps/investor/InvestmentExplainer'
+import MerchantIdVerification from '@/components/onboarding/onboarding-steps/merchant/MerchantIdVerification'
+import BusinessProfile from '@/components/onboarding/onboarding-steps/merchant/BusinessProfileVerification'
+import PageNotFound from '@/pages/404'
+import DashboardPage from './pages/DashboardPage'
 
 const DefaultWagmiPage = () => {
   const connection = useConnection()
@@ -54,7 +66,128 @@ const router = createBrowserRouter([
   {
     path: '/onboarding',
     element: <OnboardingPage />,
-  }
+    children: [
+      {
+        index: true,
+        element: <Navigate to="/onboarding/investor/choose-role" replace />,
+      },
+      {
+        path: 'merchant',
+        element: <MerchantLayout />,
+        children: [
+          {
+            path: 'choose-role',
+            element: <ChooseRole />
+          },
+          {
+            path: 'connect-wallet',
+            element: <ConnectWallet />
+          },
+          {
+            path: 'verify-identity',
+            element: <MerchantIdVerification />
+          },
+          {
+            path: 'business-profile',
+            element: <BusinessProfile />
+          },
+          {
+            path: '*',
+            element: <Navigate to="choose-role" replace />,
+          },
+        ]
+      },
+      {
+        path: 'investor',
+        element: <InvestorLayout />,
+        children: [
+          {
+            path: 'choose-role',
+            element: <ChooseRole />
+          },
+          {
+            path: 'connect-wallet',
+            element: <ConnectWallet />
+          },
+          {
+            path: 'investment-explainer',
+            element: <InvestmentExplainer />
+          },
+          {
+            path: 'verify-identity',
+            element: <InvestorRegistration />
+          },
+          {
+            path: '*',
+            element: <Navigate to="choose-role" replace />,
+          },
+        ]
+      },
+      {
+        path: '*',
+        element: <PageNotFound />,
+      }
+    ]
+  },
+  {
+    path: '/onboarding-completed',
+    children: [
+      {
+        index: true,
+        element: <Navigate to="investor" replace />,
+      },
+      {
+        path: 'investor',
+        element: <OnboardingCompleted variant={OnboardingCompletedVariant.Investor} />,
+      },
+      {
+        path: 'merchant',
+        element: <OnboardingCompleted variant={OnboardingCompletedVariant.Merchant} />,
+      },
+      {
+        path: '*',
+        element: <PageNotFound />,
+      },
+    ],
+  },
+  {
+    path: '/dashboard',
+    children: [
+      {
+        index: true,
+        element: <Navigate to="investor" replace />,
+      },
+      {
+        path: 'investor',
+        children: [
+          {
+            path: 'kyc',
+            element: <DashboardPage />,
+          },
+          {
+            path: 'opportunities',
+            element: <DashboardPage />,
+          },
+          {
+            path: 'profile',
+            element: <DashboardPage />,
+          },
+          {
+            path: '*',
+            element: <Navigate to="kyc" replace />,
+          },
+        ],
+      },
+      {
+        path: '*',
+        element: <PageNotFound />,
+      },
+    ],
+  },
+  {
+    path: '*',
+    element: <PageNotFound />,
+  },
 ])
 
 function App() {
