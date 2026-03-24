@@ -3,12 +3,15 @@ import { useRef, useState, type DragEvent } from 'react'
 import backArrowIcon from '@/assets/ph_arrow-left.png'
 import cloudUploadIcon from '@/assets/cloud-upload.png'
 
-interface VerifyIdentityModalProps {
+interface UploadBusinessDocumentsModalProps {
   onBack: () => void
   onComplete: () => void
 }
 
-const VerifyIdentityModal = ({ onBack, onComplete }: VerifyIdentityModalProps) => {
+const REQUIRED_DOCUMENTS_COPY =
+  'Certificate of Incorporation, Government ID of Owner, Recent Bank Statement, Sample Invoice or Purchase Order, and Proof of Business Address.'
+
+const UploadBusinessDocumentsModal = ({ onBack, onComplete }: UploadBusinessDocumentsModalProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null)
@@ -50,18 +53,16 @@ const VerifyIdentityModal = ({ onBack, onComplete }: VerifyIdentityModalProps) =
         <button type="button" onClick={onBack} className="w-[50px] h-[40px] flex items-center justify-start relative left-[-20px]">
           <img src={backArrowIcon} alt="back" className="w-[50px] h-[40px] object-contain" />
         </button>
-        <div className="flex flex-col">
-          <h2 className="text-black font-bold text-[32px]">Verify Your Identity</h2>
-          <p className="text-[#6B7488] text-[20px] mt-1">
-            Upload a valid government ID and complete a quick face verification to confirm your identity.
+        <div className="flex flex-col gap-3">
+          <h2 className="text-black font-bold text-[32px]">Upload Business Documents</h2>
+          <p className="text-[#6B7488] text-[20px]">
+            Submit the required business documents to complete verification and enable access to financing.
           </p>
+          <p className="text-black font-bold text-[20px] leading-snug">{REQUIRED_DOCUMENTS_COPY}</p>
         </div>
       </div>
 
       <div className="mt-6 flex flex-col gap-3">
-        <h3 className="text-black font-bold text-[20px]">Upload Your Government ID</h3>
-        <p className="text-[#6B7488] text-[20px]">List of all Government IDs Accepted</p>
-
         <div
           className={`border border-dashed rounded-[10px] bg-[#FAFBFD] ${isDragging ? 'border-[#195EBC]' : 'border-[#C9CFDA]'}`}
           onDragOver={onDragOver}
@@ -70,9 +71,11 @@ const VerifyIdentityModal = ({ onBack, onComplete }: VerifyIdentityModalProps) =
           onDrop={onDrop}
         >
           <div className="px-6 py-8 flex flex-col items-center text-center">
-            <img src={cloudUploadIcon} alt="cloud upload" className="w-[52px] h-[52px] object-contain" />
+            <div className="flex h-[88px] w-[88px] items-center justify-center rounded-full bg-[#E8EFFB]">
+              <img src={cloudUploadIcon} alt="" className="h-[52px] w-[52px] object-contain" aria-hidden />
+            </div>
 
-            <p className="mt-3 text-[16px]">
+            <p className="mt-4 text-[16px]">
               <button type="button" onClick={openFilePicker} className="text-[#195EBC] font-semibold">
                 Click to upload
               </button>{' '}
@@ -100,12 +103,11 @@ const VerifyIdentityModal = ({ onBack, onComplete }: VerifyIdentityModalProps) =
         onChange={(e) => handleFileSelect(e.target.files?.[0] ?? null)}
       />
 
-      <button type="button" onClick={onComplete} className="mt-6 bg-[#195EBC] text-white px-5 py-3 rounded-md w-full text-[20px]">
-        Take Photo
+      <button type="button" onClick={onComplete} className="mt-6 bg-[#195EBC] text-white px-5 py-3 rounded-md w-full text-[20px] font-semibold">
+        Continue
       </button>
     </div>
   )
 }
 
-export default VerifyIdentityModal
-
+export default UploadBusinessDocumentsModal

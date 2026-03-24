@@ -3,6 +3,7 @@ import squaresFourIcon from '@/assets/SquaresFour.svg'
 import coinIcon from '@/assets/Coin.svg'
 import userIcon from '@/assets/ph_user.svg'
 import collapseArrowIcon from '@/assets/CollapseArrow.svg'
+import type { DashboardBasePath } from '@/layouts/DashboardLayout'
 import { Link, useLocation } from 'react-router-dom'
 
 interface NavItem {
@@ -11,32 +12,59 @@ interface NavItem {
   isActive: boolean
 }
 
-const DashboardSideNav = () => {
+function resolveDashboardBase(pathname: string, explicit?: DashboardBasePath): DashboardBasePath {
+  if (explicit) return explicit
+  if (pathname.startsWith('/dashboard/merchant')) return '/dashboard/merchant'
+  return '/dashboard/investor'
+}
+
+interface DashboardSideNavProps {
+  basePath?: DashboardBasePath
+}
+
+const DashboardSideNav = ({ basePath: basePathProp }: DashboardSideNavProps) => {
   const location = useLocation()
   const pathname = location.pathname
 
+  const base = resolveDashboardBase(pathname, basePathProp)
+
+  const escapedBase = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const isPoolHowItWorks = new RegExp(`^${escapedBase}/lending-pool/[^/]+/how-it-works$`).test(pathname)
+  const isPoolDetailOnly = new RegExp(`^${escapedBase}/lending-pool/[^/]+$`).test(pathname)
+
+  const investorHowItWorks = base === '/dashboard/investor' && isPoolHowItWorks
+  const investorPoolDetail = base === '/dashboard/investor' && isPoolDetailOnly
+  const merchantPoolDetail = base === '/dashboard/merchant' && isPoolDetailOnly
+
   const navItems: NavItem[] = [
     {
-      path: '/dashboard/investor/kyc',
+      path: `${base}/overview`,
       icon: squaresFourIcon,
-      isActive: pathname === '/dashboard/investor' || pathname.startsWith('/dashboard/investor/kyc'),
+      isActive:
+        pathname === base ||
+        pathname === `${base}/` ||
+        pathname.startsWith(`${base}/overview`) ||
+        investorHowItWorks ||
+        merchantPoolDetail,
     },
     {
-      path: '/dashboard/investor/opportunities',
+      path: `${base}/opportunities`,
       icon: coinIcon,
-      isActive: pathname.startsWith('/dashboard/investor/opportunities'),
+      isActive: pathname.startsWith(`${base}/opportunities`) || investorPoolDetail,
     },
     {
-      path: '/dashboard/investor/profile',
+      path: `${base}/profile`,
       icon: userIcon,
-      isActive: pathname.startsWith('/dashboard/investor/profile'),
+      isActive: pathname.startsWith(`${base}/profile`),
     },
   ]
 
   return (
     <aside className="w-[72px] bg-[#F3F3F3] border-r border-[#E6E8EC] flex flex-col items-center justify-between py-2">
       <div className="flex flex-col items-center gap-5 w-full">
-        <img src={logo} alt="logo" className="w-[45px] h-[40px] mt-1" />
+        <Link to={`${base}/overview`} className="mt-1" aria-label="Dashboard home">
+          <img src={logo} alt="logo" className="w-[45px] h-[40px]" />
+        </Link>
 
         <div className="flex flex-col items-center gap-3 mt-6">
           {navItems.map((item, idx) => (

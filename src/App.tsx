@@ -12,7 +12,11 @@ import InvestmentExplainer from '@/components/onboarding/onboarding-steps/invest
 import MerchantIdVerification from '@/components/onboarding/onboarding-steps/merchant/MerchantIdVerification'
 import BusinessProfile from '@/components/onboarding/onboarding-steps/merchant/BusinessProfileVerification'
 import PageNotFound from '@/pages/404'
-import DashboardPage from './pages/DashboardPage'
+import DashboardPage from './pages/InvestorDashboardPage'
+import MerchantDashboardPage from './pages/MerchantDashboardPage'
+import MerchantLoanDetailPage from './pages/MerchantLoanDetailPage'
+import InvestorLendingPoolDetailPage from './pages/InvestorLendingPoolDetailPage'
+import InvestorLendingPoolHowItWorksPage from './pages/InvestorLendingPoolHowItWorksPage'
 
 const DefaultWagmiPage = () => {
   const connection = useConnection()
@@ -161,7 +165,11 @@ const router = createBrowserRouter([
         path: 'investor',
         children: [
           {
-            path: 'kyc',
+            index: true,
+            element: <Navigate to="overview" replace />,
+          },
+          {
+            path: 'overview',
             element: <DashboardPage />,
           },
           {
@@ -173,8 +181,45 @@ const router = createBrowserRouter([
             element: <DashboardPage />,
           },
           {
+            path: 'lending-pool/:poolSlug/how-it-works',
+            element: <InvestorLendingPoolHowItWorksPage />,
+          },
+          {
+            path: 'lending-pool/:poolSlug',
+            element: <InvestorLendingPoolDetailPage />,
+          },
+          {
             path: '*',
-            element: <Navigate to="kyc" replace />,
+            element: <Navigate to="overview" replace />,
+          },
+        ],
+      },
+      {
+        path: 'merchant',
+        children: [
+          {
+            index: true,
+            element: <Navigate to="overview" replace />,
+          },
+          {
+            path: 'overview',
+            element: <MerchantDashboardPage />,
+          },
+          {
+            path: 'opportunities',
+            element: <MerchantDashboardPage />,
+          },
+          {
+            path: 'profile',
+            element: <MerchantDashboardPage />,
+          },
+          {
+            path: 'lending-pool/:poolSlug',
+            element: <MerchantLoanDetailPage />,
+          },
+          {
+            path: '*',
+            element: <Navigate to="overview" replace />,
           },
         ],
       },

@@ -3,9 +3,13 @@ import kycInProgressIllustration from '@/assets/kyc-inprogress.png'
 import arrowIcon from '@/assets/arrow.png'
 import { useEffect, useRef, useState } from 'react'
 
-import KycVerificationModal from '@/components/dashboard/investor/KycVerificationModal'
+import InvestorKycVerificationModal from '@/components/dashboard/investor/InvestorKycVerificationModal'
+import MerchantKycVerificationModal from '@/components/dashboard/merchant/MerchantKycVerificationModal'
+
+export type KycVerificationCardVariant = 'investor' | 'merchant'
 
 interface KycVerificationCardProps {
+  variant?: KycVerificationCardVariant
   hasStartedKyc?: boolean
   totalSteps?: number
   currentStepNumber?: number
@@ -13,6 +17,7 @@ interface KycVerificationCardProps {
 }
 
 const KycVerificationCard = ({
+  variant = 'investor',
   hasStartedKyc = false,
   totalSteps = 3,
   currentStepNumber = 1,
@@ -81,12 +86,12 @@ const KycVerificationCard = ({
         </div>
       </section>
 
-      {isModalOpen && (
-        <KycVerificationModal
-          onClose={closeModal}
-          totalSteps={safeTotalSteps}
-        />
-      )}
+      {isModalOpen &&
+        (variant === 'merchant' ? (
+          <MerchantKycVerificationModal onClose={closeModal} totalSteps={safeTotalSteps} />
+        ) : (
+          <InvestorKycVerificationModal onClose={closeModal} totalSteps={safeTotalSteps} />
+        ))}
     </>
   )
 }

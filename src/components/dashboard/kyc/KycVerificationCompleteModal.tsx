@@ -4,6 +4,7 @@ interface KycVerificationCompleteModalProps {
   onBackToDashboard: () => void
 }
 
+/** Shared KYC success screen for both investor and merchant flows. */
 const KycVerificationCompleteModal = ({ onBackToDashboard }: KycVerificationCompleteModalProps) => {
   return (
     <div className="max-w-[620px] mx-auto flex flex-col items-center text-center">

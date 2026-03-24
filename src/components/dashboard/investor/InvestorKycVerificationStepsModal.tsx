@@ -2,6 +2,8 @@ import Frame0 from '@/assets/Frame.png'
 import Frame1 from '@/assets/Frame (1).png'
 import Frame2 from '@/assets/Frame (2).png'
 
+import { KycArrowRightIcon, KycCheckIcon } from '@/components/dashboard/kyc/VerificationStepIcons'
+
 type VerificationStep = {
   id: string
   iconSrc: string
@@ -11,40 +13,17 @@ type VerificationStep = {
   isPendingVerification?: boolean
 }
 
-interface KycVerificationStepsModalProps {
+interface InvestorKycVerificationStepsModalProps {
   totalSteps: number
   onConfirmDetailsClick: () => void
   onVerifyIdentityClick: () => void
 }
 
-const CheckIcon = () => {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path
-        d="M20 7L10.5 16.5L4 10"
-        stroke="#195EBC"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-const ArrowRightIcon = () => {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M5 12H19" stroke="#195EBC" strokeWidth="2.5" strokeLinecap="round" />
-      <path d="M13 6L19 12L13 18" stroke="#195EBC" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-const KycVerificationStepsModal = ({
+const InvestorKycVerificationStepsModal = ({
   totalSteps,
   onConfirmDetailsClick,
   onVerifyIdentityClick,
-}: KycVerificationStepsModalProps) => {
+}: InvestorKycVerificationStepsModalProps) => {
   const safeTotal = Math.max(1, totalSteps)
 
   const base: VerificationStep[] = [
@@ -52,7 +31,8 @@ const KycVerificationStepsModal = ({
       id: 'connect-wallet',
       iconSrc: Frame0,
       topic: 'Connect Your Wallet',
-      description: 'Connect your wallet to access your funds, manage investments, and interact with the platform.',
+      description:
+        'Connect your wallet to access your funds, manage investments, and interact with the platform.',
       isDone: true,
     },
     {
@@ -66,13 +46,19 @@ const KycVerificationStepsModal = ({
       id: 'verify-identity',
       iconSrc: Frame2,
       topic: 'Verify Your Identity',
-      description: 'Upload a valid government ID and complete a quick face verification to confirm your identity.',
+      description:
+        'Upload a valid government ID and complete a quick face verification to confirm your identity.',
       isDone: false,
       isPendingVerification: false,
     },
   ]
 
   const steps = base.slice(0, safeTotal)
+
+  const handleStepClick = (step: VerificationStep) => {
+    if (step.id === 'confirm-details') onConfirmDetailsClick()
+    if (step.id === 'verify-identity') onVerifyIdentityClick()
+  }
 
   return (
     <div>
@@ -87,7 +73,7 @@ const KycVerificationStepsModal = ({
 
       <div className="flex flex-col gap-4">
         {steps.map((step) => {
-          const isCardDisabled = Boolean(step.isDone || step.isPendingVerification)
+          const isCardDisabled = step.isDone
 
           return (
             <button
@@ -100,26 +86,27 @@ const KycVerificationStepsModal = ({
               }`}
               onClick={() => {
                 if (isCardDisabled) return
-                if (step.id === 'confirm-details') onConfirmDetailsClick()
-                if (step.id === 'verify-identity') onVerifyIdentityClick()
+                handleStepClick(step)
               }}
             >
-            <img src={step.iconSrc} alt={`${step.topic} icon`} className="w-[129px] h-[96px] object-contain" />
+              <img src={step.iconSrc} alt={`${step.topic} icon`} className="w-[129px] h-[96px] object-contain" />
 
-            <div className="flex flex-col flex-1">
-              <div className="text-black font-bold text-[24px]">{step.topic}</div>
-              <div className="text-[#6B7488] text-[16px] mt-1">{step.description}</div>
-            </div>
+              <div className="flex flex-col flex-1">
+                <div className="text-black font-bold text-[24px]">{step.topic}</div>
+                <div className="text-[#6B7488] text-[16px] mt-1">{step.description}</div>
+              </div>
 
-            <div className="flex items-center justify-end w-[120px]">
-              {step.isDone ? (
-                <CheckIcon />
-              ) : step.isPendingVerification ? (
-                <span className="text-[#F59E0B] text-[20px] font-medium text-right leading-tight">Pending Verification</span>
-              ) : (
-                <ArrowRightIcon />
-              )}
-            </div>
+              <div className="flex items-center justify-end w-[120px]">
+                {step.isDone && !step.isPendingVerification ? (
+                  <KycCheckIcon />
+                ) : step.isPendingVerification && step.isDone ? (
+                  <span className="text-[#F59E0B] text-[20px] font-medium text-right leading-tight">
+                    Pending Verification
+                  </span>
+                ) : (
+                  <KycArrowRightIcon />
+                )}
+              </div>
             </button>
           )
         })}
@@ -128,5 +115,4 @@ const KycVerificationStepsModal = ({
   )
 }
 
-export default KycVerificationStepsModal
-
+export default InvestorKycVerificationStepsModal

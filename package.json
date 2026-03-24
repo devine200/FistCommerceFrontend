@@ -15,7 +15,9 @@
     "clsx": "^2.1.1",
     "react": "latest",
     "react-dom": "latest",
+    "react-is": "^19.2.4",
     "react-router-dom": "^7.13.1",
+    "recharts": "^3.8.0",
     "uuid": "^13.0.0",
     "viem": "latest",
     "wagmi": "latest"
