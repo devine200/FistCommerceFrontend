@@ -4,7 +4,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 import { MERCHANT_RECEIVABLES_ROWS } from '@/components/dashboard/merchant/receivables/merchantReceivablesConfig'
 
-import completionIllustration from '../../../../.cursor/projects/Users-stanleyezeajughi-Documents-FistCommerceFrontend/assets/Frame__3_-26dd8ec8-1694-4837-83d0-97038fe56619.png'
+import completionIllustration from '@/assets/apply-loan-success.png'
 
 const walletDisplay = '0x7A3F...92C1'
 

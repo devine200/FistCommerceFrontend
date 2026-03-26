@@ -4,9 +4,9 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 
 import cloudUploadIcon from '@/assets/cloud-upload.png'
-import documentCheckedIcon from '../../../../.cursor/projects/Users-stanleyezeajughi-Documents-FistCommerceFrontend/assets/icon-b3aa097d-a4d4-4432-abe8-57b3c9fccd4e.png'
-import documentDownloadIcon from '../../../../.cursor/projects/Users-stanleyezeajughi-Documents-FistCommerceFrontend/assets/download-9418e7b0-b47d-4e6c-a213-c7170bad6d48.png'
-import documentBinIcon from '../../../../.cursor/projects/Users-stanleyezeajughi-Documents-FistCommerceFrontend/assets/bin-714a4e8d-562a-4a49-8290-7c66c20111a4.png'
+import documentCheckedIcon from '@/assets/doc-checked.png'
+import documentDownloadIcon from '@/assets/doc-download.png'
+import documentBinIcon from '@/assets/doc-bin.png'
 
 type RiskAcknowledgementKey = 'repaymentTerms' | 'latePaymentPenalties' | 'smartContractEnforcement'
 

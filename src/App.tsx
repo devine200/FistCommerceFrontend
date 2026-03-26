@@ -79,7 +79,7 @@ const DefaultWagmiPage = () => {
 
 const RootRedirect = () => {
   const s = getSession()
-  if (!s.onboarded) return <Navigate to={`/onboarding/${s.role}/choose-role`} replace />
+  if (!s.onboarded) return <Navigate to="/onboarding" replace />
   return <Navigate to={`/dashboard/${s.role}/overview`} replace />
 }
 
