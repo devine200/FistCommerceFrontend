@@ -17,6 +17,20 @@ import MerchantDashboardPage from './pages/MerchantDashboardPage'
 import MerchantLoanDetailPage from './pages/MerchantLoanDetailPage'
 import InvestorLendingPoolDetailPage from './pages/InvestorLendingPoolDetailPage'
 import InvestorLendingPoolHowItWorksPage from './pages/InvestorLendingPoolHowItWorksPage'
+import InvestorInvestWithdrawPage from './pages/InvestorInvestWithdrawPage'
+import InvestorProfileOverviewPage from './pages/InvestorProfileOverviewPage'
+import InvestorProfileOverviewTabContent from '@/components/dashboard/investor/profile/InvestorProfileOverviewTabContent'
+import InvestorProfileWalletsTabContent from '@/components/dashboard/investor/profile/InvestorProfileWalletsTabContent'
+import InvestorProfileHistoryTabContent from '@/components/dashboard/investor/profile/InvestorProfileHistoryTabContent'
+import MerchantProfileOverviewPage from '@/pages/MerchantProfileOverviewPage'
+import MerchantProfileOverviewTabContent from '@/components/dashboard/merchant/profile/MerchantProfileOverviewTabContent'
+import MerchantApplyLoanPage from './pages/MerchantApplyLoanPage'
+import MerchantApplyLoanSuccessPage from './pages/MerchantApplyLoanSuccessPage'
+import MerchantProfileActivitiesTabContent from '@/components/dashboard/merchant/profile/MerchantProfileActivitiesTabContent'
+import MerchantReceivableDetailPage from '@/pages/MerchantReceivableDetailPage'
+import MerchantRepayLoanPage from '@/pages/MerchantRepayLoanPage'
+import MerchantRepayLoanConfirmationPage from '@/pages/MerchantRepayLoanConfirmationPage'
+import MerchantRepayLoanSuccessPage from '@/pages/MerchantRepayLoanSuccessPage'
 
 const DefaultWagmiPage = () => {
   const connection = useConnection()
@@ -114,12 +128,12 @@ const router = createBrowserRouter([
             element: <ConnectWallet />
           },
           {
-            path: 'investment-explainer',
-            element: <InvestmentExplainer />
-          },
-          {
             path: 'verify-identity',
             element: <InvestorRegistration />
+          },
+          {
+            path: 'investment-explainer',
+            element: <InvestmentExplainer />
           },
           {
             path: '*',
@@ -178,11 +192,41 @@ const router = createBrowserRouter([
           },
           {
             path: 'profile',
-            element: <DashboardPage />,
+            element: <InvestorProfileOverviewPage />,
+            children: [
+              {
+                index: true,
+                element: <Navigate to="overview" replace />,
+              },
+              {
+                path: 'overview',
+                element: <InvestorProfileOverviewTabContent />,
+              },
+              {
+                path: 'wallets',
+                element: <InvestorProfileWalletsTabContent />,
+              },
+              {
+                path: 'history',
+                element: <InvestorProfileHistoryTabContent />,
+              },
+            ],
           },
           {
             path: 'lending-pool/:poolSlug/how-it-works',
             element: <InvestorLendingPoolHowItWorksPage />,
+          },
+          {
+            path: 'lending-pool/:poolSlug/invest',
+            element: <InvestorInvestWithdrawPage />,
+          },
+          {
+            path: 'lending-pool/:poolSlug/withdraw',
+            element: <InvestorInvestWithdrawPage />,
+          },
+          {
+            path: 'lending-pool/:poolSlug/invest-withdraw',
+            element: <Navigate to="../invest" replace />,
           },
           {
             path: 'lending-pool/:poolSlug',
@@ -210,12 +254,58 @@ const router = createBrowserRouter([
             element: <MerchantDashboardPage />,
           },
           {
-            path: 'profile',
+            path: 'receivables/:receivableId/repay',
+            element: <MerchantRepayLoanPage />,
+          },
+          {
+            path: 'receivables/:receivableId/repay/confirm',
+            element: <MerchantRepayLoanConfirmationPage />,
+          },
+          {
+            path: 'receivables/:receivableId/repay/success',
+            element: <MerchantRepayLoanSuccessPage />,
+          },
+          {
+            path: 'receivables/:receivableId',
+            element: <MerchantReceivableDetailPage />,
+          },
+          {
+            path: 'receivables',
             element: <MerchantDashboardPage />,
+          },
+          {
+            path: 'profile',
+            element: <MerchantProfileOverviewPage />,
+            children: [
+              {
+                index: true,
+                element: <Navigate to="overview" replace />,
+              },
+              {
+                path: 'overview',
+                element: <MerchantProfileOverviewTabContent />,
+              },
+              {
+                path: 'wallets',
+                element: <InvestorProfileWalletsTabContent />,
+              },
+              {
+                path: 'history',
+                element: <MerchantProfileActivitiesTabContent />,
+              },
+            ],
           },
           {
             path: 'lending-pool/:poolSlug',
             element: <MerchantLoanDetailPage />,
+          },
+          {
+            path: 'lending-pool/:poolSlug/apply-loan',
+            element: <MerchantApplyLoanPage />,
+          },
+          {
+            path: 'lending-pool/:poolSlug/apply-loan/success',
+            element: <MerchantApplyLoanSuccessPage />,
           },
           {
             path: '*',

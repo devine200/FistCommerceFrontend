@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 
 import investorPoolImage from '@/assets/investor_pool.png'
+import arrowIcon from '@/assets/arrow.png'
 
 interface LendingPoolOpportunityCardProps {
   /** Merchant: navigate to loan detail route when set */
@@ -13,34 +14,41 @@ const LendingPoolOpportunityCard = ({
   viewDetailsTo,
   poolTitle = 'Fist Commerce Lending Pool',
 }: LendingPoolOpportunityCardProps) => {
-  const detailsLink = (
-    <span className="text-[#195EBC] underline text-[20px] whitespace-nowrap pt-1">Click to view details</span>
+  const detailsLinkLabel = (
+    <span className="hidden lg:inline text-[#195EBC] underline text-[20px] whitespace-nowrap pt-1">
+      Click to view details
+    </span>
   )
 
-  return (
-    <div className="bg-white border border-[#DFE2E8] rounded-[6px] p-4 flex items-stretch gap-6">
+  const detailsLinkIcon = (
+    <img src={arrowIcon} alt="view details" className="lg:hidden w-[22px] h-[22px] object-contain" />
+  )
+
+  const cardInner = (
+    <>
       <img
         src={investorPoolImage}
         alt="lending pool"
-        className="h-full w-[300px] min-h-[200px] object-cover rounded-[3px]"
+        className="h-[110px] w-[120px] sm:h-[140px] sm:w-[170px] lg:h-full lg:w-[300px] lg:min-h-[200px] object-cover rounded-[3px] shrink-0"
       />
 
       <div className="flex-1 flex flex-col justify-start">
         <div className="flex items-start justify-between gap-4">
-          <h4 className="text-[#0B1220] font-semibold text-[32px] leading-tight">{poolTitle}</h4>
+          <h4 className="text-[#0B1220] font-semibold text-[16px] sm:text-[18px] lg:text-[32px] leading-tight">
+            {poolTitle}
+          </h4>
 
-          {viewDetailsTo ? (
-            <Link to={viewDetailsTo} className="inline-flex items-start">
-              {detailsLink}
-            </Link>
-          ) : (
-            <span className="inline-flex items-start cursor-default">{detailsLink}</span>
-          )}
+          <span className={['inline-flex items-start pt-1', viewDetailsTo ? '' : 'cursor-default'].join(' ')}>
+            {detailsLinkLabel}
+            {detailsLinkIcon}
+          </span>
         </div>
 
-        <p className="text-[#3A4356] text-[20px] mt-2">For short-duration loans with stable returns.</p>
+        <p className="text-[#3A4356] text-[12px] sm:text-[14px] lg:text-[20px] mt-1 lg:mt-2">
+          For short-duration loans with stable returns.
+        </p>
 
-        <div className="mt-3 space-y-2 text-[20px]">
+        <div className="mt-2 lg:mt-3 space-y-1 lg:space-y-2 text-[12px] sm:text-[14px] lg:text-[20px]">
           <div className="flex items-center gap-2">
             <span className="text-[#ACACAC] font-normal">APY:</span>
             <span className="text-[#0B1220] font-medium">6-8% APY</span>
@@ -59,8 +67,25 @@ const LendingPoolOpportunityCard = ({
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
+
+  const cardClassName =
+    'bg-white border border-[#DFE2E8] rounded-[6px] p-4 flex items-stretch gap-4 lg:gap-6'
+
+  if (viewDetailsTo) {
+    return (
+      <Link
+        to={viewDetailsTo}
+        className={[cardClassName, 'cursor-pointer hover:bg-[#FAFBFD] transition-colors'].join(' ')}
+        aria-label={`View details for ${poolTitle}`}
+      >
+        {cardInner}
+      </Link>
+    )
+  }
+
+  return <div className={cardClassName}>{cardInner}</div>
 }
 
 export default LendingPoolOpportunityCard

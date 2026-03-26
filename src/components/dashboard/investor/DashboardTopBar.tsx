@@ -1,6 +1,11 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 import userOutlineIcon from '@/assets/ph_user.svg'
+import arbitrumLogo from '@/assets/arbitrum_icon.jpeg.png'
+import logo from '@/assets/logo.png'
+import mobileHamburgerIcon from '@/assets/mobile-hamburger.png'
+import mobileNotificationIcon from '@/assets/mobile-notification.png'
+import mobileUserIcon from '@/assets/mobile-user.png'
 
 export interface DashboardBreadcrumbItem {
   label: string
@@ -17,28 +22,9 @@ interface DashboardTopBarProps {
   walletDisplay?: string
   /** Orange unread indicator on notifications */
   notificationUnread?: boolean
-}
-
-function ArbitrumMark({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      width={20}
-      height={20}
-      aria-hidden
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        fill="#213147"
-        d="M12 2l8.5 5v10L12 22l-8.5-5V7L12 2z"
-      />
-      <path
-        fill="#28A0F0"
-        d="M12 5.2L6.8 8.2v7.6L12 18.8l5.2-3V8.2L12 5.2zm0 1.6l3.6 2.1v4.2L12 15.2l-3.6-2.1v-4.2L12 6.8z"
-      />
-    </svg>
-  )
+  /** Shows the hamburger button on small screens */
+  onMenuClick?: () => void
+  menuButtonAriaLabel?: string
 }
 
 function BellIcon({ className }: { className?: string }) {
@@ -67,7 +53,12 @@ const DashboardTopBar = ({
   breadcrumbLinksMuted,
   walletDisplay,
   notificationUnread,
+  onMenuClick,
+  menuButtonAriaLabel,
 }: DashboardTopBarProps) => {
+  const { pathname } = useLocation()
+  const profileTo = pathname.startsWith('/dashboard/merchant') ? '/dashboard/merchant/profile/overview' : '/dashboard/investor/profile/overview'
+
   const hasBreadcrumbs = Boolean(breadcrumbs && breadcrumbs.length > 0)
   const lastCrumbIndex = hasBreadcrumbs ? breadcrumbs!.length - 1 : -1
 
@@ -77,11 +68,11 @@ const DashboardTopBar = ({
 
   const leftContent = hasBreadcrumbs ? (
     <nav aria-label="Breadcrumb" className="min-w-0">
-      <ol className="m-0 p-0 list-none flex flex-row flex-wrap items-center gap-x-2 gap-y-1 text-[24px] leading-tight">
+      <ol className="m-0 p-0 list-none flex flex-row flex-wrap items-center gap-x-2 gap-y-1 text-[18px] sm:text-[24px] leading-tight">
         {breadcrumbs!.map((crumb, i) => (
           <li key={`${crumb.label}-${i}`} className="flex items-center gap-x-2 min-w-0 max-w-full">
             {i > 0 ? (
-              <span className="text-[#ACACAC] font-normal text-[20px] select-none shrink-0" aria-hidden="true">
+              <span className="text-[#ACACAC] font-normal text-[16px] sm:text-[20px] select-none shrink-0" aria-hidden="true">
                 &gt;
               </span>
             ) : null}
@@ -101,20 +92,29 @@ const DashboardTopBar = ({
       </ol>
     </nav>
   ) : (
-    <h1 className="text-black font-semibold text-[24px] leading-tight truncate">{title}</h1>
+    <h1 className="text-black font-semibold text-[18px] sm:text-[24px] leading-tight truncate">{title}</h1>
   )
 
   return (
-    <header className="bg-white border-b border-[#E6E8EC] px-6 py-5 flex items-center justify-between gap-6">
-      <div className="min-w-0 flex-1">{leftContent}</div>
+    <header className="bg-white border-b border-[#E6E8EC] px-4 lg:px-6 py-4 lg:py-5 flex items-center justify-between gap-4 lg:gap-6">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        {/* Tablet/mobile: logo-only header (matches responsive spec). */}
+        <div className="lg:hidden flex items-center">
+          <img src={logo} alt="logo" className="w-[56px] h-[36px] object-contain" />
+        </div>
 
-      <div className="flex items-center gap-4 shrink-0">
+        {/* Desktop: title/breadcrumbs */}
+        <div className="hidden lg:block min-w-0 flex-1">{leftContent}</div>
+      </div>
+
+      <div className="flex items-center gap-3 lg:gap-4 shrink-0">
         <button
           type="button"
-          className="relative h-[40px] w-[40px] border border-[#E6E8EC] rounded-[6px] text-[#4D5D80] flex items-center justify-center shrink-0 hover:bg-[#F9FAFB]"
+          className="relative h-[34px] w-[34px] lg:h-[40px] lg:w-[40px] lg:border lg:border-[#E6E8EC] lg:rounded-[6px] text-[#4D5D80] flex items-center justify-center shrink-0"
           aria-label={notificationUnread ? 'Notifications, unread' : 'Notifications'}
         >
-          <BellIcon />
+          <img src={mobileNotificationIcon} alt="" className="lg:hidden h-[19px] w-[19px] object-contain" />
+          <BellIcon className="hidden lg:block" />
           {notificationUnread ? (
             <span
               className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[#F97316] ring-2 ring-white"
@@ -123,29 +123,53 @@ const DashboardTopBar = ({
           ) : null}
         </button>
 
-        <div className="min-h-[40px] px-4 border border-[#E6E8EC] rounded-[6px] flex items-center gap-3 text-[16px] text-[#4D5D80] shrink-0 bg-white">
+        {/* Tablet/mobile: user icon button; Desktop: email chip */}
+        <Link
+          to={profileTo}
+          className="lg:hidden h-[34px] w-[34px] text-[#4D5D80] flex items-center justify-center shrink-0"
+          aria-label="Go to profile"
+        >
+          <img src={mobileUserIcon} alt="" className="w-[19px] h-[19px] shrink-0 object-contain" />
+        </Link>
+
+        <div className="min-h-[40px] px-3 sm:px-4 border border-[#E6E8EC] rounded-[6px] hidden lg:flex items-center gap-3 text-[14px] sm:text-[16px] text-[#4D5D80] shrink-0 bg-white">
           <span className="truncate max-w-[200px]">user1234@gmail.com</span>
           <span className="h-5 w-px shrink-0 bg-[#E6E8EC]" aria-hidden />
           <img src={userOutlineIcon} alt="" className="w-[18px] h-[18px] shrink-0 opacity-80" />
         </div>
 
+        {/* Wallet chip is desktop-only per responsive spec */}
         {walletDisplay ? (
           <div
-            className="min-h-[40px] px-4 border border-[#E6E8EC] rounded-[6px] flex items-center gap-3 text-[16px] text-[#4D5D80] shrink-0 bg-white"
+            className="min-h-[40px] px-3 sm:px-4 border border-[#E6E8EC] rounded-[6px] hidden lg:flex items-center gap-3 text-[14px] sm:text-[16px] text-[#4D5D80] shrink-0 bg-white"
             aria-label={`Connected wallet ${walletDisplay} on Arbitrum One`}
           >
-            <span className="font-medium text-[#1a1a1a] tracking-tight tabular-nums">{walletDisplay}</span>
+            <span className="font-medium text-[#1a1a1a] tracking-tight tabular-nums truncate max-w-[120px] sm:max-w-[200px]">
+              {walletDisplay}
+            </span>
             <span className="h-5 w-px shrink-0 bg-[#E6E8EC]" aria-hidden />
-            <ArbitrumMark className="shrink-0" />
+            <img src={arbitrumLogo} alt="" className="h-5 w-5 shrink-0 object-contain" />
           </div>
         ) : (
           <button
             type="button"
-            className="bg-[#195EBC] text-white px-5 min-h-[40px] rounded-[6px] text-[16px] font-medium shrink-0"
+            className="bg-[#195EBC] text-white px-3 sm:px-5 min-h-[40px] rounded-[6px] text-[14px] sm:text-[16px] font-medium shrink-0 hidden lg:inline-flex items-center"
           >
             Connect Wallet
           </button>
         )}
+
+        {/* Tablet/mobile hamburger lives on the right */}
+        {onMenuClick ? (
+          <button
+            type="button"
+            className="lg:hidden h-[34px] w-[34px] text-[#4D5D80] flex items-center justify-center shrink-0"
+            aria-label={menuButtonAriaLabel ?? 'Open navigation menu'}
+            onClick={onMenuClick}
+          >
+            <img src={mobileHamburgerIcon} alt="" className="h-[19px] w-[19px] object-contain" />
+          </button>
+        ) : null}
       </div>
     </header>
   )

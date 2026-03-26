@@ -62,22 +62,24 @@ const KycVerificationCard = ({
 
   return (
     <>
-      <section className="bg-white border border-[#DFE2E8] rounded-[6px] px-8 py-6 h-[240px] flex items-center gap-10">
+      <section className="bg-white border border-[#DFE2E8] rounded-[6px] px-5 sm:px-8 py-6 h-auto lg:h-[240px] flex flex-col lg:flex-row items-start lg:items-center gap-5 lg:gap-10">
         <img
           src={illustrationSrc}
           alt="kyc verification"
-          className="w-[200px] h-[200px] object-contain"
+          className="w-full max-w-[260px] h-[180px] sm:h-[200px] object-contain mx-auto lg:mx-0"
         />
 
-        <div className="flex flex-col gap-1">
-          <h2 className="text-black font-bold text-[40px] leading-tight">
+        <div className="flex flex-col gap-1 w-full">
+          <h2 className="text-black font-bold text-[24px] sm:text-[28px] lg:text-[40px] leading-tight text-center lg:text-left">
             {hasStartedKyc ? 'KYC Verification in Progress' : 'Start Your KYC Verification'}
           </h2>
-          <p className="text-[#6B7488] text-[24px]">{subtitle}</p>
+          <p className="text-[#6B7488] text-[14px] sm:text-[16px] lg:text-[24px] text-center lg:text-left">
+            {subtitle}
+          </p>
 
           <button
             type="button"
-            className="mt-2 bg-[#195EBC] text-white px-4 py-2 rounded-[4px] w-fit text-[24px] leading-none flex items-center gap-2"
+            className="mt-4 lg:mt-2 bg-[#195EBC] text-white px-4 py-3 lg:py-2 rounded-[4px] w-full lg:w-fit text-[14px] sm:text-[16px] lg:text-[24px] leading-none flex items-center justify-center lg:justify-start gap-2"
             onClick={() => setIsModalOpen(true)}
           >
             <span>{hasStartedKyc ? 'View Progress' : 'Begin Verification'}</span>

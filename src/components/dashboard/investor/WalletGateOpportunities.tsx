@@ -4,7 +4,7 @@ const WalletGateOpportunities = () => {
   const cards = [1, 2]
 
   return (
-    <section className="relative border-2 border-[#2E8BFF] rounded-[2px] bg-white/80 p-6 h-[500px] overflow-hidden">
+    <section className="relative border-2 border-[#2E8BFF] rounded-[2px] bg-white/80 p-5 sm:p-6 h-auto lg:h-[500px] overflow-hidden">
       <div className="flex flex-col gap-6 opacity-35">
         {cards.map((card) => (
           <div key={card} className="flex items-start gap-4 blur-[1px]">
@@ -20,11 +20,14 @@ const WalletGateOpportunities = () => {
       <div className="absolute inset-0 bg-white/45" />
 
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <h3 className="text-[#195EBC] font-bold text-[40px]">Connect Your Wallet</h3>
-        <p className="text-[#26344D] mt-1 text-[24px]">
+        <h3 className="text-[#195EBC] font-bold text-[22px] sm:text-[28px] lg:text-[40px]">Connect Your Wallet</h3>
+        <p className="text-[#26344D] mt-2 lg:mt-1 text-[14px] sm:text-[16px] lg:text-[24px] max-w-[520px] px-4">
           Kindly connect your wallet to see all opportunities for your receivable
         </p>
-        <button type="button" className="mt-3 bg-[#195EBC] text-white px-4 py-4 rounded-[4px] text-[24px] leading-none">
+        <button
+          type="button"
+          className="mt-4 lg:mt-3 bg-[#195EBC] text-white px-4 py-3 sm:py-4 rounded-[4px] text-[14px] sm:text-[16px] lg:text-[24px] leading-none w-[220px] sm:w-[260px] lg:w-auto"
+        >
           Connect Wallet
         </button>
       </div>

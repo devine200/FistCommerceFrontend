@@ -30,7 +30,7 @@ const CodeBadgeIcon = () => (
 
 const LendingPoolDetailHeroBanner = ({ title, subtitle, stats, onApplyToBorrow }: LendingPoolDetailHeroBannerProps) => {
   return (
-    <section className="rounded-[12px] bg-[#EBEEF3] px-6 py-6 lg:px-8 lg:py-7">
+    <section className="rounded-[12px] bg-white border border-[#E6E8EC] px-4 py-5 sm:px-6 sm:py-6 lg:bg-[#EBEEF3] lg:border-0 lg:px-8 lg:py-7">
       <div className="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-8">
         <div className="flex-1 min-w-0 flex flex-col gap-6">
           <div className="flex items-start gap-4">
@@ -56,7 +56,7 @@ const LendingPoolDetailHeroBanner = ({ title, subtitle, stats, onApplyToBorrow }
           <button
             type="button"
             onClick={onApplyToBorrow}
-            className="bg-[#195EBC] text-white font-semibold text-[16px] px-10 py-4 rounded-[8px] w-full max-w-[200px] lg:w-[180px] text-center leading-snug shadow-sm hover:bg-[#154a9a] transition-colors"
+            className="bg-[#195EBC] text-white font-semibold text-[14px] sm:text-[15px] lg:text-[16px] px-10 py-3.5 lg:py-4 rounded-[8px] w-full max-w-none sm:max-w-[260px] lg:w-[180px] text-center leading-snug shadow-sm hover:bg-[#154a9a] transition-colors"
           >
             Apply To Borrow
           </button>

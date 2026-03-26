@@ -19,10 +19,10 @@ const LendingPoolDetailOverview = ({
   termsForLoanRows,
 }: LendingPoolDetailOverviewProps) => {
   return (
-    <section className="rounded-[12px] border border-[#DFE2E8] bg-white p-6 lg:p-8 flex flex-col gap-8 shadow-sm">
+    <section className="rounded-[12px] border border-[#DFE2E8] bg-white p-4 sm:p-6 lg:p-8 flex flex-col gap-6 lg:gap-8 shadow-sm">
       <div>
-        <h2 className="text-[#0B1220] font-bold text-[22px] mb-5">Overview</h2>
-        <div className="flex flex-col gap-4 text-[#3A4356] text-[15px] leading-[1.65] text-justify">
+        <h2 className="text-[#0B1220] font-bold text-[18px] sm:text-[20px] lg:text-[22px] mb-4 lg:mb-5">Overview</h2>
+        <div className="flex flex-col gap-3 sm:gap-4 text-[#3A4356] text-[13px] sm:text-[14px] lg:text-[15px] leading-[1.65] text-justify">
           {overviewParagraphs.map((p, i) => (
             <p key={i}>{p}</p>
           ))}

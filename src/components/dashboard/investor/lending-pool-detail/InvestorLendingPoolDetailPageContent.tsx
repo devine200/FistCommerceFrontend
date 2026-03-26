@@ -12,6 +12,8 @@ interface InvestorLendingPoolDetailPageContentProps {
 
 const InvestorLendingPoolDetailPageContent = ({ config, poolSlug }: InvestorLendingPoolDetailPageContentProps) => {
   const howItWorksTo = `/dashboard/investor/lending-pool/${poolSlug}/how-it-works`
+  const investTo = `/dashboard/investor/lending-pool/${poolSlug}/invest`
+  const withdrawTo = `/dashboard/investor/lending-pool/${poolSlug}/withdraw`
 
   return (
     <div className="flex flex-col gap-6 pb-8 min-w-0">
@@ -21,7 +23,7 @@ const InvestorLendingPoolDetailPageContent = ({ config, poolSlug }: InvestorLend
         stats={config.headerStats}
         howItWorksTo={howItWorksTo}
       />
-      <InvestorMyStatsSection stats={config.myStats} />
+      <InvestorMyStatsSection stats={config.myStats} investTo={investTo} withdrawTo={withdrawTo} />
       <InvestorPoolPerformanceSection stats={config.poolPerformanceStats} />
       <InvestorPoolStrategySection intro={config.strategyIntro} features={config.strategyFeatures} />
       <InvestorSmartContractAndTransactionsSection

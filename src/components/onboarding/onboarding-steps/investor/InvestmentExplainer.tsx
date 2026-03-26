@@ -1,10 +1,18 @@
 import logo from '@/assets/logo.png'
+import { useNavigate } from 'react-router-dom'
 
 interface InvestmentExplainerProps {
     onContinue?: () => void
 }
 
 const InvestmentExplainer = ({ onContinue }: InvestmentExplainerProps) => {
+    const navigate = useNavigate()
+
+    const handleContinue = () => {
+        if (onContinue) return onContinue()
+        navigate('/dashboard/investor/overview')
+    }
+
     return (
         <div className="flex flex-col gap-4 w-[700px]">
             <div className="flex flex-col gap-2 mb-8">
@@ -43,7 +51,7 @@ const InvestmentExplainer = ({ onContinue }: InvestmentExplainerProps) => {
                     and repayment cycles, and yield is distributed according to the predefined schedule 
                     of the pool.
                 </p>
-                <button type="button" onClick={onContinue} className="bg-[#195EBC] text-white px-4 py-2 rounded-md w-full">Continue</button>
+                <button type="button" onClick={handleContinue} className="bg-[#195EBC] text-white px-4 py-2 rounded-md w-full">Continue</button>
             </div>
         </div>
     )

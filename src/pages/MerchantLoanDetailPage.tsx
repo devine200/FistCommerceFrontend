@@ -1,4 +1,4 @@
-import { Navigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 import LendingPoolDetailPageContent from '@/components/dashboard/merchant/lending-pool-detail/LendingPoolDetailPageContent'
@@ -6,6 +6,7 @@ import { getLendingPoolDetailConfig } from '@/components/dashboard/merchant/lend
 
 const MerchantLoanDetailPage = () => {
   const { poolSlug } = useParams<{ poolSlug: string }>()
+  const navigate = useNavigate()
   const config = getLendingPoolDetailConfig(poolSlug)
 
   if (!config) {
@@ -18,8 +19,15 @@ const MerchantLoanDetailPage = () => {
   ]
 
   return (
-    <DashboardLayout dashboardBasePath="/dashboard/merchant" topBarBreadcrumbs={topBarBreadcrumbs}>
-      <LendingPoolDetailPageContent config={config} />
+    <DashboardLayout
+      dashboardBasePath="/dashboard/merchant"
+      topBarBreadcrumbs={topBarBreadcrumbs}
+      topBarWalletDisplay="0x7A3F...92C1"
+    >
+      <LendingPoolDetailPageContent
+        config={config}
+        onApplyToBorrow={() => navigate(`/dashboard/merchant/lending-pool/${poolSlug}/apply-loan`)}
+      />
     </DashboardLayout>
   )
 }

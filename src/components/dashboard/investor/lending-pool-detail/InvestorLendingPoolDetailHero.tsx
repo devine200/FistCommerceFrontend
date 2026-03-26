@@ -23,7 +23,7 @@ const PoolHelpButton = ({ to }: { to: string }) => (
 
 const InvestorLendingPoolDetailHero = ({ title, subtitle, stats, howItWorksTo }: InvestorLendingPoolDetailHeroProps) => {
   return (
-    <section className="rounded-[12px] bg-[#EBEEF3] px-6 py-6 lg:px-8 lg:py-7">
+    <section className="rounded-[12px] bg-white border border-[#E6E8EC] px-4 py-5 sm:px-6 sm:py-6 lg:bg-[#EBEEF3] lg:border-0 lg:px-8 lg:py-7">
       <div className="flex flex-col gap-6">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">

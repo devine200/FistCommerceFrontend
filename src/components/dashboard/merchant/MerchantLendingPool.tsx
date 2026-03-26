@@ -1,4 +1,5 @@
 import LendingPoolOpportunityCard from '@/components/dashboard/LendingPoolOpportunityCard'
+import { useNavigate } from 'react-router-dom'
 
 const InfoCircleIcon = () => (
   <button
@@ -16,6 +17,8 @@ interface MerchantLendingPoolProps {
 }
 
 const MerchantLendingPool = ({ totalDepositsDisplay = '538,500' }: MerchantLendingPoolProps) => {
+  const navigate = useNavigate()
+
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -24,13 +27,23 @@ const MerchantLendingPool = ({ totalDepositsDisplay = '538,500' }: MerchantLendi
           <InfoCircleIcon />
         </div>
 
-        <div className="flex items-center gap-2 rounded-full border border-[#E6E8EC] bg-white px-4 py-2 shadow-sm shrink-0">
-          <span className="text-[#ACACAC] text-[18px] font-medium" aria-hidden>
-            $
-          </span>
-          <span className="text-[#0B1220] text-[16px] font-bold">
-            Total Deposits: {totalDepositsDisplay}
-          </span>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2">
+          <div className="flex items-center gap-2 rounded-full border border-[#E6E8EC] bg-white px-4 py-2 shadow-sm shrink-0">
+            <span className="text-[#ACACAC] text-[18px] font-medium" aria-hidden>
+              $
+            </span>
+            <span className="text-[#0B1220] text-[16px] font-bold">
+              Total Deposits: {totalDepositsDisplay}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/merchant/receivables')}
+            className="h-[42px] sm:h-[40px] px-4 rounded-[6px] bg-[#195EBC] text-white text-[14px] font-medium hover:bg-[#154a9a] transition-colors"
+          >
+            Withdraw Funds
+          </button>
         </div>
       </div>
 
