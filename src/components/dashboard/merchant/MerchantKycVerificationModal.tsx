@@ -5,6 +5,7 @@ import VerifyIdentityModal from '@/components/dashboard/kyc/VerifyIdentityModal'
 import MerchantConfirmDetailsModal from '@/components/dashboard/merchant/MerchantConfirmDetailsModal'
 import MerchantKycVerificationStepsModal from '@/components/dashboard/merchant/MerchantKycVerificationStepsModal'
 import UploadBusinessDocumentsModal from '@/components/dashboard/merchant/UploadBusinessDocumentsModal'
+import { setKycVerified } from '@/state/session'
 
 interface MerchantKycVerificationModalProps {
   onClose: () => void
@@ -56,7 +57,14 @@ const MerchantKycVerificationModal = ({ onClose, totalSteps }: MerchantKycVerifi
           <UploadBusinessDocumentsModal onBack={onClose} onComplete={() => setActiveView(MerchantKycModalView.Completed)} />
         )
       case MerchantKycModalView.Completed:
-        return <KycVerificationCompleteModal onBackToDashboard={onClose} />
+        return (
+          <KycVerificationCompleteModal
+            onBackToDashboard={() => {
+              setKycVerified(true)
+              onClose()
+            }}
+          />
+        )
       case MerchantKycModalView.VerificationSteps:
       default:
         return (

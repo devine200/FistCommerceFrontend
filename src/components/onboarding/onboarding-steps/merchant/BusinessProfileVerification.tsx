@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { completeOnboarding } from '@/state/session'
 
 const BusinessProfileVerification = () => {
   const navigate = useNavigate()
@@ -66,7 +67,10 @@ const BusinessProfileVerification = () => {
       <div className="sticky bottom-0 bg-white pt-4 lg:static lg:pt-0">
         <button
           type="button"
-          onClick={() => navigate('/dashboard/merchant/overview')}
+          onClick={() => {
+            completeOnboarding('merchant')
+            navigate('/dashboard/merchant/overview')
+          }}
           className="bg-[#195EBC] text-white px-4 py-2 rounded-md w-full"
         >
           Continue

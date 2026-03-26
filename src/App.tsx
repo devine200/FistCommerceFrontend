@@ -1,5 +1,6 @@
 import { useConnect, useConnection, useConnectors, useDisconnect } from 'wagmi'
-import { Navigate, RouterProvider, createBrowserRouter } from 'react-router-dom'
+import { Navigate, Outlet, RouterProvider, createBrowserRouter } from 'react-router-dom'
+import { getSession } from '@/state/session'
 import OnboardingPage from '@/pages/OnboardingPage'
 import OnboardingCompleted, { OnboardingCompletedVariant } from '@/pages/OnboardingCompleted'
 import MerchantLayout from '@/layouts/MerchantOnboardingLayout'
@@ -76,9 +77,31 @@ const DefaultWagmiPage = () => {
   ) 
 }
 
+const RootRedirect = () => {
+  const s = getSession()
+  if (!s.onboarded) return <Navigate to={`/onboarding/${s.role}/choose-role`} replace />
+  return <Navigate to={`/dashboard/${s.role}/overview`} replace />
+}
+
+const RequireOnboarded = ({ children }: { children: React.ReactNode }) => {
+  const s = getSession()
+  if (!s.onboarded) return <Navigate to={`/onboarding/${s.role}/choose-role`} replace />
+  return <>{children}</>
+}
+
+const RequireOnboardedOutlet = () => (
+  <RequireOnboarded>
+    <Outlet />
+  </RequireOnboarded>
+)
+
 const router = createBrowserRouter([
   {
     path: '/',
+    element: <RootRedirect />,
+  },
+  {
+    path: '/wagmi-debug',
     element: <DefaultWagmiPage />,
   },
   {
@@ -170,6 +193,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/dashboard',
+    element: <RequireOnboardedOutlet />,
     children: [
       {
         index: true,

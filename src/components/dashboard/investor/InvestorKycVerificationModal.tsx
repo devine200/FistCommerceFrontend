@@ -4,6 +4,7 @@ import ConfirmDetailsModal from '@/components/dashboard/investor/ConfirmDetailsM
 import InvestorKycVerificationStepsModal from '@/components/dashboard/investor/InvestorKycVerificationStepsModal'
 import KycVerificationCompleteModal from '@/components/dashboard/kyc/KycVerificationCompleteModal'
 import VerifyIdentityModal from '@/components/dashboard/kyc/VerifyIdentityModal'
+import { setKycVerified } from '@/state/session'
 
 interface InvestorKycVerificationModalProps {
   onClose: () => void
@@ -43,7 +44,14 @@ const InvestorKycVerificationModal = ({ onClose, totalSteps }: InvestorKycVerifi
           />
         )
       case InvestorKycModalView.Completed:
-        return <KycVerificationCompleteModal onBackToDashboard={onClose} />
+        return (
+          <KycVerificationCompleteModal
+            onBackToDashboard={() => {
+              setKycVerified(true)
+              onClose()
+            }}
+          />
+        )
       case InvestorKycModalView.VerificationSteps:
       default:
         return (

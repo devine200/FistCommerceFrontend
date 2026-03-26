@@ -1,5 +1,6 @@
 import logo from '@/assets/logo.png'
 import { useNavigate } from 'react-router-dom'
+import { completeOnboarding } from '@/state/session'
 
 interface InvestmentExplainerProps {
     onContinue?: () => void
@@ -10,6 +11,7 @@ const InvestmentExplainer = ({ onContinue }: InvestmentExplainerProps) => {
 
     const handleContinue = () => {
         if (onContinue) return onContinue()
+        completeOnboarding('investor')
         navigate('/dashboard/investor/overview')
     }
 
