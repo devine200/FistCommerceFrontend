@@ -5,7 +5,7 @@ import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/Dashboa
 import KycVerificationCard from '@/components/dashboard/investor/KycVerificationCard'
 import WalletGateOpportunities from '@/components/dashboard/investor/WalletGateOpportunities'
 import InvestorLendingPool from '@/components/dashboard/investor/InvestorLendingPool'
-import { getSession } from '@/state/session'
+import { useSession } from '@/state/useSession'
 
 const DashboardPage = () => {
   const { pathname } = useLocation()
@@ -26,7 +26,7 @@ const DashboardPage = () => {
     return [{ label: 'Explore Lending Pools' }]
   }, [pathname])
 
-  const isKycVerified = getSession().kycVerified
+  const { kycVerified: isKycVerified } = useSession()
 
   return (
     <DashboardLayout

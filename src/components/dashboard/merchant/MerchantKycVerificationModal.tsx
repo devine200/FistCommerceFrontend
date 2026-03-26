@@ -49,7 +49,7 @@ const MerchantKycVerificationModal = ({ onClose, totalSteps }: MerchantKycVerifi
         return (
           <VerifyIdentityModal
             onBack={onClose}
-            onComplete={() => setActiveView(MerchantKycModalView.UploadBusinessDocuments)}
+            onComplete={() => setActiveView(MerchantKycModalView.Completed)}
           />
         )
       case MerchantKycModalView.UploadBusinessDocuments:

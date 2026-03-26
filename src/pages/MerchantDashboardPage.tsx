@@ -6,7 +6,7 @@ import KycVerificationCard from '@/components/dashboard/investor/KycVerification
 import WalletGateOpportunities from '@/components/dashboard/investor/WalletGateOpportunities'
 import MerchantLendingPool from '@/components/dashboard/merchant/MerchantLendingPool'
 import MerchantAllReceivablesContent from '@/components/dashboard/merchant/receivables/MerchantAllReceivablesContent'
-import { getSession } from '@/state/session'
+import { useSession } from '@/state/useSession'
 
 const MerchantDashboardPage = () => {
   const { pathname } = useLocation()
@@ -30,7 +30,7 @@ const MerchantDashboardPage = () => {
     return [{ label: 'Explore Lending Pools' }]
   }, [pathname])
 
-  const isKycVerified = getSession().kycVerified
+  const { kycVerified: isKycVerified } = useSession()
 
   return (
     <DashboardLayout

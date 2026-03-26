@@ -9,7 +9,8 @@ export type SessionState = {
   kycVerified: boolean
 }
 
-const STORAGE_KEY = 'fistcommerce.session.v1'
+// Bump this to reset persisted demo session/KYC state.
+const STORAGE_KEY = 'fistcommerce.session.v2'
 
 const DEFAULT_SESSION: SessionState = {
   onboarded: false,
@@ -36,6 +37,7 @@ export function setSession(next: Partial<SessionState>) {
   const current = getSession()
   const merged: SessionState = { ...current, ...next }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
+  window.dispatchEvent(new Event('fistcommerce:session-change'))
 }
 
 export function setRole(role: UserRole) {
