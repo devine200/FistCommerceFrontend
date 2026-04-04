@@ -1,5 +1,6 @@
 import { MERCHANT_RECEIVABLES_ROWS } from '@/components/dashboard/merchant/receivables/merchantReceivablesConfig'
 import type { ReceivableDetailView } from '@/components/dashboard/merchant/receivables/receivableDetailTypes'
+import { ReceivableStage } from '@/types/receivables'
 
 const DEMO_LIFECYCLE: ReceivableDetailView['lifecycle'] = [
   {
@@ -54,8 +55,17 @@ export const getReceivableDetailById = (receivableId: string): ReceivableDetailV
   const row = MERCHANT_RECEIVABLES_ROWS.find((r) => r.id === receivableId)
   if (!row) return null
 
+  const stageById: Partial<Record<string, ReceivableStage>> = {
+    'r-1': ReceivableStage.Created,
+    'r-2': ReceivableStage.Verified,
+    'r-3': ReceivableStage.Funded,
+    'r-4': ReceivableStage.Matured,
+    'r-5': ReceivableStage.Repaid,
+  }
+
   return {
     row,
+    stage: stageById[receivableId] ?? ReceivableStage.Verified,
     subtitle: 'Moderate risk, Moderate returns.',
     heroMetrics: [
       {

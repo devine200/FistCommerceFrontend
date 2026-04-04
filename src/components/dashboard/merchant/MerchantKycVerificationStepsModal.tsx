@@ -15,6 +15,7 @@ type VerificationStep = {
 
 interface MerchantKycVerificationStepsModalProps {
   totalSteps: number
+  completedStepIds: string[]
   onConfirmDetailsClick: () => void
   onVerifyIdentityClick: () => void
   onUploadBusinessDocumentsClick: () => void
@@ -22,6 +23,7 @@ interface MerchantKycVerificationStepsModalProps {
 
 const MerchantKycVerificationStepsModal = ({
   totalSteps,
+  completedStepIds,
   onConfirmDetailsClick,
   onVerifyIdentityClick,
   onUploadBusinessDocumentsClick,
@@ -34,7 +36,7 @@ const MerchantKycVerificationStepsModal = ({
       iconSrc: Frame1,
       topic: 'Confirm Your Details',
       description: 'Review and verify your personal information to ensure it is accurate before proceeding.',
-      isDone: false,
+      isDone: completedStepIds.includes('confirm-details'),
     },
     {
       id: 'verify-identity',
@@ -42,7 +44,7 @@ const MerchantKycVerificationStepsModal = ({
       topic: 'Verify Your Identity',
       description:
         'Upload a valid government ID and complete a quick face verification to confirm your identity.',
-      isDone: false,
+      isDone: completedStepIds.includes('verify-identity'),
     },
     {
       id: 'upload-business-documents',
@@ -50,7 +52,7 @@ const MerchantKycVerificationStepsModal = ({
       topic: 'Upload Business Documents',
       description:
         'Submit the required business documents to complete verification and enable access to financing.',
-      isDone: false,
+      isDone: completedStepIds.includes('upload-business-documents'),
     },
   ]
 
@@ -66,8 +68,8 @@ const MerchantKycVerificationStepsModal = ({
     <div>
       <div className="flex items-start mb-5">
         <div className="flex flex-col">
-          <h2 className="text-black font-bold text-[32px]">Start Your KYC Verification</h2>
-          <p className="text-[#6B7488] text-[20px] mt-1">
+          <h2 className="text-black font-bold text-[20px] sm:text-[26px]">Start Your KYC Verification</h2>
+          <p className="text-[#6B7488] text-[13px] sm:text-[16px] mt-1">
             Complete your registration and unlock multiple features on Fist Commerce
           </p>
         </div>
@@ -83,7 +85,7 @@ const MerchantKycVerificationStepsModal = ({
               type="button"
               disabled={isCardDisabled}
               aria-disabled={isCardDisabled}
-              className={`w-full h-[144px] text-left rounded-[6px] border px-6 py-4 flex items-center gap-5 transition bg-[#F6F7FB] border-[#E6E8EC] ${
+              className={`w-full min-h-[112px] sm:min-h-[144px] text-left rounded-[6px] border px-4 sm:px-6 py-4 flex items-center gap-4 sm:gap-5 transition bg-[#F6F7FB] border-[#E6E8EC] ${
                 isCardDisabled ? 'cursor-default' : 'cursor-pointer'
               }`}
               onClick={() => {
@@ -91,14 +93,14 @@ const MerchantKycVerificationStepsModal = ({
                 handleStepClick(step)
               }}
             >
-              <img src={step.iconSrc} alt={`${step.topic} icon`} className="w-[129px] h-[96px] object-contain" />
+              <img src={step.iconSrc} alt={`${step.topic} icon`} className="w-[88px] h-[66px] sm:w-[129px] sm:h-[96px] object-contain shrink-0" />
 
               <div className="flex flex-col flex-1">
-                <div className="text-black font-bold text-[24px]">{step.topic}</div>
-                <div className="text-[#6B7488] text-[16px] mt-1">{step.description}</div>
+                <div className="text-black font-bold text-[14px] sm:text-[18px]">{step.topic}</div>
+                <div className="text-[#6B7488] text-[12px] sm:text-[14px] mt-1">{step.description}</div>
               </div>
 
-              <div className="flex items-center justify-end w-[120px]">
+              <div className="flex items-center justify-end w-[52px] sm:w-[120px] shrink-0">
                 {step.isDone && !step.isPendingVerification ? (
                   <KycCheckIcon />
                 ) : step.isPendingVerification && step.isDone ? (

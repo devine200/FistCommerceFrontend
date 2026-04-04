@@ -49,16 +49,16 @@ const UploadBusinessDocumentsModal = ({ onBack, onComplete }: UploadBusinessDocu
 
   return (
     <div className="max-w-[620px] mx-auto">
-      <div className="flex items-start gap-2 mb-2 relative left-[-50px]">
-        <button type="button" onClick={onBack} className="w-[50px] h-[40px] flex items-center justify-start relative left-[-20px]">
-          <img src={backArrowIcon} alt="back" className="w-[50px] h-[40px] object-contain" />
+      <div className="flex items-start gap-3 mb-3">
+        <button type="button" onClick={onBack} className="h-[40px] w-[40px] flex items-center justify-center shrink-0">
+          <img src={backArrowIcon} alt="back" className="w-[24px] h-[24px] object-contain" />
         </button>
         <div className="flex flex-col gap-3">
-          <h2 className="text-black font-bold text-[32px]">Upload Business Documents</h2>
-          <p className="text-[#6B7488] text-[20px]">
+          <h2 className="text-black font-bold text-[20px] sm:text-[26px]">Upload Business Documents</h2>
+          <p className="text-[#6B7488] text-[13px] sm:text-[16px]">
             Submit the required business documents to complete verification and enable access to financing.
           </p>
-          <p className="text-black font-bold text-[20px] leading-snug">{REQUIRED_DOCUMENTS_COPY}</p>
+          <p className="text-black font-bold text-[13px] sm:text-[15px] leading-snug">{REQUIRED_DOCUMENTS_COPY}</p>
         </div>
       </div>
 
@@ -70,7 +70,7 @@ const UploadBusinessDocumentsModal = ({ onBack, onComplete }: UploadBusinessDocu
           onDragLeave={onDragLeave}
           onDrop={onDrop}
         >
-          <div className="px-6 py-8 flex flex-col items-center text-center">
+          <div className="px-4 sm:px-6 py-6 sm:py-8 flex flex-col items-center text-center">
             <div className="flex h-[88px] w-[88px] items-center justify-center rounded-full bg-[#E8EFFB]">
               <img src={cloudUploadIcon} alt="" className="h-[52px] w-[52px] object-contain" aria-hidden />
             </div>
@@ -86,7 +86,7 @@ const UploadBusinessDocumentsModal = ({ onBack, onComplete }: UploadBusinessDocu
             {selectedFileName && <p className="mt-2 text-[12px] text-[#195EBC]">{selectedFileName}</p>}
           </div>
 
-          <div className="border-t border-[#E3E7EF] px-6 py-4 flex flex-col items-center gap-2">
+          <div className="border-t border-[#E3E7EF] px-4 sm:px-6 py-4 flex flex-col items-center gap-2">
             <span className="text-[#A0A8B8] text-[12px]">OR</span>
             <button type="button" onClick={openFilePicker} className="bg-[#195EBC] text-white px-5 py-2 rounded-md text-[14px]">
               Browse Files
@@ -103,7 +103,7 @@ const UploadBusinessDocumentsModal = ({ onBack, onComplete }: UploadBusinessDocu
         onChange={(e) => handleFileSelect(e.target.files?.[0] ?? null)}
       />
 
-      <button type="button" onClick={onComplete} className="mt-6 bg-[#195EBC] text-white px-5 py-3 rounded-md w-full text-[20px] font-semibold">
+      <button type="button" onClick={onComplete} className="mt-6 bg-[#195EBC] text-white px-5 py-3 rounded-md w-full text-[15px] sm:text-[16px] font-semibold">
         Continue
       </button>
     </div>

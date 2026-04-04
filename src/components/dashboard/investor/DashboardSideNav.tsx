@@ -9,11 +9,15 @@ import { Link, useLocation } from 'react-router-dom'
 
 interface NavItem {
   path: string
+  label: string
   icon: string
   isActive: boolean
-  /** Tailwind size classes when the asset reads smaller than SVG icons (default 24px). */
-  iconSizeClass?: string
 }
+
+const ICON_24 = 'w-[24px] h-[24px] max-w-[24px] max-h-[24px] object-contain shrink-0'
+
+/** Header logo — design size 45×40 */
+const LOGO_HEADER = 'w-[45px] h-[40px] max-w-[45px] max-h-[40px] object-contain shrink-0'
 
 function resolveDashboardBase(pathname: string, explicit?: DashboardBasePath): DashboardBasePath {
   if (explicit) return explicit
@@ -23,15 +27,24 @@ function resolveDashboardBase(pathname: string, explicit?: DashboardBasePath): D
 
 interface DashboardSideNavProps {
   basePath?: DashboardBasePath
+  expanded: boolean
+  onToggleExpanded: () => void
   /** When provided, renders a close button (useful for mobile drawer). */
   onRequestClose?: () => void
 }
 
-const DashboardSideNav = ({ basePath: basePathProp, onRequestClose }: DashboardSideNavProps) => {
+const DashboardSideNav = ({
+  basePath: basePathProp,
+  expanded,
+  onToggleExpanded,
+  onRequestClose,
+}: DashboardSideNavProps) => {
   const location = useLocation()
   const pathname = location.pathname
 
   const base = resolveDashboardBase(pathname, basePathProp)
+  const showLabels = expanded
+  const asideWidthClass = expanded ? 'w-[248px]' : 'w-[72px]'
 
   const escapedBase = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const isPoolHowItWorks = new RegExp(`^${escapedBase}/lending-pool/[^/]+/how-it-works$`).test(pathname)
@@ -46,6 +59,7 @@ const DashboardSideNav = ({ basePath: basePathProp, onRequestClose }: DashboardS
   const navItems: NavItem[] = [
     {
       path: `${base}/overview`,
+      label: 'Dashboard',
       icon: squaresFourIcon,
       isActive:
         pathname === base ||
@@ -56,11 +70,13 @@ const DashboardSideNav = ({ basePath: basePathProp, onRequestClose }: DashboardS
     },
     {
       path: `${base}/opportunities`,
+      label: 'Opportunities',
       icon: coinIcon,
       isActive: pathname.startsWith(`${base}/opportunities`) || investorPoolDetail || investorPoolAction,
     },
     {
       path: `${base}/profile/overview`,
+      label: 'Profile',
       icon: userIcon,
       isActive: pathname.startsWith(`${base}/profile`) && !pathname.startsWith(`${base}/profile/wallets`),
     },
@@ -71,9 +87,9 @@ const DashboardSideNav = ({ basePath: basePathProp, onRequestClose }: DashboardS
       ? [
           {
             path: `${base}/receivables`,
+            label: 'Receivables',
             icon: documentNavIcon,
             isActive: pathname.startsWith(`${base}/receivables`),
-            iconSizeClass: 'w-[30px] h-[30px]',
           },
         ]
       : []
@@ -81,17 +97,34 @@ const DashboardSideNav = ({ basePath: basePathProp, onRequestClose }: DashboardS
   const allNavItems = [...navItems.slice(0, 2), ...merchantExtraItems, ...navItems.slice(2)]
 
   return (
-    <aside className="w-[72px] bg-[#F3F3F3] border-r border-[#E6E8EC] flex flex-col items-center justify-between py-2 h-dvh overflow-y-auto shadow-none">
-      <div className="flex flex-col items-center gap-5 w-full">
+    <aside
+      className={`${asideWidthClass} shrink-0 bg-[#F3F3F3] border-r border-[#E6E8EC] flex flex-col h-dvh transition-[width] duration-200 ease-out overflow-hidden shadow-none`}
+    >
+      <div
+        className={[
+          'flex flex-col pt-4 pb-2 px-2',
+          expanded ? 'items-stretch' : 'items-center',
+        ].join(' ')}
+      >
         {onRequestClose ? (
-          <div className="w-full flex justify-end px-2">
+          <div className="w-full flex justify-end px-2 mb-1">
             <button
               type="button"
               onClick={onRequestClose}
               aria-label="Close navigation menu"
               className="h-[32px] w-[32px] rounded-[6px] flex items-center justify-center text-[#4D5D80] hover:bg-black/5"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
                 <path d="M18 6 6 18" />
                 <path d="M6 6l12 12" />
               </svg>
@@ -99,32 +132,69 @@ const DashboardSideNav = ({ basePath: basePathProp, onRequestClose }: DashboardS
           </div>
         ) : null}
 
-        <Link to={`${base}/overview`} className="mt-1" aria-label="Dashboard home">
-          <img src={logo} alt="logo" className="w-[45px] h-[40px]" />
+        <Link
+          to={`${base}/overview`}
+          onClick={() => onRequestClose?.()}
+          className={[
+            'flex items-center gap-3 w-full px-2 py-1 rounded-[6px] mt-1',
+            expanded ? '' : 'justify-center',
+          ].join(' ')}
+          aria-label="Dashboard home"
+        >
+          <img src={logo} alt="" className={LOGO_HEADER} />
+          {showLabels ? (
+            <span className="text-[#0B1220] font-bold text-[15px] truncate">Fist Commerce</span>
+          ) : null}
         </Link>
-
-        <div className="flex flex-col items-center gap-3 mt-6">
-          {allNavItems.map((item, idx) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`w-[40px] h-[40px] rounded-[6px] flex items-center justify-center ${
-                item.isActive ? 'bg-[#E8EFFB]' : ''
-              }`}
-            >
-              <img
-                src={item.icon}
-                alt={`dashboard nav icon ${idx + 1}`}
-                className={`${item.iconSizeClass ?? 'w-[24px] h-[24px]'} ${item.isActive ? 'dashboard-nav-icon-active' : 'dashboard-nav-icon-inactive'}`}
-              />
-            </Link>
-          ))}
-        </div>
       </div>
 
-      <button type="button" className="w-[32px] h-[32px] flex items-center justify-center">
-        <img src={collapseArrowIcon} alt="collapse sidebar" className="w-[32px] h-[32px]" />
-      </button>
+      <nav className="flex-1 overflow-y-auto px-2 py-2 flex flex-col gap-1 min-h-0" aria-label="Dashboard">
+        {allNavItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            onClick={() => onRequestClose?.()}
+            className={[
+              'flex items-center gap-3 rounded-[6px] px-3 py-3 text-left transition-colors w-full',
+              item.isActive ? 'bg-[#E8EFFB] text-[#195EBC]' : 'bg-transparent text-[#6B7488]',
+            ].join(' ')}
+          >
+            <span className="h-[24px] w-[24px] shrink-0 flex items-center justify-center">
+              <img
+                src={item.icon}
+                alt=""
+                className={[
+                  ICON_24,
+                  item.isActive ? 'dashboard-nav-icon-active' : 'dashboard-nav-icon-inactive',
+                ].join(' ')}
+              />
+            </span>
+            <span
+              className={[
+                'text-[14px] font-medium truncate transition-opacity duration-200',
+                showLabels ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0 overflow-hidden',
+              ].join(' ')}
+            >
+              {item.label}
+            </span>
+          </Link>
+        ))}
+      </nav>
+
+      <div className="p-3 border-t border-[#E6E8EC] flex justify-center">
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          className="h-10 w-10 rounded-full border border-[#195EBC] flex items-center justify-center text-[#195EBC] hover:bg-[#E8EFFB] transition-colors"
+          aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+        >
+          <img
+            src={collapseArrowIcon}
+            alt=""
+            className={[ICON_24, 'transition-transform duration-200', expanded ? 'rotate-180' : ''].join(' ')}
+          />
+        </button>
+      </div>
     </aside>
   )
 }

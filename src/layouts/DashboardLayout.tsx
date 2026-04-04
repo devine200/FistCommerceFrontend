@@ -36,6 +36,7 @@ const DashboardLayout = ({
 }: DashboardLayoutProps) => {
   const { pathname } = useLocation()
   const [isNavOpen, setIsNavOpen] = useState(false)
+  const [sidebarExpanded, setSidebarExpanded] = useState(false)
 
   // Close the mobile nav overlay when the route changes.
   useEffect(() => {
@@ -55,15 +56,24 @@ const DashboardLayout = ({
 
   return (
     <main className="h-dvh w-full bg-[#EEF0F4] flex overflow-hidden">
-      <div className="hidden lg:flex">
-        <DashboardSideNav basePath={dashboardBasePath} />
+      <div className="hidden lg:flex shrink-0">
+        <DashboardSideNav
+          basePath={dashboardBasePath}
+          expanded={sidebarExpanded}
+          onToggleExpanded={() => setSidebarExpanded((v) => !v)}
+        />
       </div>
 
       {isNavOpen ? (
         <div className="lg:hidden fixed inset-0 z-60">
           <div className="absolute inset-0 bg-black/30" onClick={() => setIsNavOpen(false)} aria-hidden />
           <div className="absolute left-0 top-0 bottom-0">
-            <DashboardSideNav basePath={dashboardBasePath} onRequestClose={() => setIsNavOpen(false)} />
+            <DashboardSideNav
+              basePath={dashboardBasePath}
+              expanded
+              onToggleExpanded={() => setSidebarExpanded((v) => !v)}
+              onRequestClose={() => setIsNavOpen(false)}
+            />
           </div>
         </div>
       ) : null}

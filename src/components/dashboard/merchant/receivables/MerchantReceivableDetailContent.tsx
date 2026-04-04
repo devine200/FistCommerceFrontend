@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import moneyIcon from '@/assets/Money.png'
 import dollarIcon from '@/assets/CurrencyDollarSimple.png'
 import type { LifecycleStepVariant, ReceivableDetailView } from '@/components/dashboard/merchant/receivables/receivableDetailTypes'
+import { lifecycleCompletedCount } from '@/types/receivables'
 
 const lifecycleBarClass = (variant: LifecycleStepVariant): string => {
   if (variant === 'purple') return 'bg-[#9333EA]'
@@ -17,8 +18,9 @@ interface MerchantReceivableDetailContentProps {
 }
 
 const MerchantReceivableDetailContent = ({ detail }: MerchantReceivableDetailContentProps) => {
-  const { row, subtitle, heroMetrics, lifecycle, repaymentRows, maturityBanner, basicInfo, documentName } = detail
+  const { row, subtitle, heroMetrics, lifecycle, repaymentRows, maturityBanner, basicInfo, documentName, stage } = detail
   const navigate = useNavigate()
+  const completedCount = lifecycleCompletedCount(stage)
 
   return (
     <div className="flex flex-col gap-6 pb-8">
@@ -67,19 +69,31 @@ const MerchantReceivableDetailContent = ({ detail }: MerchantReceivableDetailCon
         <section className="rounded-[12px] border border-[#E6E8EC] bg-white p-6 lg:p-8 shadow-sm">
           <h2 className="text-[#0B1220] font-bold text-[18px] mb-6">Receivable Lifecycle</h2>
           <ol className="m-0 p-0 list-none flex flex-col gap-8">
-            {lifecycle.map((step, i) => (
-              <li key={`${step.label}-${i}`} className="flex gap-4 min-w-0">
-                <div
-                  className={`w-1.5 shrink-0 rounded-full self-stretch ${lifecycleBarClass(step.variant)}`}
-                  aria-hidden
-                />
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <p className="text-[#0B1220] font-bold text-[15px] leading-snug">{step.label}</p>
-                  <p className="text-[#6B7488] text-[14px] leading-relaxed mt-2">{step.description}</p>
-                  <p className="text-[#8B92A3] text-[13px] mt-3">Date: {step.date}</p>
-                </div>
-              </li>
-            ))}
+            {lifecycle.map((step, i) => {
+              const completed = i < completedCount
+              return (
+                <li key={`${step.label}-${i}`} className="flex gap-4 min-w-0">
+                  <div
+                    className={[
+                      'w-1.5 shrink-0 rounded-full self-stretch',
+                      completed ? lifecycleBarClass(step.variant) : 'bg-[#D0D7E3]',
+                    ].join(' ')}
+                    aria-hidden
+                  />
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <p className={['font-bold text-[15px] leading-snug', completed ? 'text-[#0B1220]' : 'text-[#8B92A3]'].join(' ')}>
+                      {step.label}
+                    </p>
+                    <p className={['text-[14px] leading-relaxed mt-2', completed ? 'text-[#6B7488]' : 'text-[#B0B7C4]'].join(' ')}>
+                      {step.description}
+                    </p>
+                    <p className={['text-[13px] mt-3', completed ? 'text-[#8B92A3]' : 'text-[#C2C8D4]'].join(' ')}>
+                      Date: {step.date}
+                    </p>
+                  </div>
+                </li>
+              )
+            })}
           </ol>
         </section>
 

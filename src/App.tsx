@@ -32,6 +32,18 @@ import MerchantReceivableDetailPage from '@/pages/MerchantReceivableDetailPage'
 import MerchantRepayLoanPage from '@/pages/MerchantRepayLoanPage'
 import MerchantRepayLoanConfirmationPage from '@/pages/MerchantRepayLoanConfirmationPage'
 import MerchantRepayLoanSuccessPage from '@/pages/MerchantRepayLoanSuccessPage'
+import AdminDashboardLayout from '@/layouts/AdminDashboardLayout'
+import AdminPlatformOverviewPage from '@/pages/AdminPlatformOverviewPage'
+import AdminReceivablesManagementPage from '@/pages/AdminReceivablesManagementPage'
+import AdminReceivableDetailPage from '@/pages/AdminReceivableDetailPage'
+import AdminReceivableApprovedPage from '@/pages/AdminReceivableApprovedPage'
+import AdminMerchantsManagementPage from '@/pages/AdminMerchantsManagementPage'
+import AdminInvestorsManagementPage from '@/pages/AdminInvestorsManagementPage'
+import AdminLoanMonitoringPage from '@/pages/AdminLoanMonitoringPage'
+import AdminSectionPlaceholderPage from '@/pages/AdminSectionPlaceholderPage'
+import AdminTransactionsPage from '@/pages/AdminTransactionsPage'
+import AdminSettingsPage from '@/pages/AdminSettingsPage'
+import AdminAlertsPage from '@/pages/AdminAlertsPage'
 
 const DefaultWagmiPage = () => {
   const connection = useConnection()
@@ -255,6 +267,68 @@ const router = createBrowserRouter([
           {
             path: 'lending-pool/:poolSlug',
             element: <InvestorLendingPoolDetailPage />,
+          },
+          {
+            path: '*',
+            element: <Navigate to="overview" replace />,
+          },
+        ],
+      },
+      {
+        path: 'admin',
+        element: <AdminDashboardLayout />,
+        children: [
+          {
+            index: true,
+            element: <Navigate to="overview" replace />,
+          },
+          {
+            path: 'overview',
+            element: <AdminPlatformOverviewPage />,
+          },
+          {
+            path: 'receivables',
+            element: <AdminReceivablesManagementPage />,
+          },
+          {
+            path: 'receivables/:receivableId',
+            element: <AdminReceivableDetailPage />,
+          },
+          {
+            path: 'receivables/:receivableId/approved',
+            element: <AdminReceivableApprovedPage />,
+          },
+          {
+            path: 'merchants',
+            element: <AdminMerchantsManagementPage />,
+          },
+          {
+            path: 'investors',
+            element: <AdminInvestorsManagementPage />,
+          },
+          {
+            path: 'loan-monitoring',
+            element: <AdminLoanMonitoringPage />,
+          },
+          {
+            path: 'transactions',
+            element: <AdminTransactionsPage />,
+          },
+          {
+            path: 'settlements',
+            element: <AdminSectionPlaceholderPage title="Settlements" />,
+          },
+          {
+            path: 'support',
+            element: <AdminSectionPlaceholderPage title="Support & Disputes" />,
+          },
+          {
+            path: 'alerts',
+            element: <AdminAlertsPage />,
+          },
+          {
+            path: 'settings',
+            element: <AdminSettingsPage />,
           },
           {
             path: '*',
