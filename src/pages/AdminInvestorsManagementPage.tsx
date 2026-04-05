@@ -1,19 +1,22 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
-type KycStatus = 'Approved' | 'Rejected' | 'Under Review'
-
-type InvestorRow = {
-  id: string
-  receivableId: string
-  investorName: string
-  investorWallet: string
-  invested: string
-  earnings: string
-  amountWithdrawn: string
-  kycStatus: KycStatus
-  receivablesCountLabel: string
-}
+import {
+  AdminPageFrame,
+  AdminPanel,
+  AdminPartyStack,
+  AdminSearchField,
+  AdminStatCard,
+  AdminStatGrid,
+  AdminStatusPill,
+  AdminTableHeadRow,
+  AdminTableShell,
+  AdminTableTextLink,
+  adminZebraRowClass,
+  type AdminPillVariant,
+} from '@/components/admin/primitives'
+import type { KycStatus } from '@/components/admin/investors/investorsMockData'
+import { useAppSelector } from '@/store/hooks'
 
 const SUMMARY = [
   { title: 'Total Investors', value: '121' },
@@ -22,178 +25,100 @@ const SUMMARY = [
   { title: 'Frozen Accounts', value: '126' },
 ] as const
 
-const ROWS: InvestorRow[] = [
-  {
-    id: 'i-1',
-    receivableId: 'r-1',
-    investorName: 'Ajala Harris',
-    investorWallet: '48r7yfghn4j3kio9eud...',
-    invested: '$323,000',
-    earnings: '$323,000',
-    amountWithdrawn: '-$23,000',
-    kycStatus: 'Approved',
-    receivablesCountLabel: '4 Receivables',
-  },
-  {
-    id: 'i-2',
-    receivableId: 'r-2',
-    investorName: 'Ajala Harris',
-    investorWallet: '48r7yfghn4j3kio9eud...',
-    invested: '$323,000',
-    earnings: '$420,000',
-    amountWithdrawn: '$0',
-    kycStatus: 'Rejected',
-    receivablesCountLabel: '0 Receivables',
-  },
-  {
-    id: 'i-3',
-    receivableId: 'r-3',
-    investorName: 'Ajala Harris',
-    investorWallet: '48r7yfghn4j3kio9eud...',
-    invested: '$323,000',
-    earnings: '$103,500',
-    amountWithdrawn: '$0',
-    kycStatus: 'Under Review',
-    receivablesCountLabel: '3 Receivables',
-  },
-  {
-    id: 'i-4',
-    receivableId: 'r-4',
-    investorName: 'Ajala Harris',
-    investorWallet: '48r7yfghn4j3kio9eud...',
-    invested: '$323,000',
-    earnings: '$23,000',
-    amountWithdrawn: '-$23,000',
-    kycStatus: 'Approved',
-    receivablesCountLabel: '1 Receivables',
-  },
-  {
-    id: 'i-5',
-    receivableId: 'r-5',
-    investorName: 'Ajala Harris',
-    investorWallet: '48r7yfghn4j3kio9eud...',
-    invested: '$323,000',
-    earnings: '$400,000',
-    amountWithdrawn: '$0',
-    kycStatus: 'Approved',
-    receivablesCountLabel: '4 Receivables',
-  },
-  {
-    id: 'i-6',
-    receivableId: 'r-6',
-    investorName: 'Ajala Harris',
-    investorWallet: '48r7yfghn4j3kio9eud...',
-    invested: '$323,000',
-    earnings: '$150,000',
-    amountWithdrawn: '$0',
-    kycStatus: 'Approved',
-    receivablesCountLabel: '11 Receivables',
-  },
-] as const
-
-function statusPill(status: KycStatus) {
+function kycPillVariant(status: KycStatus): AdminPillVariant {
   switch (status) {
     case 'Approved':
-      return { bg: 'bg-[#E7F6EC]', text: 'text-[#16A34A]' }
+      return 'approved'
     case 'Rejected':
-      return { bg: 'bg-[#FBEAE9]', text: 'text-[#EF4444]' }
+      return 'rejected'
     case 'Under Review':
-      return { bg: 'bg-[#F8EEFC]', text: 'text-[#A855F7]' }
+      return 'underReview'
     default:
-      return { bg: 'bg-[#EEF0F4]', text: 'text-[#6B7488]' }
+      return 'neutral'
   }
 }
 
+const TABLE_HEADERS = ['Investor', 'Invested', 'Earnings', 'Amount Withdrawn', 'KYC Status', 'No. of Receivables', 'Action'] as const
+
 const AdminInvestorsManagementPage = () => {
+  const navigate = useNavigate()
+  const tableRows = useAppSelector((s) => s.adminInvestors.tableRows)
   const [query, setQuery] = useState('')
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return ROWS
-    return ROWS.filter((r) => {
+    if (!q) return tableRows
+    return tableRows.filter((r) => {
       return (
         r.investorName.toLowerCase().includes(q) ||
         r.investorWallet.toLowerCase().includes(q) ||
         r.kycStatus.toLowerCase().includes(q)
       )
     })
-  }, [query])
+  }, [query, tableRows])
 
   return (
-    <div className="w-full max-w-[1280px] mx-auto pb-10 flex flex-col gap-6">
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <AdminPageFrame>
+      <AdminStatGrid>
         {SUMMARY.map((c) => (
-          <article key={c.title} className="rounded-[10px] border border-[#E6E8EC] bg-white px-5 py-4 shadow-sm">
-            <p className="text-[#0B1220] text-[14px] font-medium leading-tight">{c.title}</p>
-            <p className="text-[#0B1220] text-[24px] font-semibold leading-tight mt-3">{c.value}</p>
-          </article>
+          <AdminStatCard key={c.title} title={c.title} value={c.value} />
         ))}
-      </section>
+      </AdminStatGrid>
 
       <section className="flex items-center justify-between gap-4">
-        <div className="w-full max-w-[320px] h-[44px] rounded-[6px] border border-[#E6E8EC] bg-white px-3 flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7488" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by wallet or DNS..."
-            className="w-full min-w-0 bg-transparent outline-none text-[#4D5D80] text-[14px] placeholder:text-[#B0B7C4]"
-            aria-label="Search investors"
-          />
-        </div>
+        <AdminSearchField
+          value={query}
+          onChange={setQuery}
+          placeholder="Search by wallet or DNS..."
+          aria-label="Search investors"
+          className="max-w-[320px]"
+        />
       </section>
 
-      <section className="rounded-[10px] border border-[#E6E8EC] bg-white shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1120px]">
-            <thead>
-              <tr className="bg-[#195EBC]">
-                {['Investor', 'Invested', 'Earnings', 'Amount Withdrawn', 'KYC Status', 'No. of Receivables', 'Action'].map((h) => (
-                  <th key={h} className="text-left text-white text-[14px] font-medium px-5 py-4">
-                    {h}
-                  </th>
-                ))}
+      <AdminPanel>
+        <AdminTableShell minWidthClassName="min-w-[1120px]">
+          <AdminTableHeadRow labels={TABLE_HEADERS} />
+          <tbody className="bg-white">
+            {filteredRows.map((r, idx) => (
+              <tr
+                key={r.id}
+                className={[adminZebraRowClass(idx), 'cursor-pointer hover:bg-[#F3F7FC]/80 transition-colors'].join(' ')}
+                tabIndex={0}
+                role="link"
+                aria-label={`Open profile for ${r.investorName}`}
+                onClick={() => navigate(`/dashboard/admin/investors/${r.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    navigate(`/dashboard/admin/investors/${r.id}`)
+                  }
+                }}
+              >
+                <td className="px-5 py-5">
+                  <AdminPartyStack primary={r.investorName} secondary={r.investorWallet} />
+                </td>
+                <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">{r.invested}</td>
+                <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">{r.earnings}</td>
+                <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">{r.amountWithdrawn}</td>
+                <td className="px-5 py-5">
+                  <AdminStatusPill variant={kycPillVariant(r.kycStatus)}>{r.kycStatus}</AdminStatusPill>
+                </td>
+                <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">{r.receivablesCountLabel}</td>
+                <td className="px-5 py-5" onClick={(e) => e.stopPropagation()}>
+                  <AdminTableTextLink
+                    to={`/dashboard/admin/investors/${r.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    View profile
+                  </AdminTableTextLink>
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white">
-              {filteredRows.map((r, idx) => {
-                const pill = statusPill(r.kycStatus)
-                const rowBg = idx % 2 === 1 ? 'bg-[#F3F7FC]' : 'bg-white'
-                return (
-                  <tr key={r.id} className={rowBg}>
-                    <td className="px-5 py-5">
-                      <div className="flex flex-col">
-                        <span className="text-[#0B1220] text-[14px] font-medium">{r.investorName}</span>
-                        <span className="text-[#195EBC] text-[12px] mt-1">{r.investorWallet}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">{r.invested}</td>
-                    <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">{r.earnings}</td>
-                    <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">{r.amountWithdrawn}</td>
-                    <td className="px-5 py-5">
-                      <span className={['inline-flex items-center px-3 py-1 rounded-full text-[13px] font-medium', pill.bg, pill.text].join(' ')}>
-                        {r.kycStatus}
-                      </span>
-                    </td>
-                    <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">{r.receivablesCountLabel}</td>
-                    <td className="px-5 py-5">
-                      <Link to={`/dashboard/admin/receivables/${r.receivableId}`} className="text-[#195EBC] text-[14px] underline underline-offset-2">
-                        View Details
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
+            ))}
+          </tbody>
+        </AdminTableShell>
+      </AdminPanel>
+    </AdminPageFrame>
   )
 }
 
 export default AdminInvestorsManagementPage
-

@@ -1,4 +1,7 @@
 import LendingPoolOpportunityCard from '@/components/dashboard/LendingPoolOpportunityCard'
+import DashboardBorderedPanel from '@/components/dashboard/shared/DashboardBorderedPanel'
+import type { MerchantLendingPoolProps } from '@/components/dashboard/shared/types'
+import { useAppSelector } from '@/store/hooks'
 import { useNavigate } from 'react-router-dom'
 
 const InfoCircleIcon = () => (
@@ -11,13 +14,10 @@ const InfoCircleIcon = () => (
   </button>
 )
 
-interface MerchantLendingPoolProps {
-  /** e.g. "538,500" — format as needed from API */
-  totalDepositsDisplay?: string
-}
-
-const MerchantLendingPool = ({ totalDepositsDisplay = '538,500' }: MerchantLendingPoolProps) => {
+const MerchantLendingPool = ({ totalDepositsDisplay: totalDepositsDisplayProp }: MerchantLendingPoolProps) => {
   const navigate = useNavigate()
+  const { totalDepositsDisplay: totalFromStore, lendingPools } = useAppSelector((s) => s.merchantDashboard)
+  const totalDepositsDisplay = totalDepositsDisplayProp ?? totalFromStore
 
   return (
     <section className="flex flex-col gap-4">
@@ -32,9 +32,7 @@ const MerchantLendingPool = ({ totalDepositsDisplay = '538,500' }: MerchantLendi
             <span className="text-[#ACACAC] text-[18px] font-medium" aria-hidden>
               $
             </span>
-            <span className="text-[#0B1220] text-[16px] font-bold">
-              Total Deposits: {totalDepositsDisplay}
-            </span>
+            <span className="text-[#0B1220] text-[16px] font-bold">Total Deposits: {totalDepositsDisplay}</span>
           </div>
 
           <button
@@ -47,13 +45,22 @@ const MerchantLendingPool = ({ totalDepositsDisplay = '538,500' }: MerchantLendi
         </div>
       </div>
 
-      <div className="rounded-[6px] border border-[#DFE2E8] bg-white p-4 flex flex-col gap-4">
-        <h3 className="text-black font-bold text-[20px]">All Lending Pools</h3>
-        <LendingPoolOpportunityCard
-          viewDetailsTo="/dashboard/merchant/lending-pool/fist-commerce-lending-pool"
-          poolTitle="Fist Commerce Lending Pool"
-        />
-      </div>
+      <DashboardBorderedPanel title="All Lending Pools">
+        <div className="flex flex-col gap-4">
+          {lendingPools.map((pool) => (
+            <LendingPoolOpportunityCard
+              key={pool.id}
+              viewDetailsTo={pool.viewDetailsTo}
+              poolTitle={pool.poolTitle}
+              tagline={pool.tagline}
+              apyDisplay={pool.apyDisplay}
+              tvlDisplay={pool.tvlDisplay}
+              minDepositDisplay={pool.minDepositDisplay}
+              utilizationDisplay={pool.utilizationDisplay}
+            />
+          ))}
+        </div>
+      </DashboardBorderedPanel>
     </section>
   )
 }

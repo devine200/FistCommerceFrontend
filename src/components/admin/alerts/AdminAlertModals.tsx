@@ -1,35 +1,19 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
-export type AlertModalDetail =
-  | {
-      kind: 'loan-default'
-      receivableId: string
-      subtitle: string
-      merchantName: string
-      receivableName: string
-      invoiceAmount: string
-      statusLine: string
-    }
-  | {
-      kind: 'late-repayment'
-      receivableId: string
-      subtitle: string
-      merchantName: string
-      receivableName: string
-      invoiceAmount: string
-      statusLine: string
-    }
-  | {
-      kind: 'large-withdrawal'
-      subtitle: string
-      investorName: string
-      walletAddress: string
-      withdrawalAmount: string
-      statusLine: string
-    }
+import { useAdminReceivableDetailHref } from '@/components/admin/useAdminReceivableDetailHref'
 
-    
+import type {
+  AdminAlertBackRowProps,
+  AdminAlertDetailRowsProps,
+  AdminAlertModalRouterProps,
+  AdminLargeWithdrawalModalProps,
+  AdminLateRepaymentModalProps,
+  AdminLoanDefaultModalProps,
+} from './types'
+
+export type { AlertModalDetail } from './types'
+
 const overlayClass =
   'fixed inset-0 z-[70] flex items-center justify-center bg-black/25 backdrop-blur-[2px] p-5'
 
@@ -44,7 +28,7 @@ function useModalEscape(onClose: () => void, open: boolean) {
   }, [open, onClose])
 }
 
-function BackRow({ onBack }: { onBack: () => void }) {
+function BackRow({ onBack }: AdminAlertBackRowProps) {
   return (
     <button
       type="button"
@@ -59,7 +43,7 @@ function BackRow({ onBack }: { onBack: () => void }) {
   )
 }
 
-function DetailRows({ rows }: { rows: { label: string; value: string; valueClassName?: string }[] }) {
+function DetailRows({ rows }: AdminAlertDetailRowsProps) {
   return (
     <dl className="flex flex-col divide-y divide-[#E6E8EC] border-t border-b border-[#E6E8EC]">
       {rows.map((r) => (
@@ -72,8 +56,9 @@ function DetailRows({ rows }: { rows: { label: string; value: string; valueClass
   )
 }
 
-export function AdminLoanDefaultModal({ detail, onClose }: { detail: Extract<AlertModalDetail, { kind: 'loan-default' }>; onClose: () => void }) {
+export function AdminLoanDefaultModal({ detail, onClose }: AdminLoanDefaultModalProps) {
   useModalEscape(onClose, true)
+  const receivableDetailHref = useAdminReceivableDetailHref()
   return (
     <div
       className={overlayClass}
@@ -116,7 +101,7 @@ export function AdminLoanDefaultModal({ detail, onClose }: { detail: Extract<Ale
             </button>
           </div>
           <Link
-            to={`/dashboard/admin/receivables/${detail.receivableId}`}
+            to={receivableDetailHref(detail.receivableId)}
             onClick={onClose}
             className="min-h-[48px] rounded-[8px] bg-[#195EBC] text-white text-[15px] font-medium flex items-center justify-center hover:bg-[#154a96]"
           >
@@ -128,8 +113,9 @@ export function AdminLoanDefaultModal({ detail, onClose }: { detail: Extract<Ale
   )
 }
 
-export function AdminLateRepaymentModal({ detail, onClose }: { detail: Extract<AlertModalDetail, { kind: 'late-repayment' }>; onClose: () => void }) {
+export function AdminLateRepaymentModal({ detail, onClose }: AdminLateRepaymentModalProps) {
   useModalEscape(onClose, true)
+  const receivableDetailHref = useAdminReceivableDetailHref()
   return (
     <div
       className={overlayClass}
@@ -172,7 +158,7 @@ export function AdminLateRepaymentModal({ detail, onClose }: { detail: Extract<A
             </button>
           </div>
           <Link
-            to={`/dashboard/admin/receivables/${detail.receivableId}`}
+            to={receivableDetailHref(detail.receivableId)}
             onClick={onClose}
             className="min-h-[48px] rounded-[8px] bg-[#195EBC] text-white text-[15px] font-medium flex items-center justify-center hover:bg-[#154a96]"
           >
@@ -184,7 +170,7 @@ export function AdminLateRepaymentModal({ detail, onClose }: { detail: Extract<A
   )
 }
 
-export function AdminLargeWithdrawalModal({ detail, onClose }: { detail: Extract<AlertModalDetail, { kind: 'large-withdrawal' }>; onClose: () => void }) {
+export function AdminLargeWithdrawalModal({ detail, onClose }: AdminLargeWithdrawalModalProps) {
   useModalEscape(onClose, true)
   const statusOrange = detail.statusLine.toLowerCase().includes('pending')
   return (
@@ -245,7 +231,7 @@ export function AdminLargeWithdrawalModal({ detail, onClose }: { detail: Extract
   )
 }
 
-export function AdminAlertModalRouter({ detail, onClose }: { detail: AlertModalDetail | null; onClose: () => void }) {
+export function AdminAlertModalRouter({ detail, onClose }: AdminAlertModalRouterProps) {
   if (!detail) return null
   if (detail.kind === 'loan-default') return <AdminLoanDefaultModal detail={detail} onClose={onClose} />
   if (detail.kind === 'late-repayment') return <AdminLateRepaymentModal detail={detail} onClose={onClose} />

@@ -3,16 +3,9 @@ import logo from '@/assets/logo.png'
 import mobileHamburgerIcon from '@/assets/mobile-hamburger.png'
 import mobileUserIcon from '@/assets/mobile-user.png'
 
-interface AdminTopBarProps {
-  title: string
-  notificationUnread?: boolean
-  onMenuClick?: () => void
-  menuButtonAriaLabel?: string
-  /** Truncated wallet address — when set, shows wallet chip (replaces legacy email row) */
-  walletDisplay?: string
-}
+import type { AdminBellIconProps, AdminTopBarProps } from './types'
 
-function BellIcon({ className }: { className?: string }) {
+function BellIcon({ className }: AdminBellIconProps) {
   return (
     <svg
       className={className}
@@ -37,11 +30,16 @@ const iconButtonFrame =
 
 const AdminTopBar = ({
   title,
+  leading,
   notificationUnread,
   onMenuClick,
   menuButtonAriaLabel,
   walletDisplay,
 }: AdminTopBarProps) => {
+  const titleBlock = (
+    <h1 className="text-black font-semibold text-[18px] sm:text-[24px] leading-tight truncate">{title}</h1>
+  )
+
   return (
     <header className="bg-white border-b border-[#E6E8EC] px-4 lg:px-6 py-4 lg:py-5">
       {/* Mobile / tablet: logo — bell, user, menu (title lives below bar in layout) */}
@@ -81,9 +79,15 @@ const AdminTopBar = ({
         </div>
       </div>
 
+      {leading ? (
+        <div className="lg:hidden mt-3 min-w-0">
+          <div className="min-w-0">{leading}</div>
+        </div>
+      ) : null}
+
       {/* Desktop */}
       <div className="hidden lg:flex items-center justify-between gap-4">
-        <h1 className="text-black font-semibold text-[18px] sm:text-[24px] leading-tight truncate min-w-0 flex-1">{title}</h1>
+        <div className="min-w-0 flex-1 truncate">{leading ?? titleBlock}</div>
         <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"

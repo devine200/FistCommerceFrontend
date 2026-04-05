@@ -1,53 +1,38 @@
 import { useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 
-import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
-import KycVerificationCard from '@/components/dashboard/investor/KycVerificationCard'
-import WalletGateOpportunities from '@/components/dashboard/investor/WalletGateOpportunities'
+import DashboardKycGate from '@/components/dashboard/shared/DashboardKycGate'
+import { buildDashboardHomeBreadcrumbs } from '@/components/dashboard/shared/dashboardBreadcrumbs'
 import MerchantLendingPool from '@/components/dashboard/merchant/MerchantLendingPool'
 import MerchantAllReceivablesContent from '@/components/dashboard/merchant/receivables/MerchantAllReceivablesContent'
+import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
+import { useAppSelector } from '@/store/hooks'
 import { useSession } from '@/state/useSession'
 
 const MerchantDashboardPage = () => {
   const { pathname } = useLocation()
 
-  const topBarBreadcrumbs = useMemo((): DashboardBreadcrumbItem[] => {
-    if (pathname.includes('/receivables')) {
-      return [{ label: 'All Receivables' }]
-    }
-    if (pathname.includes('/opportunities')) {
-      return [
-        { label: 'Explore Lending Pools', to: '/dashboard/merchant/overview' },
-        { label: 'Opportunities' },
-      ]
-    }
-    if (pathname.includes('/profile')) {
-      return [
-        { label: 'Explore Lending Pools', to: '/dashboard/merchant/overview' },
-        { label: 'Profile' },
-      ]
-    }
-    return [{ label: 'Explore Lending Pools' }]
-  }, [pathname])
+  const topBarBreadcrumbs = useMemo(
+    (): DashboardBreadcrumbItem[] => buildDashboardHomeBreadcrumbs(pathname, '/dashboard/merchant'),
+    [pathname],
+  )
 
   const { kycVerified: isKycVerified } = useSession()
+  const walletDisplay = useAppSelector((s) => s.merchantDashboard.walletDisplay)
+
+  const verifiedContent = pathname.includes('/receivables') ? (
+    <MerchantAllReceivablesContent />
+  ) : (
+    <MerchantLendingPool />
+  )
 
   return (
     <DashboardLayout
       dashboardBasePath="/dashboard/merchant"
       topBarBreadcrumbs={topBarBreadcrumbs}
-      topBarWalletDisplay="0x7A3F...92C1"
+      topBarWalletDisplay={walletDisplay}
     >
-      {!isKycVerified && <KycVerificationCard variant="merchant" />}
-      {isKycVerified ? (
-        pathname.includes('/receivables') ? (
-          <MerchantAllReceivablesContent />
-        ) : (
-          <MerchantLendingPool />
-        )
-      ) : (
-        <WalletGateOpportunities />
-      )}
+      <DashboardKycGate isKycVerified={isKycVerified} kycVariant="merchant" verifiedContent={verifiedContent} />
     </DashboardLayout>
   )
 }

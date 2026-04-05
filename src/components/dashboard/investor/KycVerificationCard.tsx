@@ -5,16 +5,9 @@ import { useEffect, useRef, useState } from 'react'
 
 import InvestorKycVerificationModal from '@/components/dashboard/investor/InvestorKycVerificationModal'
 import MerchantKycVerificationModal from '@/components/dashboard/merchant/MerchantKycVerificationModal'
+import type { KycVerificationCardProps, KycVerificationCardVariant } from '@/components/dashboard/shared/types'
 
-export type KycVerificationCardVariant = 'investor' | 'merchant'
-
-interface KycVerificationCardProps {
-  variant?: KycVerificationCardVariant
-  hasStartedKyc?: boolean
-  totalSteps?: number
-  currentStepNumber?: number
-  currentStepName?: string
-}
+export type { KycVerificationCardVariant }
 
 const KycVerificationCard = ({
   variant = 'investor',

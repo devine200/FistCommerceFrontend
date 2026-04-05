@@ -1,43 +1,33 @@
 import { useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 
-import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
-import KycVerificationCard from '@/components/dashboard/investor/KycVerificationCard'
-import WalletGateOpportunities from '@/components/dashboard/investor/WalletGateOpportunities'
+import DashboardKycGate from '@/components/dashboard/shared/DashboardKycGate'
+import { buildDashboardHomeBreadcrumbs } from '@/components/dashboard/shared/dashboardBreadcrumbs'
 import InvestorLendingPool from '@/components/dashboard/investor/InvestorLendingPool'
+import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
+import { useAppSelector } from '@/store/hooks'
 import { useSession } from '@/state/useSession'
 
-const DashboardPage = () => {
+const InvestorDashboardPage = () => {
   const { pathname } = useLocation()
 
-  const topBarBreadcrumbs = useMemo((): DashboardBreadcrumbItem[] => {
-    if (pathname.includes('/opportunities')) {
-      return [
-        { label: 'Explore Lending Pools', to: '/dashboard/investor/overview' },
-        { label: 'Opportunities' },
-      ]
-    }
-    if (pathname.includes('/profile')) {
-      return [
-        { label: 'Explore Lending Pools', to: '/dashboard/investor/overview' },
-        { label: 'Profile' },
-      ]
-    }
-    return [{ label: 'Explore Lending Pools' }]
-  }, [pathname])
+  const topBarBreadcrumbs = useMemo(
+    (): DashboardBreadcrumbItem[] => buildDashboardHomeBreadcrumbs(pathname, '/dashboard/investor'),
+    [pathname],
+  )
 
   const { kycVerified: isKycVerified } = useSession()
+  const walletDisplay = useAppSelector((s) => s.investorDashboard.walletDisplay)
 
   return (
     <DashboardLayout
       dashboardBasePath="/dashboard/investor"
       topBarBreadcrumbs={topBarBreadcrumbs}
-      topBarWalletDisplay="0x7A3F...92C1"
+      topBarWalletDisplay={walletDisplay}
     >
-      {!isKycVerified && <KycVerificationCard />}
-      {isKycVerified ? <InvestorLendingPool /> : <WalletGateOpportunities />}
+      <DashboardKycGate isKycVerified={isKycVerified} kycVariant="investor" verifiedContent={<InvestorLendingPool />} />
     </DashboardLayout>
   )
 }
 
-export default DashboardPage
+export default InvestorDashboardPage

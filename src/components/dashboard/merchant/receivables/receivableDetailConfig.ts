@@ -51,6 +51,17 @@ const DEMO_BASIC: ReceivableDetailView['basicInfo'] = [
   { label: 'Years in Operation', value: '6+ years' },
 ]
 
+const RECEIVABLE_ID_TO_MERCHANT_ID: Record<string, string> = {
+  'r-1': 'm-1',
+  'r-2': 'm-2',
+  'r-3': 'm-3',
+  'r-4': 'm-4',
+  'r-5': 'm-5',
+  'r-6': 'm-6',
+  'r-7': 'm-6',
+  'r-8': 'm-6',
+}
+
 export const getReceivableDetailById = (receivableId: string): ReceivableDetailView | null => {
   const row = MERCHANT_RECEIVABLES_ROWS.find((r) => r.id === receivableId)
   if (!row) return null
@@ -65,6 +76,7 @@ export const getReceivableDetailById = (receivableId: string): ReceivableDetailV
 
   return {
     row,
+    merchantId: RECEIVABLE_ID_TO_MERCHANT_ID[receivableId] ?? 'm-1',
     stage: stageById[receivableId] ?? ReceivableStage.Verified,
     subtitle: 'Moderate risk, Moderate returns.',
     heroMetrics: [

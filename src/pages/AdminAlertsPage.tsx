@@ -4,6 +4,13 @@ import {
   AdminAlertModalRouter,
   type AlertModalDetail,
 } from '@/components/admin/alerts/AdminAlertModals'
+import {
+  AdminPageFrame,
+  AdminSegmentedTabs,
+  AdminStatCard,
+  AdminStatGrid,
+  type AdminTabItem,
+} from '@/components/admin/primitives'
 
 type Severity = 'critical' | 'warning' | 'info'
 
@@ -175,11 +182,11 @@ function SeverityIcon({ severity }: { severity: Severity }) {
   )
 }
 
-const TABS: { id: FilterTab; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'critical', label: 'Critical' },
-  { id: 'warning', label: 'Warning' },
-  { id: 'info', label: 'Info' },
+const ALERT_TAB_ITEMS: AdminTabItem<FilterTab>[] = [
+  { value: 'all', label: 'All' },
+  { value: 'critical', label: 'Critical' },
+  { value: 'warning', label: 'Warning' },
+  { value: 'info', label: 'Info' },
 ]
 
 const AdminAlertsPage = () => {
@@ -210,45 +217,16 @@ const AdminAlertsPage = () => {
   }
 
   return (
-    <div className="w-full max-w-[1280px] mx-auto pb-10 flex flex-col gap-6">
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <article className="rounded-[10px] border border-[#E6E8EC] bg-white px-5 py-4 shadow-sm">
-          <p className="text-[#6B7488] text-[14px] font-medium">Total Alerts</p>
-          <p className="text-[#0B1220] text-[24px] font-semibold mt-3">{visible.length}</p>
-        </article>
-        <article className="rounded-[10px] border border-[#E6E8EC] bg-white px-5 py-4 shadow-sm">
-          <p className="text-[#6B7488] text-[14px] font-medium">Unread</p>
-          <p className="text-[#0B1220] text-[24px] font-semibold mt-3">{unreadCount}</p>
-        </article>
-        <article className="rounded-[10px] border border-[#E6E8EC] bg-white px-5 py-4 shadow-sm">
-          <p className="text-[#6B7488] text-[14px] font-medium">Critical</p>
-          <p className="text-[#0B1220] text-[24px] font-semibold mt-3">32</p>
-        </article>
-        <article className="rounded-[10px] border border-[#E6E8EC] bg-white px-5 py-4 shadow-sm">
-          <p className="text-[#6B7488] text-[14px] font-medium leading-snug">Resolved (7Days)</p>
-          <p className="text-[#0B1220] text-[24px] font-semibold mt-3">1</p>
-        </article>
-      </section>
+    <AdminPageFrame>
+      <AdminStatGrid>
+        <AdminStatCard title="Total Alerts" value={visible.length} titleTone="muted" />
+        <AdminStatCard title="Unread" value={unreadCount} titleTone="muted" />
+        <AdminStatCard title="Critical" value="32" titleTone="muted" />
+        <AdminStatCard title="Resolved (7Days)" value="1" titleTone="muted" titleClassName="leading-snug" />
+      </AdminStatGrid>
 
       <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => {
-          const active = filter === t.id
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setFilter(t.id)}
-              className={[
-                'min-h-[40px] px-5 rounded-[8px] text-[14px] font-medium transition-colors',
-                active
-                  ? 'bg-[#195EBC] text-white'
-                  : 'bg-white text-[#4D5D80] border border-[#E6E8EC] hover:bg-[#F9FAFB]',
-              ].join(' ')}
-            >
-              {t.label}
-            </button>
-          )
-        })}
+        <AdminSegmentedTabs items={ALERT_TAB_ITEMS} value={filter} onChange={setFilter} variant="alerts" />
       </div>
 
       <ul className="flex flex-col gap-4 list-none p-0 m-0">
@@ -318,7 +296,7 @@ const AdminAlertsPage = () => {
       ) : null}
 
       <AdminAlertModalRouter detail={modalDetail} onClose={() => setModalDetail(null)} />
-    </div>
+    </AdminPageFrame>
   )
 }
 

@@ -1,18 +1,17 @@
 import { Outlet, useLocation } from 'react-router-dom'
-import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
+
+import { buildProfileOverviewBreadcrumbs } from '@/components/dashboard/shared/dashboardBreadcrumbs'
 import InvestorProfileOverviewContent from '@/components/dashboard/investor/profile/InvestorProfileOverviewContent'
+import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 
 const InvestorProfileOverviewPage = () => {
   const { pathname } = useLocation()
-  const isWallets = pathname.endsWith('/wallets')
-  const isHistory = pathname.endsWith('/history')
-  const activeLabel = isWallets ? 'Wallets' : isHistory ? 'History' : 'Overview'
   const walletDisplay = '0x7A3F...92C1'
 
-  const topBarBreadcrumbs: DashboardBreadcrumbItem[] = [
-    { label: 'Profile', to: '/dashboard/investor/profile/overview' },
-    { label: activeLabel },
-  ]
+  const topBarBreadcrumbs: DashboardBreadcrumbItem[] = buildProfileOverviewBreadcrumbs(
+    '/dashboard/investor',
+    pathname,
+  )
 
   return (
     <DashboardLayout

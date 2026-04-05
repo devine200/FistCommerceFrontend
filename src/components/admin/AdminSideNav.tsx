@@ -8,20 +8,13 @@ import userIcon from '@/assets/ph_user.svg'
 import coinIcon from '@/assets/Coin.svg'
 import adminSidebarMoney from '@/assets/admin-sidebar-money.png'
 import adminIconTransactions from '@/assets/admin-icon-transactions.png'
-import adminIconSettlements from '@/assets/admin-icon-settlements.png'
 import adminIconSupport from '@/assets/admin-icon-support.png'
 import adminIconAlerts from '@/assets/admin-icon-alerts.png'
 import adminIconSettings from '@/assets/admin-icon-settings.png'
 
-const basePath = '/dashboard/admin'
+import type { AdminNavItem, AdminSideNavProps } from './types'
 
-type NavItem = {
-  to: string
-  label: string
-  iconSrc: string
-  /** Asset is already #195EBC; keep that color in both active and inactive states */
-  iconAlwaysBrandBlue?: true
-}
+const basePath = '/dashboard/admin'
 
 /** All sidebar icons render at 24×24 CSS pixels */
 const ICON_24 = 'w-[24px] h-[24px] max-w-[24px] max-h-[24px] object-contain shrink-0'
@@ -36,24 +29,17 @@ const LOGO_HEADER = 'w-[45px] h-[40px] max-w-[45px] max-h-[40px] object-contain 
 const ICON_ACTIVE_FILTER_CSS =
   'brightness(0) saturate(100%) invert(31%) sepia(98%) saturate(2618%) hue-rotate(200deg) brightness(97%) contrast(96%)'
 
-const NAV_ITEMS: NavItem[] = [
+const NAV_ITEMS: AdminNavItem[] = [
   { to: `${basePath}/overview`, label: 'Dashboard', iconSrc: squaresFourIcon, iconAlwaysBrandBlue: true },
   { to: `${basePath}/receivables`, label: 'Receivables', iconSrc: adminSidebarDocument },
   { to: `${basePath}/merchants`, label: 'Merchants', iconSrc: userIcon },
   { to: `${basePath}/investors`, label: 'Investors', iconSrc: coinIcon },
   { to: `${basePath}/loan-monitoring`, label: 'Loan Monitoring', iconSrc: adminSidebarMoney },
   { to: `${basePath}/transactions`, label: 'Transactions', iconSrc: adminIconTransactions },
-  { to: `${basePath}/settlements`, label: 'Settlements', iconSrc: adminIconSettlements },
   { to: `${basePath}/support`, label: 'Support & Disputes', iconSrc: adminIconSupport },
   { to: `${basePath}/alerts`, label: 'Alerts', iconSrc: adminIconAlerts },
   { to: `${basePath}/settings`, label: 'Settings', iconSrc: adminIconSettings },
 ]
-
-interface AdminSideNavProps {
-  expanded: boolean
-  onToggleExpanded: () => void
-  onRequestClose?: () => void
-}
 
 const AdminSideNav = ({ expanded, onToggleExpanded, onRequestClose }: AdminSideNavProps) => {
   const showLabels = expanded

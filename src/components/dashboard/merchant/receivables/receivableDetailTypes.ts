@@ -12,6 +12,8 @@ export type ReceivableLifecycleStep = {
 
 export type ReceivableDetailView = {
   row: ReceivableTableRow
+  /** Linked merchant profile id for admin navigation. */
+  merchantId: string
   stage: ReceivableStage
   subtitle: string
   heroMetrics: { id: string; title: string; primaryValue: string; secondaryValue: string; icon: 'money' | 'dollar' }[]

@@ -1,5 +1,22 @@
 import { useMemo, useState, type ReactNode } from 'react'
 
+import {
+  AdminPageFrame,
+  AdminPanel,
+  AdminSearchField,
+  AdminSegmentedTabs,
+  AdminStatCard,
+  AdminStatGrid,
+  AdminTableHeadRow,
+  AdminTableShell,
+  AdminToolbarRow,
+  adminZebraRowClass,
+  type AdminTabItem,
+} from '@/components/admin/primitives'
+import AdminTransactionDetailsModal, {
+  type AdminTransactionDetail,
+} from '@/components/admin/transactions/AdminTransactionDetailsModal'
+
 type TxStatus = 'Pending' | 'Under Review' | 'Approved' | 'Rejected'
 
 type TxType = 'Deposit' | 'Disbursement' | 'Repayment' | 'Fee' | 'Withdrawal'
@@ -13,6 +30,7 @@ type TxRow = {
   amount: string
   date: string
   status: TxStatus
+  modal: AdminTransactionDetail
 }
 
 const SUMMARY = [
@@ -25,6 +43,10 @@ const SUMMARY = [
 
 const TABS = ['All', 'Pending', 'Under Review', 'Approved', 'Rejected'] as const
 type TabKey = (typeof TABS)[number]
+
+const TAB_ITEMS: AdminTabItem<TabKey>[] = TABS.map((t) => ({ value: t, label: t }))
+
+const TX_TABLE_HEADERS = ['Transaction ID', 'Type', 'Detail', 'Amount', 'Date', 'Action'] as const
 
 function DetailLine({ children }: { children: ReactNode }) {
   return <p className="text-[14px] text-[#0B1220] leading-snug max-w-[420px]">{children}</p>
@@ -45,9 +67,25 @@ const ROWS: TxRow[] = [
     amount: '$24,000',
     date: '18-03-2026',
     status: 'Approved',
+    modal: {
+      summaryLabel: 'Deposit Confirmed',
+      amountDisplay: '+$24,000',
+      flow: 'in',
+      partyLabel: 'Investor Name',
+      partyName: 'Elena Vasquez',
+      transactionId: 'TX-123456789',
+      dateTime: '18/03/26 • 14:22PM',
+      transactionType: 'Deposit',
+      status: 'Approved',
+      transactionAmount: '$24,000',
+      feesDeducted: '$0',
+      netReceived: '$24,000',
+      walletAddress: '0x7a3B...3A4B',
+      network: 'Arbitrum',
+    },
   },
   {
-    id: 'Slippers Bulk Order',
+    id: 'DISB-88421',
     type: 'Disbursement',
     detail: (
       <DetailLine>
@@ -58,9 +96,25 @@ const ROWS: TxRow[] = [
     amount: '$24,000',
     date: '18-03-2026',
     status: 'Approved',
+    modal: {
+      summaryLabel: 'Disbursement Sent',
+      amountDisplay: '$24,000',
+      flow: 'neutral',
+      partyLabel: 'Fund Name',
+      partyName: 'Titan Growth Fund',
+      transactionId: 'DISB-88421',
+      dateTime: '18/03/26 • 09:05AM',
+      transactionType: 'Disbursement',
+      status: 'Approved',
+      transactionAmount: '$24,000',
+      feesDeducted: '$120',
+      netReceived: '$23,880',
+      walletAddress: '0x4C2E...91B0',
+      network: 'Arbitrum',
+    },
   },
   {
-    id: 'Slippers Bulk Order',
+    id: 'REP-77219',
     type: 'Repayment',
     detail: (
       <DetailLine>
@@ -72,9 +126,25 @@ const ROWS: TxRow[] = [
     amount: '$24,000',
     date: '18-03-2026',
     status: 'Under Review',
+    modal: {
+      summaryLabel: 'Repayment Received',
+      amountDisplay: '+$24,000',
+      flow: 'in',
+      partyLabel: 'Merchant Name',
+      partyName: 'Ajala Harris',
+      transactionId: 'REP-77219',
+      dateTime: '18/03/26 • 11:40AM',
+      transactionType: 'Repayment',
+      status: 'Under Review',
+      transactionAmount: '$24,000',
+      feesDeducted: '$0',
+      netReceived: '$24,000',
+      walletAddress: '0x9F1A...62D4',
+      network: 'Arbitrum',
+    },
   },
   {
-    id: 'Slippers Bulk Order',
+    id: 'FEE-11002',
     type: 'Fee',
     detail: (
       <DetailLine>
@@ -82,23 +152,55 @@ const ROWS: TxRow[] = [
       </DetailLine>
     ),
     searchText: 'maintenance fee 1300 treasury',
-    amount: '$24,000',
+    amount: '$1,300',
     date: '18-03-2026',
     status: 'Approved',
+    modal: {
+      summaryLabel: 'Fee Processed',
+      amountDisplay: '-$1,300',
+      flow: 'out',
+      partyLabel: 'Account',
+      partyName: 'Fist Commerce Treasury',
+      transactionId: 'FEE-11002',
+      dateTime: '17/03/26 • 08:00AM',
+      transactionType: 'Fee',
+      status: 'Approved',
+      transactionAmount: '$1,300',
+      feesDeducted: '$0',
+      netReceived: '$1,300',
+      walletAddress: '0xTreasury...FC01',
+      network: 'Arbitrum',
+    },
   },
   {
-    id: 'Slippers Bulk Order',
+    id: '9I8U7Y6TRF',
     type: 'Withdrawal',
     detail: (
       <DetailLine>
-        Investor <span className={HIGHLIGHT}>0x7a3B...3A4B</span> has withdrawn <span className={HIGHLIGHT}>$40,000</span>{' '}
+        Investor <span className={HIGHLIGHT}>0x7A3F...92C1</span> has withdrawn <span className={HIGHLIGHT}>$10,000</span>{' '}
         from the platform.
       </DetailLine>
     ),
-    searchText: 'investor 0x7a3b withdrawn 40000 withdrawal',
-    amount: '$24,000',
+    searchText: 'investor 0x7a3f withdrawn 10000 withdrawal',
+    amount: '$10,000',
     date: '18-03-2026',
     status: 'Pending',
+    modal: {
+      summaryLabel: 'Withdrawal Initiated',
+      amountDisplay: '-$10,000',
+      flow: 'out',
+      partyLabel: 'Investor Name',
+      partyName: 'Tony Montana',
+      transactionId: '9I8U7Y6TRF',
+      dateTime: '10/06/25 • 20:18PM',
+      transactionType: 'Withdrawal',
+      status: 'Pending',
+      transactionAmount: '$10,000',
+      feesDeducted: '$240',
+      netReceived: '$9,760',
+      walletAddress: '0x7A3F...92C1',
+      network: 'Arbitrum',
+    },
   },
 ]
 
@@ -179,6 +281,7 @@ function TxTypeBadge({ type }: { type: TxType }) {
 const AdminTransactionsPage = () => {
   const [tab, setTab] = useState<TabKey>('All')
   const [query, setQuery] = useState('')
+  const [selectedDetail, setSelectedDetail] = useState<AdminTransactionDetail | null>(null)
 
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -191,100 +294,62 @@ const AdminTransactionsPage = () => {
   }, [query, tab])
 
   return (
-    <div className="w-full max-w-[1280px] mx-auto pb-10 flex flex-col gap-6">
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+    <AdminPageFrame>
+      <AdminStatGrid columnsClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {SUMMARY.map((c) => (
-          <article key={c.title} className="rounded-[10px] border border-[#E6E8EC] bg-white px-5 py-4 shadow-sm">
-            <p className="text-[#6B7488] text-[14px] font-medium leading-tight">{c.title}</p>
-            <p className="text-[#0B1220] text-[24px] font-semibold leading-tight mt-3">{c.value}</p>
-          </article>
+          <AdminStatCard key={c.title} title={c.title} value={c.value} titleTone="muted" />
         ))}
-      </section>
+      </AdminStatGrid>
 
-      <section className="rounded-[10px] border border-[#E6E8EC] bg-white shadow-sm overflow-hidden">
-        <div className="px-5 py-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            {TABS.map((t) => {
-              const active = t === tab
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTab(t)}
-                  className={[
-                    'h-[40px] px-5 rounded-[6px] text-[14px] font-medium border transition-colors',
-                    active
-                      ? 'bg-[#195EBC] text-white border-[#195EBC]'
-                      : 'bg-white text-[#6B7488] border-[#E6E8EC] hover:bg-[#F9FAFB]',
-                  ].join(' ')}
-                >
-                  {t}
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="w-full lg:w-[300px] h-[44px] rounded-[6px] border border-[#E6E8EC] bg-white px-3 flex items-center gap-2">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#6B7488"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-            <input
+      <AdminPanel>
+        <AdminToolbarRow
+          start={<AdminSegmentedTabs items={TAB_ITEMS} value={tab} onChange={setTab} />}
+          end={
+            <AdminSearchField
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={setQuery}
               placeholder="Search for a transaction"
-              className="w-full min-w-0 bg-transparent outline-none text-[#4D5D80] text-[14px] placeholder:text-[#B0B7C4]"
               aria-label="Search for a transaction"
             />
-          </div>
-        </div>
+          }
+        />
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px]">
-            <thead>
-              <tr className="bg-[#195EBC]">
-                {['Transaction ID', 'Type', 'Detail', 'Amount', 'Date', 'Action'].map((h) => (
-                  <th key={h} className="text-left text-white text-[14px] font-medium px-5 py-4">
-                    {h}
-                  </th>
-                ))}
+        <AdminTableShell minWidthClassName="min-w-[1000px]">
+          <AdminTableHeadRow labels={TX_TABLE_HEADERS} />
+          <tbody className="bg-white">
+            {filteredRows.map((r, idx) => (
+              <tr
+                key={`${r.id}-${r.type}-${idx}`}
+                className={[adminZebraRowClass(idx), 'cursor-pointer hover:bg-[#E8EFF8]/80 transition-colors'].join(' ')}
+                onClick={() => setSelectedDetail(r.modal)}
+              >
+                <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium align-top">{r.id}</td>
+                <td className="px-5 py-5 align-top">
+                  <TxTypeBadge type={r.type} />
+                </td>
+                <td className="px-5 py-5 align-top">{r.detail}</td>
+                <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium align-top">{r.amount}</td>
+                <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium align-top">{r.date}</td>
+                <td className="px-5 py-5 align-top">
+                  <button
+                    type="button"
+                    className="text-[#195EBC] text-[14px] underline underline-offset-2"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedDetail(r.modal)
+                    }}
+                  >
+                    View Details
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white">
-              {filteredRows.map((r, idx) => {
-                const rowBg = idx % 2 === 1 ? 'bg-[#F3F7FC]' : 'bg-white'
-                return (
-                  <tr key={`${r.id}-${r.type}-${idx}`} className={rowBg}>
-                    <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium align-top">{r.id}</td>
-                    <td className="px-5 py-5 align-top">
-                      <TxTypeBadge type={r.type} />
-                    </td>
-                    <td className="px-5 py-5 align-top">{r.detail}</td>
-                    <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium align-top">{r.amount}</td>
-                    <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium align-top">{r.date}</td>
-                    <td className="px-5 py-5 align-top">
-                      <button type="button" className="text-[#195EBC] text-[14px] underline underline-offset-2">
-                        View Details
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
+            ))}
+          </tbody>
+        </AdminTableShell>
+      </AdminPanel>
+
+      <AdminTransactionDetailsModal detail={selectedDetail} onClose={() => setSelectedDetail(null)} />
+    </AdminPageFrame>
   )
 }
 

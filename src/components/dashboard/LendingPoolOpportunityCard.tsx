@@ -3,16 +3,17 @@ import { Link } from 'react-router-dom'
 import investorPoolImage from '@/assets/investor_pool.png'
 import arrowIcon from '@/assets/arrow.png'
 
-interface LendingPoolOpportunityCardProps {
-  /** Merchant: navigate to loan detail route when set */
-  viewDetailsTo?: string
-  poolTitle?: string
-}
+import type { LendingPoolOpportunityCardProps } from '@/components/dashboard/shared/types'
 
 /** Shared pool card used by investor and merchant lending pool sections. */
 const LendingPoolOpportunityCard = ({
   viewDetailsTo,
   poolTitle = 'Fist Commerce Lending Pool',
+  tagline = 'For short-duration loans with stable returns.',
+  apyDisplay = '6-8% APY',
+  tvlDisplay = '538,500 USDC',
+  minDepositDisplay = '100 USDC',
+  utilizationDisplay = '60% Allocated',
 }: LendingPoolOpportunityCardProps) => {
   const detailsLinkLabel = (
     <span className="hidden lg:inline text-[#195EBC] underline text-[20px] whitespace-nowrap pt-1">
@@ -44,26 +45,24 @@ const LendingPoolOpportunityCard = ({
           </span>
         </div>
 
-        <p className="text-[#3A4356] text-[12px] sm:text-[14px] lg:text-[20px] mt-1 lg:mt-2">
-          For short-duration loans with stable returns.
-        </p>
+        <p className="text-[#3A4356] text-[12px] sm:text-[14px] lg:text-[20px] mt-1 lg:mt-2">{tagline}</p>
 
         <div className="mt-2 lg:mt-3 space-y-1 lg:space-y-2 text-[12px] sm:text-[14px] lg:text-[20px]">
           <div className="flex items-center gap-2">
             <span className="text-[#ACACAC] font-normal">APY:</span>
-            <span className="text-[#0B1220] font-medium">6-8% APY</span>
+            <span className="text-[#0B1220] font-medium">{apyDisplay}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[#ACACAC] font-normal">TVL:</span>
-            <span className="text-[#0B1220] font-medium">538,500 USDC</span>
+            <span className="text-[#0B1220] font-medium">{tvlDisplay}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[#ACACAC] font-normal">Minimum Deposit:</span>
-            <span className="text-[#0B1220] font-medium">100 USDC</span>
+            <span className="text-[#0B1220] font-medium">{minDepositDisplay}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[#ACACAC] font-normal">Utilization:</span>
-            <span className="text-[#0B1220] font-medium">60% Allocated</span>
+            <span className="text-[#0B1220] font-medium">{utilizationDisplay}</span>
           </div>
         </div>
       </div>

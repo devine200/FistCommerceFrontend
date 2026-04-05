@@ -1,6 +1,8 @@
+import type { ReactNode } from 'react'
 import { useConnect, useConnection, useConnectors, useDisconnect } from 'wagmi'
 import { Navigate, Outlet, RouterProvider, createBrowserRouter } from 'react-router-dom'
-import { getSession } from '@/state/session'
+
+import { useAppSelector } from '@/store/hooks'
 import OnboardingPage from '@/pages/OnboardingPage'
 import OnboardingCompleted, { OnboardingCompletedVariant } from '@/pages/OnboardingCompleted'
 import MerchantLayout from '@/layouts/MerchantOnboardingLayout'
@@ -37,6 +39,7 @@ import AdminPlatformOverviewPage from '@/pages/AdminPlatformOverviewPage'
 import AdminReceivablesManagementPage from '@/pages/AdminReceivablesManagementPage'
 import AdminReceivableDetailPage from '@/pages/AdminReceivableDetailPage'
 import AdminReceivableApprovedPage from '@/pages/AdminReceivableApprovedPage'
+import AdminMerchantProfilePage from '@/pages/AdminMerchantProfilePage'
 import AdminMerchantsManagementPage from '@/pages/AdminMerchantsManagementPage'
 import AdminInvestorsManagementPage from '@/pages/AdminInvestorsManagementPage'
 import AdminLoanMonitoringPage from '@/pages/AdminLoanMonitoringPage'
@@ -44,6 +47,10 @@ import AdminSectionPlaceholderPage from '@/pages/AdminSectionPlaceholderPage'
 import AdminTransactionsPage from '@/pages/AdminTransactionsPage'
 import AdminSettingsPage from '@/pages/AdminSettingsPage'
 import AdminAlertsPage from '@/pages/AdminAlertsPage'
+import AdminInvestorActivityDetailPage from '@/pages/AdminInvestorActivityDetailPage'
+import AdminInvestorProfilePage from '@/pages/AdminInvestorProfilePage'
+import AdminLoginPage from '@/pages/AdminLoginPage'
+import LandingPage from '@/pages/LandingPage'
 
 const DefaultWagmiPage = () => {
   const connection = useConnection()
@@ -90,14 +97,14 @@ const DefaultWagmiPage = () => {
 }
 
 const RootRedirect = () => {
-  const s = getSession()
-  if (!s.onboarded) return <Navigate to="/onboarding" replace />
-  return <Navigate to={`/dashboard/${s.role}/overview`} replace />
+  const { onboarded, role } = useAppSelector((s) => s.auth)
+  if (!onboarded) return <Navigate to="/onboarding" replace />
+  return <Navigate to={`/dashboard/${role}/overview`} replace />
 }
 
-const RequireOnboarded = ({ children }: { children: React.ReactNode }) => {
-  const s = getSession()
-  if (!s.onboarded) return <Navigate to={`/onboarding/${s.role}/choose-role`} replace />
+const RequireOnboarded = ({ children }: { children: ReactNode }) => {
+  const { onboarded, role } = useAppSelector((s) => s.auth)
+  if (!onboarded) return <Navigate to={`/onboarding/${role}/choose-role`} replace />
   return <>{children}</>
 }
 
@@ -110,11 +117,19 @@ const RequireOnboardedOutlet = () => (
 const router = createBrowserRouter([
   {
     path: '/',
+    element: <LandingPage />,
+  },
+  {
+    path: '/continue',
     element: <RootRedirect />,
   },
   {
     path: '/wagmi-debug',
     element: <DefaultWagmiPage />,
+  },
+  {
+    path: '/admin/login',
+    element: <AdminLoginPage />,
   },
   {
     path: '/onboarding',
@@ -213,6 +228,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'investor',
+        element: <Outlet />,
         children: [
           {
             index: true,
@@ -270,74 +286,96 @@ const router = createBrowserRouter([
           },
           {
             path: '*',
-            element: <Navigate to="overview" replace />,
+            element: <Navigate to="/dashboard/investor/overview" replace />,
           },
         ],
       },
       {
         path: 'admin',
-        element: <AdminDashboardLayout />,
+        element: <Outlet />,
         children: [
           {
-            index: true,
-            element: <Navigate to="overview" replace />,
+            path: 'login',
+            element: <AdminLoginPage />,
           },
           {
-            path: 'overview',
-            element: <AdminPlatformOverviewPage />,
-          },
-          {
-            path: 'receivables',
-            element: <AdminReceivablesManagementPage />,
-          },
-          {
-            path: 'receivables/:receivableId',
-            element: <AdminReceivableDetailPage />,
-          },
-          {
-            path: 'receivables/:receivableId/approved',
-            element: <AdminReceivableApprovedPage />,
-          },
-          {
-            path: 'merchants',
-            element: <AdminMerchantsManagementPage />,
-          },
-          {
-            path: 'investors',
-            element: <AdminInvestorsManagementPage />,
-          },
-          {
-            path: 'loan-monitoring',
-            element: <AdminLoanMonitoringPage />,
-          },
-          {
-            path: 'transactions',
-            element: <AdminTransactionsPage />,
-          },
-          {
-            path: 'settlements',
-            element: <AdminSectionPlaceholderPage title="Settlements" />,
-          },
-          {
-            path: 'support',
-            element: <AdminSectionPlaceholderPage title="Support & Disputes" />,
-          },
-          {
-            path: 'alerts',
-            element: <AdminAlertsPage />,
-          },
-          {
-            path: 'settings',
-            element: <AdminSettingsPage />,
-          },
-          {
-            path: '*',
-            element: <Navigate to="overview" replace />,
+            element: <AdminDashboardLayout />,
+            children: [
+              {
+                index: true,
+                element: <Navigate to="overview" replace />,
+              },
+              {
+                path: 'overview',
+                element: <AdminPlatformOverviewPage />,
+              },
+              {
+                path: 'receivables',
+                element: <AdminReceivablesManagementPage />,
+              },
+              {
+                path: 'receivables/:receivableId',
+                element: <AdminReceivableDetailPage />,
+              },
+              {
+                path: 'receivables/:receivableId/approved',
+                element: <AdminReceivableApprovedPage />,
+              },
+              {
+                path: 'merchants/:merchantId',
+                element: <AdminMerchantProfilePage />,
+              },
+              {
+                path: 'merchants',
+                element: <AdminMerchantsManagementPage />,
+              },
+              {
+                path: 'investors/:investorId/activity/:activityId',
+                element: <AdminInvestorActivityDetailPage />,
+              },
+              {
+                path: 'investors/:investorId',
+                element: <AdminInvestorProfilePage />,
+              },
+              {
+                path: 'investors',
+                element: <AdminInvestorsManagementPage />,
+              },
+              {
+                path: 'loan-monitoring',
+                element: <AdminLoanMonitoringPage />,
+              },
+              {
+                path: 'transactions',
+                element: <AdminTransactionsPage />,
+              },
+              {
+                path: 'settlements',
+                element: <AdminSectionPlaceholderPage title="Settlements" />,
+              },
+              {
+                path: 'support',
+                element: <AdminSectionPlaceholderPage title="Support & Disputes" />,
+              },
+              {
+                path: 'alerts',
+                element: <AdminAlertsPage />,
+              },
+              {
+                path: 'settings',
+                element: <AdminSettingsPage />,
+              },
+              {
+                path: '*',
+                element: <Navigate to="/dashboard/admin/overview" replace />,
+              },
+            ],
           },
         ],
       },
       {
         path: 'merchant',
+        element: <Outlet />,
         children: [
           {
             index: true,
@@ -407,7 +445,7 @@ const router = createBrowserRouter([
           },
           {
             path: '*',
-            element: <Navigate to="overview" replace />,
+            element: <Navigate to="/dashboard/merchant/overview" replace />,
           },
         ],
       },

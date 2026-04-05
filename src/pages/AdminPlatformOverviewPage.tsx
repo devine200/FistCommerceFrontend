@@ -1,38 +1,16 @@
-import adminIconDollar1 from '@/assets/admin-icon-dollar-1.png'
-import adminIconDollar2 from '@/assets/admin-icon-dollar-2.png'
-import adminIconCoin from '@/assets/admin-icon-coin.png'
-import moneyIcon from '@/assets/Money.png'
 import primeChevronRight from '@/assets/prime_chevron-right.png'
-import adminActivityRepayment from '@/assets/admin-activity-repayment.png'
-import adminActivityDisbursement from '@/assets/admin-activity-disbursement.png'
-import adminActivityReceivable from '@/assets/admin-activity-receivable.png'
-import adminActivityUser from '@/assets/admin-activity-user.png'
 import AdminOverviewCharts from '@/components/admin/AdminOverviewCharts'
-
-/** Each row: dollar → coins → dollar → banknote (matches platform overview mock). */
-const METRIC_CARDS: Array<{
-  title: string
-  value: string
-  trend: string
-  iconSrc: string
-  iconClass?: string
-}> = [
-  { title: 'Total Value Locked', value: '$48.2M', trend: '+12.4%', iconSrc: adminIconDollar1 },
-  { title: 'Total Active Loans', value: '343', trend: '+12.4%', iconSrc: adminIconCoin },
-  { title: 'Total Investors', value: '1,543', trend: '+12.4%', iconSrc: adminIconDollar2 },
-  { title: 'Total Merchants', value: '126', trend: '+12.4%', iconSrc: moneyIcon },
-  { title: 'Capital Deployed', value: '$48.2M', trend: '+12.4%', iconSrc: adminIconDollar1 },
-  { title: 'Repayments Collected', value: '343', trend: '+12.4%', iconSrc: adminIconCoin },
-  { title: 'Default Rate', value: '1,543', trend: '+12.4%', iconSrc: adminIconDollar2 },
-  { title: 'Platform Revenue', value: '126', trend: '+12.4%', iconSrc: moneyIcon },
-]
+import AdminPageFrame from '@/components/admin/primitives/AdminPageFrame'
+import AdminPanel from '@/components/admin/primitives/AdminPanel'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { refreshAdminDashboard, type AdminMetricCard } from '@/store/slices/adminDashboardSlice'
 
 /** Narrow screens: 2×4 grid reading order (left then right per row) — matches mobile admin spec */
 const METRIC_MOBILE_ORDER = [1, 0, 2, 3, 4, 5, 6, 7] as const
 
-type MetricCard = (typeof METRIC_CARDS)[number]
+const ACTIVITY_ICON_24 = 'w-6 h-6 object-contain'
 
-function MetricBlock({ card }: { card: MetricCard }) {
+function MetricBlock({ card }: { card: AdminMetricCard }) {
   return (
     <div className="flex flex-col gap-3 min-w-0">
       <div className="flex items-center gap-3 min-w-0">
@@ -56,67 +34,43 @@ function MetricBlock({ card }: { card: MetricCard }) {
   )
 }
 
-const ACTIVITY_ICON_24 = 'w-6 h-6 object-contain'
-
-const ACTIVITIES: Array<{
-  title: string
-  subtitle: string
-  date: string
-  iconSrc: string
-  iconBgClass: string
-}> = [
-  {
-    title: 'Loan Repaid',
-    subtitle: '$5,500',
-    date: 'Mar 8, 2026',
-    iconSrc: adminActivityRepayment,
-    iconBgClass: 'bg-[#F3F7FC]',
-  },
-  {
-    title: 'Loan Disbursed',
-    subtitle: '$5,000',
-    date: 'Mar 8, 2026',
-    iconSrc: adminActivityDisbursement,
-    iconBgClass: 'bg-[#E7F6EC]',
-  },
-  {
-    title: 'Receivable Verified',
-    subtitle: 'Slippers Bulk Order',
-    date: 'Mar 8, 2026',
-    iconSrc: adminActivityReceivable,
-    iconBgClass: 'bg-[#FFF0E5]',
-  },
-  {
-    title: 'New Investor Approved',
-    subtitle: 'Jonah Will',
-    date: 'Mar 8, 2026',
-    iconSrc: adminActivityUser,
-    iconBgClass: 'bg-[#F3F7FC]',
-  },
-  {
-    title: 'New Merchant Approved',
-    subtitle: 'TechFlow Solutions',
-    date: 'Mar 8, 2026',
-    iconSrc: adminActivityUser,
-    iconBgClass: 'bg-[#F3F7FC]',
-  },
-]
-
 const AdminPlatformOverviewPage = () => {
+  const dispatch = useAppDispatch()
+  const { metricCards, activities, status, lastUpdated, error } = useAppSelector((s) => s.adminDashboard)
+
   return (
-    <div className="flex flex-col gap-6 pb-10 w-full max-w-[1280px] mx-auto">
+    <AdminPageFrame>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
+        <p className="text-[#6B7488] text-[13px]">
+          {lastUpdated != null
+            ? `Dashboard data last synced ${new Date(lastUpdated).toLocaleString()}`
+            : 'Dashboard data not synced yet'}
+          {error ? ` — ${error}` : null}
+        </p>
+        <button
+          type="button"
+          disabled={status === 'loading'}
+          onClick={() => {
+            void dispatch(refreshAdminDashboard())
+          }}
+          className="self-start sm:self-auto h-9 px-4 rounded-[6px] bg-[#195EBC] text-white text-[13px] font-medium hover:bg-[#154a9a] transition-colors disabled:opacity-60"
+        >
+          {status === 'loading' ? 'Syncing…' : 'Sync dashboard data'}
+        </button>
+      </div>
+
       <section
         className="xl:hidden rounded-[10px] border border-[#E6E8EC] bg-white p-5 shadow-sm grid grid-cols-2 gap-x-4 gap-y-6"
         aria-label="Platform metrics"
       >
         {METRIC_MOBILE_ORDER.map((index) => {
-          const card = METRIC_CARDS[index]
+          const card = metricCards[index]
           return <MetricBlock key={card.title} card={card} />
         })}
       </section>
 
       <section className="hidden xl:grid grid-cols-4 gap-4" aria-label="Platform metrics">
-        {METRIC_CARDS.map((card) => (
+        {metricCards.map((card) => (
           <article
             key={card.title}
             className="rounded-[10px] border border-[#E6E8EC] bg-white px-5 py-4 shadow-sm"
@@ -128,12 +82,12 @@ const AdminPlatformOverviewPage = () => {
 
       <AdminOverviewCharts />
 
-      <section className="rounded-[10px] border border-[#E6E8EC] bg-white overflow-hidden shadow-sm">
+      <AdminPanel>
         <div className="px-5 py-4 border-b border-[#EDF0F4]">
           <h2 className="text-[#0B1220] font-bold text-[18px]">Recent Activities</h2>
         </div>
         <ul className="divide-y divide-[#EDF0F4]">
-          {ACTIVITIES.map((row) => (
+          {activities.map((row) => (
             <li key={`${row.title}-${row.subtitle}`}>
               <button
                 type="button"
@@ -160,8 +114,8 @@ const AdminPlatformOverviewPage = () => {
             </li>
           ))}
         </ul>
-      </section>
-    </div>
+      </AdminPanel>
+    </AdminPageFrame>
   )
 }
 

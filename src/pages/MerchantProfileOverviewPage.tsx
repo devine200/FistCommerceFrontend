@@ -1,18 +1,22 @@
 import { Outlet, useLocation } from 'react-router-dom'
-import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
+
+import {
+  MERCHANT_PROFILE,
+  MERCHANT_PROFILE_STATS,
+  MERCHANT_PROFILE_TABS,
+} from '@/components/dashboard/merchant/profile/merchantProfileConfig'
 import MerchantProfileOverviewContent from '@/components/dashboard/merchant/profile/MerchantProfileOverviewContent'
+import { buildProfileOverviewBreadcrumbs } from '@/components/dashboard/shared/dashboardBreadcrumbs'
+import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 
 const MerchantProfileOverviewPage = () => {
   const { pathname } = useLocation()
-  const isWallets = pathname.endsWith('/wallets')
-  const isHistory = pathname.endsWith('/history')
-  const activeLabel = isWallets ? 'Wallets' : isHistory ? 'History' : 'Overview'
   const walletDisplay = '0x7A3F...92C1'
 
-  const topBarBreadcrumbs: DashboardBreadcrumbItem[] = [
-    { label: 'Profile', to: '/dashboard/merchant/profile/overview' },
-    { label: activeLabel },
-  ]
+  const topBarBreadcrumbs: DashboardBreadcrumbItem[] = buildProfileOverviewBreadcrumbs(
+    '/dashboard/merchant',
+    pathname,
+  )
 
   return (
     <DashboardLayout
@@ -21,7 +25,12 @@ const MerchantProfileOverviewPage = () => {
       topBarWalletDisplay={walletDisplay}
     >
       <div className="flex flex-col gap-4 pb-8">
-        <MerchantProfileOverviewContent />
+        <MerchantProfileOverviewContent
+          name={MERCHANT_PROFILE.name}
+          email={MERCHANT_PROFILE.email}
+          stats={MERCHANT_PROFILE_STATS}
+          tabs={MERCHANT_PROFILE_TABS}
+        />
         <Outlet />
       </div>
     </DashboardLayout>

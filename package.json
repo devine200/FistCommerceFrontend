@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@fontsource/outfit": "^5.2.8",
+    "@reduxjs/toolkit": "^2.11.2",
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-query": "latest",
     "@types/node": "^25.5.0",
@@ -17,8 +18,10 @@
     "react": "latest",
     "react-dom": "latest",
     "react-is": "^19.2.4",
+    "react-redux": "^9.2.0",
     "react-router-dom": "^7.13.1",
     "recharts": "^3.8.0",
+    "redux-persist": "^6.0.0",
     "serve": "^14.2.6",
     "uuid": "^13.0.0",
     "viem": "latest",

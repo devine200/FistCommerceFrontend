@@ -1,6 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
+import {
+  ADMIN_RECEIVABLE_RETURN_STATE_KEY,
+  resolveAdminReceivableBackTarget,
+  RETURN_TO_QUERY_KEY,
+} from '@/components/admin/adminReceivableReturnNav'
 import type { LifecycleStepVariant } from '@/components/dashboard/merchant/receivables/receivableDetailTypes'
 import { getReceivableDetailById } from '@/components/dashboard/merchant/receivables/receivableDetailConfig'
 import { isReceivableVerified, lifecycleCompletedCount } from '@/types/receivables'
@@ -15,16 +20,24 @@ const lifecycleBarClass = (variant: LifecycleStepVariant): string => {
 
 const AdminReceivableDetailPage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
   const { receivableId } = useParams<{ receivableId: string }>()
   const detail = receivableId ? getReceivableDetailById(receivableId) : null
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState<string>('')
 
+  const backHref = resolveAdminReceivableBackTarget(
+    (location.state as Record<string, unknown> | null)?.[ADMIN_RECEIVABLE_RETURN_STATE_KEY],
+    searchParams.get(RETURN_TO_QUERY_KEY),
+  )
+
   if (!detail || !receivableId) {
     return <Navigate to="/dashboard/admin/receivables" replace />
   }
 
-  const { row, basicInfo, documentName, lifecycle, repaymentRows, maturityBanner } = detail
+  const { row, merchantId, basicInfo, documentName, lifecycle, repaymentRows, maturityBanner } = detail
+  const merchantProfileHref = `/dashboard/admin/merchants/${merchantId}`
   const stage = detail.stage
   const verified = isReceivableVerified(stage)
   const completedCount = lifecycleCompletedCount(stage)
@@ -60,8 +73,8 @@ const AdminReceivableDetailPage = () => {
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => navigate('/dashboard/admin/receivables')}
-          aria-label="Back to receivables"
+          onClick={() => navigate(backHref)}
+          aria-label="Go back"
           className="h-10 w-10 rounded-[8px] flex items-center justify-center text-[#4D5D80] hover:bg-black/5"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -74,14 +87,27 @@ const AdminReceivableDetailPage = () => {
       <section className="rounded-[12px] border border-[#E6E8EC] bg-white p-6 lg:p-8 shadow-sm">
         <h2 className="text-[#0B1220] font-bold text-[18px] mb-6">Basic Information</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
-          {basicInfo.map((field) => (
-            <div key={field.label}>
-              <p className="text-[#4D5D80] text-[14px] font-medium mb-2">{field.label}</p>
-              <div className="rounded-[6px] border border-[#D0D7E3] bg-[#FAFBFC] px-4 py-3 min-h-[48px] flex items-center">
-                <span className="text-[#195EBC] text-[15px] font-medium">{field.value}</span>
+          {basicInfo.map((field) => {
+            const linkToMerchant =
+              field.label === 'Full Name' || field.label === 'Business Name' ? merchantProfileHref : null
+            return (
+              <div key={field.label}>
+                <p className="text-[#4D5D80] text-[14px] font-medium mb-2">{field.label}</p>
+                <div className="rounded-[6px] border border-[#D0D7E3] bg-[#FAFBFC] px-4 py-3 min-h-[48px] flex items-center">
+                  {linkToMerchant ? (
+                    <Link
+                      to={linkToMerchant}
+                      className="text-[#195EBC] text-[15px] font-medium hover:underline underline-offset-2"
+                    >
+                      {field.value}
+                    </Link>
+                  ) : (
+                    <span className="text-[#195EBC] text-[15px] font-medium">{field.value}</span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </section>
 
