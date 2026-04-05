@@ -20,11 +20,11 @@ export function LandingFaqSection({
   return (
     <section
       id={sectionId}
-      className="scroll-mt-24 flex min-h-[900px] flex-col justify-center border-t border-slate-100 py-16 sm:py-20"
+      className="scroll-mt-24 flex min-h-[900px] flex-col justify-center border-t border-slate-100 py-12 sm:py-16 md:py-20"
     >
       <div className="mx-auto w-[90%]">
         <h2 className="text-center text-3xl font-bold text-slate-900 sm:text-4xl lg:text-5xl">{heading}</h2>
-        <div className="mt-12 space-y-4 sm:mt-14">
+        <div className="mt-8 space-y-3 sm:mt-12 sm:space-y-4 md:mt-14">
           {items.map((f, i) => (
             <div key={f.id} className="rounded-2xl border border-slate-200 bg-slate-50/80">
               <button

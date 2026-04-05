@@ -7,7 +7,7 @@ export type LandingHeroProps = {
 
 export function LandingHero({ title, description, ctaLabel, onCtaClick }: LandingHeroProps) {
   return (
-    <section className="relative flex min-h-[900px] flex-col justify-end overflow-hidden bg-[#060d18] pb-16 pt-24 sm:pb-20 sm:pt-28 lg:pb-28 lg:pt-32">
+    <section className="relative flex min-h-[900px] flex-col justify-end overflow-hidden bg-[#060d18] pb-12 pt-20 sm:pb-16 sm:pt-24 md:pb-20 md:pt-28 lg:pb-28 lg:pt-32">
       <div
         className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-[18%]"
         style={{ width: 'min(125vw, 960px)' }}
@@ -23,7 +23,7 @@ export function LandingHero({ title, description, ctaLabel, onCtaClick }: Landin
         />
       </div>
       <div className="relative z-10 mx-auto w-[90%]">
-        <div className="flex flex-col gap-12 lg:flex-row lg:items-end lg:justify-between lg:gap-20 xl:gap-24">
+        <div className="flex flex-col gap-8 sm:gap-10 md:gap-12 lg:flex-row lg:items-end lg:justify-between lg:gap-20 xl:gap-24">
           <h1 className="max-w-2xl text-4xl font-bold leading-[1.12] tracking-tight text-white sm:text-5xl lg:max-w-3xl lg:text-6xl xl:text-7xl">
             {title}
           </h1>

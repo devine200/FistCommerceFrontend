@@ -7,7 +7,7 @@ import type {
 } from '@/components/landing/types'
 
 export const LANDING_STATS: LandingStatItem[] = [
-  { label: 'Receivables Processed', value: '$240k+' },
+  { label: 'Receivables Processed', value: '$17.4M' },
   { label: 'Avg Funding Time', value: '<48 Hours' },
   { label: 'Average Returns', value: '4-12%' },
   { label: 'Verified Transactions', value: '100%' },
@@ -72,7 +72,7 @@ export const LANDING_FAQS: LandingFaqItem[] = [
   },
 ]
 
-export const LANDING_CONTACT_EMAIL = 'hey@fistcommerce@gmail.com'
+export const LANDING_CONTACT_EMAIL = 'info@fistcommerce.com'
 
 export const LANDING_FOOTER_COLUMNS: LandingFooterColumn[] = [
   {

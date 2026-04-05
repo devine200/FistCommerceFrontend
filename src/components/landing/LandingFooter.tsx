@@ -28,9 +28,9 @@ export function LandingFooter({
 }: LandingFooterProps) {
   return (
     <footer className="bg-[#060d18] text-white">
-      <div className="mx-auto w-[90%] py-14 sm:py-16">
+      <div className="mx-auto w-[90%] py-10 sm:py-12 md:py-14 lg:py-16">
         <p className="text-sm font-medium text-sky-300/90">{contactEyebrow}</p>
-        <div className="mt-6 flex flex-col gap-10 lg:flex-row lg:items-start lg:justify-between">
+        <div className="mt-5 flex flex-col gap-8 sm:mt-6 sm:gap-10 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-lg">
             <h2 className="text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">{contactHeading}</h2>
             <p className="mt-6 text-sm text-white/75">{emailLabel}</p>
