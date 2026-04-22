@@ -98,7 +98,7 @@ const MerchantApplyLoanPage = () => {
                 className="mt-2 w-full border border-[#E6E8EC] rounded-[6px] px-4 py-2.5 text-[14px] outline-none focus:border-[#195EBC]"
               >
                 <option value="">Select the duration of your loan</option>
-                <option value="30-60">30-60 days</option>
+                <option value="30-60">30-90 days</option>
                 <option value="60-90">60-90 days</option>
               </select>
             </label>

@@ -1,87 +1,45 @@
 import activityArrowIcon from '@/assets/arrow.png'
 import activityTrendIcon from '@/assets/Vector.png'
+import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
-type HistoryType = 'invest' | 'earn' | 'withdraw'
+import { displayDashboardMetricString, fetchInvestorTransactions, type InvestorTransactionApi } from '@/api/metrics'
+import { blockExplorerTxUrl, getDefaultSepoliaBlockExplorerBase } from '@/api/payout'
+import { useAppSelector } from '@/store/hooks'
 
 type ActivityItem = {
   id: string
-  type: HistoryType
   titlePrefix: string
   poolName: string
   date: string
   amount: string
   positive?: boolean
+  transactionType: 'deposit' | 'withdrawal'
+  explorerHref?: string | null
 }
 
 type ActivityFilter = 'all' | 'deposits' | 'withdrawals'
 
-const ACTIVITY_ITEMS: ActivityItem[] = [
-  {
-    id: 'act-1',
-    type: 'invest',
-    titlePrefix: 'Invested in',
-    poolName: 'Fist Commerce Pool',
-    date: 'Mar 8, 2026',
-    amount: '$5,000',
-  },
-  {
-    id: 'act-2',
-    type: 'earn',
-    titlePrefix: 'Earned from',
-    poolName: 'Fist Commerce Pool',
-    date: 'Mar 5, 2026',
-    amount: '+$340',
-    positive: true,
-  },
-  {
-    id: 'act-3',
-    type: 'invest',
-    titlePrefix: 'Invested in',
-    poolName: 'Fist Commerce Pool',
-    date: 'Feb 20, 2026',
-    amount: '$15,000',
-  },
-  {
-    id: 'act-4',
-    type: 'withdraw',
-    titlePrefix: 'Withdrawal from',
-    poolName: 'Fist Commerce Pool',
-    date: 'Feb 14, 2026',
-    amount: '-$2,500',
-  },
-]
-
-const iconWrapClass = (type: HistoryType) => {
-  if (type === 'earn') return 'bg-[#DCFCE7]'
-  return 'bg-[#DBEAFE]'
-}
-
-const iconClass = (type: HistoryType) => {
-  if (type === 'earn') return ''
-  return '-rotate-45'
-}
-
 const amountClass = (item: ActivityItem) => {
   if (item.positive) return 'text-[#22C55E]'
-  if (item.type === 'withdraw') return 'text-[#F97316]'
   return 'text-[#0B1220]'
 }
 
-const iconForType = (type: HistoryType) => {
-  if (type === 'earn') return activityTrendIcon
-  return activityArrowIcon
-}
+const iconWrapClass = (t: ActivityItem['transactionType']) =>
+  t === 'withdrawal' ? 'bg-[#DCFCE7]' : 'bg-[#DBEAFE]'
+
+const iconClass = (t: ActivityItem['transactionType']) => (t === 'withdrawal' ? '' : '-rotate-45')
+
+const iconForType = (t: ActivityItem['transactionType']) =>
+  t === 'withdrawal' ? activityTrendIcon : activityArrowIcon
 
 const searchableText = (item: ActivityItem) => {
   const amountDigits = item.amount.replace(/\D/g, '')
   const typeKeywords =
-    item.type === 'invest'
+    item.transactionType === 'deposit'
       ? 'deposit deposits invest invested investing'
-      : item.type === 'withdraw'
-        ? 'withdraw withdrawal withdrawing'
-        : 'earn earned earnings'
-  return [item.titlePrefix, item.poolName, item.date, item.amount, amountDigits, item.type, typeKeywords]
+      : 'withdraw withdrawal withdrawing earned earnings'
+  return [item.titlePrefix, item.poolName, item.date, item.amount, amountDigits, item.transactionType, typeKeywords]
     .join(' ')
     .toLowerCase()
 }
@@ -102,14 +60,61 @@ const itemMatchesQuery = (haystack: string, query: string) => {
 const InvestorProfileHistoryTabContent = () => {
   const [filter, setFilter] = useState<ActivityFilter>('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const accessToken = useAppSelector((s) => s.auth.accessToken)
+
+  const txQuery = useQuery({
+    queryKey: ['investor-transactions', accessToken],
+    enabled: Boolean(accessToken?.trim()),
+    staleTime: 15_000,
+    queryFn: async () => await fetchInvestorTransactions(accessToken),
+  })
+
+  const items = useMemo((): ActivityItem[] => {
+    const poolName = 'Fist Commerce Pool'
+    const explorerBase = getDefaultSepoliaBlockExplorerBase()
+    const txs = (txQuery.data ?? []) as InvestorTransactionApi[]
+
+    return txs
+      .map((tx, idx) => {
+        const rawType = String(tx.transaction_type ?? '').trim().toLowerCase()
+        const txType: ActivityItem['transactionType'] =
+          rawType.includes('deposit') ? 'deposit' : rawType.includes('withdraw') ? 'withdrawal' : 'deposit'
+
+        const titlePrefix = txType === 'deposit' ? 'Invested in' : 'Earned from'
+
+        const dt = new Date(tx.timestamp)
+        const date = Number.isNaN(dt.getTime())
+          ? String(tx.timestamp ?? '').trim() || '—'
+          : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+        const baseAmount = displayDashboardMetricString(tx.amount)
+        const positive = txType === 'withdrawal'
+        const amount = positive ? `+${baseAmount}` : baseAmount
+
+        const explorerHref =
+          explorerBase && tx.transaction_hash ? blockExplorerTxUrl(explorerBase, tx.transaction_hash) : null
+
+        return {
+          id: tx.transaction_hash?.trim() || `tx-${idx}`,
+          transactionType: txType,
+          titlePrefix,
+          poolName,
+          date,
+          amount,
+          positive,
+          explorerHref,
+        }
+      })
+      .filter(Boolean)
+  }, [txQuery.data])
 
   const filteredItems = useMemo(() => {
     const byType =
       filter === 'withdrawals'
-        ? ACTIVITY_ITEMS.filter((item) => item.type === 'withdraw')
+        ? items.filter((item) => item.transactionType === 'withdrawal')
         : filter === 'deposits'
-          ? ACTIVITY_ITEMS.filter((item) => item.type === 'invest' || item.type === 'earn')
-          : ACTIVITY_ITEMS
+          ? items.filter((item) => item.transactionType === 'deposit')
+          : items
 
     const normalizedQuery = searchTerm.trim().toLowerCase()
     if (!normalizedQuery) return byType
@@ -164,12 +169,25 @@ const InvestorProfileHistoryTabContent = () => {
       </div>
 
       <div className="mt-4">
+        {txQuery.isPending ? (
+          <div className="border-t border-[#EDF0F4] py-8 text-center text-[#8B92A3] text-[14px]">
+            Loading activities…
+          </div>
+        ) : txQuery.isError ? (
+          <div className="border-t border-[#EDF0F4] py-8 text-center text-[#B91C1C] text-[14px]" role="alert">
+            Could not load activities. Please try again.
+          </div>
+        ) : null}
         {filteredItems.map((item) => (
           <article key={item.id} className="border-t border-[#EDF0F4] first:border-t-0 py-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
-                <div className={`h-10 w-10 rounded-[6px] ${iconWrapClass(item.type)} flex items-center justify-center shrink-0`}>
-                  <img src={iconForType(item.type)} alt="" className={`h-4 w-4 object-contain ${iconClass(item.type)}`} />
+                <div className={`h-10 w-10 rounded-[6px] ${iconWrapClass(item.transactionType)} flex items-center justify-center shrink-0`}>
+                  <img
+                    src={iconForType(item.transactionType)}
+                    alt=""
+                    className={`h-4 w-4 object-contain ${iconClass(item.transactionType)}`}
+                  />
                 </div>
                 <div className="min-w-0">
                   <p className="text-[#0B1220] text-[16px] leading-tight">
@@ -181,12 +199,24 @@ const InvestorProfileHistoryTabContent = () => {
 
               <div className="flex items-center gap-3 shrink-0 pl-3">
                 <p className={`text-[32px] font-medium leading-tight ${amountClass(item)}`}>{item.amount}</p>
-                <img src={activityArrowIcon} alt="" className="h-4 w-4 object-contain -rotate-45 opacity-70" />
+                {item.explorerHref ? (
+                  <a
+                    href={item.explorerHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center"
+                    aria-label="View transaction"
+                  >
+                    <img src={activityArrowIcon} alt="" className="h-4 w-4 object-contain -rotate-45 opacity-70" />
+                  </a>
+                ) : (
+                  <img src={activityArrowIcon} alt="" className="h-4 w-4 object-contain -rotate-45 opacity-70" />
+                )}
               </div>
             </div>
           </article>
         ))}
-        {filteredItems.length === 0 ? (
+        {!txQuery.isPending && !txQuery.isError && filteredItems.length === 0 ? (
           <div className="border-t border-[#EDF0F4] py-8 text-center text-[#8B92A3] text-[14px]">
             No activities found for this receivable.
           </div>

@@ -23,7 +23,7 @@ export const INVESTMENT_POOL: InvestmentPoolInfo = {
 
 export const INVESTMENT_TERMS_LABEL = 'Pool Details & Terms'
 export const INVESTMENT_WARNING =
-  'Funds will be locked for the loan duration (30-60 days). Early withdrawal may incur penalties. Smart contract interactions are irreversible.'
+  'Funds will be locked for the loan duration (30-90 days). Early withdrawal may incur penalties. Smart contract interactions are irreversible.'
 
 const FALLBACK_APY_RATE = 0.064
 
@@ -66,6 +66,7 @@ export function buildInvestmentReviewRows(
   poolName: string,
   poolMetrics: PoolMetrics | null,
   investorMetrics: InvestorMetrics | null,
+  options?: { gasFeeEstimateDisplay?: string },
 ): InvestmentReviewRow[] {
   const apyRate = poolMetrics && Number.isFinite(poolMetrics.apy) ? poolMetrics.apy / 100 : FALLBACK_APY_RATE
   const apyLabel = poolMetrics ? displayPoolApyPercent(poolMetrics.apy) : INVESTMENT_POOL.apy
@@ -85,6 +86,6 @@ export function buildInvestmentReviewRows(
       valueTone: 'positive',
     },
     { label: 'Pool Share', value: poolShareLabel },
-    { label: 'Gas Fee (est.)', value: '$2.34' },
+    { label: 'Gas Fee (est.)', value: options?.gasFeeEstimateDisplay ?? '—' },
   ]
 }

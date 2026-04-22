@@ -120,7 +120,7 @@ const DashboardTopBar = ({
           <Link
             to={profileWalletsHref}
             className="min-h-[40px] px-3 sm:px-4 border border-[#E6E8EC] rounded-[6px] hidden lg:flex items-center gap-3 text-[14px] sm:text-[16px] text-[#4D5D80] shrink-0 bg-white no-underline hover:bg-[#F9FAFB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#195EBC]"
-            aria-label={`Open profile Wallets tab — ${walletDisplay} on Arbitrum One`}
+            aria-label={`Open profile Wallets tab — ${walletDisplay}`}
           >
             <span className="font-medium text-[#1a1a1a] tracking-tight tabular-nums truncate max-w-[120px] sm:max-w-[200px]">
               {walletDisplay}

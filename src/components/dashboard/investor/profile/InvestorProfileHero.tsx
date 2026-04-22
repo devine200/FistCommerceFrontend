@@ -36,8 +36,12 @@ const InvestorProfileHero = ({ name, email }: InvestorProfileHeroProps) => {
       />
 
       <div className="px-8 pb-6 pt-12">
-        <h1 className="ml-[112px] text-[#0B1220] text-[36px] leading-tight font-bold">{name}</h1>
-        <p className="ml-[112px] text-[#7B8395] text-[18px] mt-1">{email}</p>
+        <div className="ml-[112px] flex flex-col gap-1">
+          <h1 className="text-[#0B1220] text-[32px] sm:text-[36px] leading-tight font-bold">{name}</h1>
+          <p className="text-[#7B8395] text-[17px] sm:text-[18px] leading-snug wrap-break-word">
+            {email.trim() ? email : '—'}
+          </p>
+        </div>
       </div>
     </section>
   )

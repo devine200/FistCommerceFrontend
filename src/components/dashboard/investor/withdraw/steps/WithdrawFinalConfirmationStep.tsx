@@ -3,13 +3,18 @@ interface WithdrawFinalConfirmationStepProps {
   amountDisplay: string
   destinationWallet: string
   processingTime: string
-  onConfirm: () => void
+  /** On-chain native gas estimate (e.g. from `estimateContractGas` + fee data). */
+  estimatedNetworkFeeLabel?: string
+  isSubmitting?: boolean
+  onConfirm: () => void | Promise<void>
 }
 
 const WithdrawFinalConfirmationStep = ({
   amountDisplay,
   destinationWallet,
   processingTime,
+  estimatedNetworkFeeLabel,
+  isSubmitting = false,
   onConfirm,
 }: WithdrawFinalConfirmationStepProps) => {
   return (
@@ -31,16 +36,23 @@ const WithdrawFinalConfirmationStep = ({
             <span className="text-[#6B7488] text-[14px]">Expected processing</span>
             <span className="text-[#195EBC] font-semibold text-[14px]">{processingTime}</span>
           </div>
+          {estimatedNetworkFeeLabel ? (
+            <div className="flex items-center justify-between gap-4 py-2 border-t border-[#E6E8EC]">
+              <span className="text-[#6B7488] text-[14px]">Gas fee (est.)</span>
+              <span className="text-[#0B1220] font-semibold text-[14px]">{estimatedNetworkFeeLabel}</span>
+            </div>
+          ) : null}
         </div>
       </section>
 
       <section className="rounded-[10px] border border-[#D9DEE8] bg-white p-4 sm:p-5">
         <button
           type="button"
-          onClick={onConfirm}
-          className="w-full rounded-[6px] bg-[#195EBC] text-white text-[18px] font-medium h-[50px] hover:bg-[#154a9a] transition-colors"
+          onClick={() => void onConfirm()}
+          disabled={isSubmitting}
+          className="w-full rounded-[6px] bg-[#195EBC] text-white text-[18px] font-medium h-[50px] hover:bg-[#154a9a] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Withdraw Funds
+          {isSubmitting ? 'Confirm in wallet…' : 'Withdraw Funds'}
         </button>
       </section>
     </>

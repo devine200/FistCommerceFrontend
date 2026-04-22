@@ -29,6 +29,7 @@ export function buildWithdrawalReviewRows(
   poolName: string,
   poolMetrics: PoolMetrics | null,
   investorMetrics: InvestorMetrics | null,
+  options?: { gasFeeEstimateDisplay?: string },
 ): WithdrawalReviewRow[] {
   const amountText = formatInvestAmountUsd(amount)
   const rows: WithdrawalReviewRow[] = []
@@ -42,10 +43,11 @@ export function buildWithdrawalReviewRows(
 
   rows.push({ label: 'Investment balance', value: getInvestmentBalanceDisplay(investorMetrics) })
 
-  if (investorMetrics?.share_of_pool?.trim()) {
+  const shareOfPoolRaw = investorMetrics?.share_of_pool
+  if (shareOfPoolRaw != null && String(shareOfPoolRaw).trim() !== '') {
     rows.push({
       label: 'Your pool share',
-      value: displayDashboardPercentString(investorMetrics.share_of_pool),
+      value: displayDashboardPercentString(String(shareOfPoolRaw)),
     })
   }
 
@@ -56,6 +58,7 @@ export function buildWithdrawalReviewRows(
     { label: 'Fee', value: 'None' },
     { label: 'Net Amount', value: amountText, valueTone: 'primary' },
     { label: 'Destination', value: destinationWallet },
+    { label: 'Gas Fee (est.)', value: options?.gasFeeEstimateDisplay ?? '—' },
     { label: 'Network', value: 'Arbitrum One' },
   )
 

@@ -5,6 +5,8 @@ interface InvestmentPoolSelectionStepProps {
   amountDisplay: string
   pool: InvestmentPoolInfo
   detailsLabel: string
+  /** Optional on-chain wallet balance hint (Sepolia), e.g. `Wallet Balance: $1,234.56`. */
+  walletTokenBalanceLabel?: string
   onContinue: () => void
 }
 
@@ -12,6 +14,7 @@ const InvestmentPoolSelectionStep = ({
   amountDisplay,
   pool,
   detailsLabel,
+  walletTokenBalanceLabel,
   onContinue,
 }: InvestmentPoolSelectionStepProps) => {
   return (
@@ -21,6 +24,9 @@ const InvestmentPoolSelectionStep = ({
         <p className="text-[#6B7488] text-[14px] mt-1.5">
           Choose which pool to deploy your {amountDisplay} USDC into
         </p>
+        {walletTokenBalanceLabel ? (
+          <p className="text-[#4D5D80] text-[13px] mt-2">{walletTokenBalanceLabel}</p>
+        ) : null}
 
         <button type="button" className="mt-5 w-full rounded-[10px] border border-[#3B82F6] bg-[#F7FAFF] px-6 py-5 text-left">
           <div className="flex items-center gap-4">

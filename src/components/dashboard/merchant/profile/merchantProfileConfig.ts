@@ -53,5 +53,5 @@ export const MERCHANT_PORTFOLIO_METRICS: InvestorPortfolioMetric[] = [
   { label: 'Total Deposited', value: '$340K', helper: '$340 USDT' },
   { label: 'Liquid Asset', value: '$120K', helper: '$340 USDT' },
   { label: 'Borrow APR', value: '5.3%', helper: 'To be repayed' },
-  { label: 'Target Repayment Duration', value: '30-60 Days', helper: '' },
+  { label: 'Target Repayment Duration', value: '30-90 Days', helper: '' },
 ]

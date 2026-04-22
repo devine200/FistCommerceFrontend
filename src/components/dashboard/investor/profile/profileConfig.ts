@@ -1,3 +1,11 @@
+import {
+  displayDashboardMetricString,
+  displayDashboardPercentString,
+  displayPoolApyPercent,
+  displayPoolUtilization,
+  type InvestorMetrics,
+  type PoolMetrics,
+} from '@/api/metrics'
 import type {
   InvestorPortfolioMetric,
   InvestorProfileStat,
@@ -7,40 +15,10 @@ import profileTabIcon from '@/assets/Icon.png'
 import walletTabIcon from '@/assets/Icon (1).png'
 import historyTabIcon from '@/assets/Icon (2).png'
 
-export const INVESTOR_PROFILE = {
-  name: 'Christopher Nolan',
-  email: 'usersasocial@gmail.com',
-}
-
 export const INVESTOR_PROFILE_TABS: InvestorProfileTab[] = [
   { id: 'overview', label: 'Overview', to: 'overview', icon: profileTabIcon },
   { id: 'wallets', label: 'Wallets', to: 'wallets', icon: walletTabIcon },
   { id: 'history', label: 'History', to: 'history', icon: historyTabIcon },
-]
-
-export const INVESTOR_PROFILE_STATS: InvestorProfileStat[] = [
-  {
-    icon: 'money',
-    title: 'Total Invested',
-    subtitle: 'Amount Put in Lending Pool',
-    primaryValue: '$24K',
-    secondaryValue: '$24,000 USDT',
-  },
-  {
-    icon: 'dollar',
-    title: 'Total Earnings',
-    subtitle: 'Interest earned from investments',
-    primaryValue: '$4,520K',
-    secondaryValue: '$4,520 USDT',
-    tone: 'positive',
-  },
-  {
-    icon: 'money',
-    title: 'Member Since',
-    subtitle: 'Date Joined',
-    primaryValue: 'Nov 2025',
-    secondaryValue: '',
-  },
 ]
 
 export const INVESTOR_PORTFOLIO = {
@@ -49,9 +27,90 @@ export const INVESTOR_PORTFOLIO = {
   poolMeta: 'Moderate risk, Moderate returns',
 }
 
-export const INVESTOR_PORTFOLIO_METRICS: InvestorPortfolioMetric[] = [
-  { label: 'Total Deposited', value: '$340K', helper: '$340 USDT' },
-  { label: 'Liquid Asset', value: '$120K', helper: '$340 USDT' },
-  { label: 'Borrow APR', value: '5.3%', helper: 'To be repayed' },
-  { label: 'Target Repayment Duration', value: '30-60 Days', helper: '' },
-]
+/** Coerce investor metric fields (API may send strings or JSON numbers) to a trimmed string. */
+function investorMetricFieldString(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  return String(value).trim()
+}
+
+/** `YYYY-MM-DD` or ISO datetime from API → locale date for profile line. */
+export function formatProfileDobForDisplay(dateOfBirth: string | null | undefined): string {
+  const s = dateOfBirth?.trim()
+  if (!s) return ''
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? `${s}T12:00:00` : s)
+  if (Number.isNaN(d.getTime())) return s
+  return d.toLocaleDateString('en-US', { dateStyle: 'medium' })
+}
+
+/** Stats row under the hero — `GET /api/metrics/investor/` fields: `total_deposited`, `total_interest_earned`, `current_position_value`. */
+export function buildInvestorProfileStatsFromApi(investorMetrics: InvestorMetrics | null): InvestorProfileStat[] {
+  const totalInvested = investorMetrics
+    ? displayDashboardMetricString(investorMetrics.total_deposited)
+    : '—'
+  const totalEarnings = investorMetrics
+    ? displayDashboardMetricString(investorMetrics.total_interest_earned)
+    : '—'
+  const currentPosition = investorMetrics
+    ? displayDashboardMetricString(investorMetrics.current_position_value)
+    : '—'
+
+  return [
+    {
+      icon: 'money',
+      title: 'Total invested',
+      subtitle: 'Total deposited into the pool',
+      primaryValue: totalInvested,
+      secondaryValue: '',
+    },
+    {
+      icon: 'dollar',
+      title: 'Total Earnings',
+      subtitle: 'Interest earned from investments',
+      primaryValue: totalEarnings,
+      secondaryValue: '',
+      tone: 'positive',
+    },
+    {
+      icon: 'money',
+      title: 'Current Position',
+      subtitle: 'Current position value',
+      primaryValue: currentPosition,
+      secondaryValue: '',
+    },
+  ]
+}
+
+/** Overview tab portfolio card — combines investor + pool metrics APIs. */
+export function buildInvestorPortfolioMetricsFromApi(
+  investorMetrics: InvestorMetrics | null,
+  poolMetrics: PoolMetrics | null,
+): InvestorPortfolioMetric[] {
+  const shareRaw = investorMetrics ? investorMetricFieldString(investorMetrics.share_of_pool) : ''
+  const shareHelper =
+    shareRaw && shareRaw !== '—'
+      ? `Pool share ${displayDashboardPercentString(shareRaw)}`
+      : ''
+
+  return [
+    {
+      label: 'Total Deposited',
+      value: investorMetrics ? displayDashboardMetricString(investorMetrics.total_deposited) : '—',
+      helper: '',
+    },
+    {
+      label: 'Current position',
+      value: investorMetrics ? displayDashboardMetricString(investorMetrics.current_position_value) : '—',
+      helper: shareHelper,
+    },
+    {
+      label: 'Pool APY (est.)',
+      value: poolMetrics ? displayPoolApyPercent(poolMetrics.apy) : '—',
+      helper: poolMetrics ? `Pool utilization ${displayPoolUtilization(poolMetrics.utilization)}` : '',
+    },
+    {
+      label: 'Typical loan term',
+      value: '30–90 days',
+      helper: 'Program terms',
+    },
+  ]
+}

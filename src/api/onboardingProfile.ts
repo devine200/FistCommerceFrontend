@@ -12,6 +12,40 @@ import { parseJsonResponse, requireApiBaseUrl } from '@/api/client'
 const INVESTOR_PROFILE_PATH = '/api/auth/investor-profile'
 const MERCHANT_PROFILE_PATH = '/api/auth/merchant-profile'
 
+/** `GET/POST` `/api/auth/investor-profile` — `InvestorProfileInfoSerializer` fields. */
+export type InvestorProfileInfo = {
+  fullname: string
+  email: string
+  phone_number: string
+  country: string
+  /** ISO date `YYYY-MM-DD` */
+  date_of_birth: string
+  /** ISO datetime */
+  created_at: string
+}
+
+function profileStringField(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  return String(value).trim()
+}
+
+/**
+ * Normalize profile JSON so optional / partially-filled serializer rows still match `InvestorProfileInfo`.
+ */
+function normalizeInvestorProfilePayload(raw: unknown): InvestorProfileInfo | null {
+  if (raw === null || raw === undefined) return null
+  const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null
+  if (!o) return null
+  return {
+    fullname: profileStringField(o.fullname),
+    email: profileStringField(o.email),
+    phone_number: profileStringField(o.phone_number),
+    country: profileStringField(o.country),
+    date_of_birth: profileStringField(o.date_of_birth),
+    created_at: profileStringField(o.created_at),
+  }
+}
+
 function tokenAuthHeaders(accessToken: string): HeadersInit {
   return {
     Accept: 'application/json',
@@ -41,6 +75,28 @@ export type MerchantProfileCreateBody = {
   business_year_of_operation: number
   business_industry: string
   business_website?: string
+}
+
+/**
+ * `GET /api/auth/investor-profile` — current investor’s profile row.
+ * Returns `null` when the server responds with 404 (no profile yet).
+ */
+export async function fetchInvestorProfile(
+  accessToken: string | null | undefined,
+): Promise<InvestorProfileInfo | null> {
+  const t = typeof accessToken === 'string' ? accessToken.trim() : ''
+  if (!t) return null
+
+  const base = requireApiBaseUrl()
+  const res = await fetchWithAuthRecovery(`${base}${INVESTOR_PROFILE_PATH}`, {
+    method: 'GET',
+    headers: tokenAuthHeaders(t),
+  })
+
+  
+  if (res.status === 404) return null
+  const raw = await parseJsonResponse<{message: string; data: InvestorProfileInfo }>(res)
+  return normalizeInvestorProfilePayload(raw.data)
 }
 
 export async function postInvestorProfile(

@@ -6,6 +6,8 @@ interface WithdrawAmountStepProps {
   destinationWallet: string
   /** Formatted position value from investor metrics (or fallback). */
   investmentBalanceDisplay: string
+  /** Optional on-chain pool / mock token context (Sepolia). */
+  walletTokenBalanceLabel?: string
   quickAmounts: readonly number[]
   onAmountSelect: (value: number) => void
   onContinue: () => void
@@ -15,6 +17,7 @@ const WithdrawAmountStep = ({
   amount,
   destinationWallet,
   investmentBalanceDisplay,
+  walletTokenBalanceLabel,
   quickAmounts,
   onAmountSelect,
   onContinue,
@@ -52,6 +55,10 @@ const WithdrawAmountStep = ({
             </button>
           ))}
         </div>
+
+        {walletTokenBalanceLabel ? (
+          <p className="text-center text-[#4D5D80] text-[13px] mt-4 max-w-md mx-auto">{walletTokenBalanceLabel}</p>
+        ) : null}
 
         <div className="flex justify-center mt-6 sm:mt-10">
           <div className="flex items-center gap-3">

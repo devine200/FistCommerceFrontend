@@ -18,6 +18,8 @@ export type DashboardErrorModalProps = {
   open: boolean
   title?: string
   message: string
+  /** Label for the primary action button (when `onRetry` is provided). */
+  retryLabel?: string
   primaryLabel?: string
   onClose: () => void
   onRetry?: () => void
@@ -41,6 +43,7 @@ export default function DashboardErrorModal({
   open,
   title,
   message,
+  retryLabel,
   primaryLabel,
   onClose,
   onRetry,
@@ -86,7 +89,7 @@ export default function DashboardErrorModal({
               onClick={onRetry}
               className="min-h-[48px] w-full rounded-xl text-[15px] font-semibold bg-[#1D61C1] text-white shadow-sm hover:bg-[#1955AD] active:scale-[0.99]"
             >
-              Retry
+              {retryLabel?.trim() ? retryLabel : 'Retry'}
             </button>
           ) : null}
           <button

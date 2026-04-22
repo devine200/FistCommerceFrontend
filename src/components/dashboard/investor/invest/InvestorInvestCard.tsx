@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import {
@@ -15,7 +15,10 @@ import InvestmentCompletedStep from '@/components/dashboard/investor/invest/step
 import InvestmentConfirmationStep from '@/components/dashboard/investor/invest/steps/InvestmentConfirmationStep'
 import InvestmentPoolSelectionStep from '@/components/dashboard/investor/invest/steps/InvestmentPoolSelectionStep'
 import { InvestmentStep } from '@/components/dashboard/investor/invest/types'
+import FlowFailureStep from '@/components/dashboard/shared/FlowFailureStep'
+import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useAppSelector } from '@/store/hooks'
+import { formatFlowFailureMessage } from '@/utils/formatFlowFailureMessage'
 
 interface InvestorInvestCardProps {
   walletDisplay?: string
@@ -23,9 +26,16 @@ interface InvestorInvestCardProps {
   onStepChange?: (step: InvestmentStep) => void
 }
 
+type InvestFlowFailure = {
+  message: string
+  returnStep: InvestmentStep
+}
+
 const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInvestCardProps) => {
   const { poolSlug } = useParams<{ poolSlug: string }>()
   const [amount, setAmount] = useState(0)
+  const [flowFailure, setFlowFailure] = useState<InvestFlowFailure | null>(null)
+  const [investSubmitting, setInvestSubmitting] = useState(false)
   const [internalStep, setInternalStep] = useState<InvestmentStep>(InvestmentStep.AmountEntry)
   const currentStep = step ?? internalStep
   const displayAmount = amount
@@ -35,6 +45,11 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
   const lendingPool = useAppSelector((s) => s.investorDashboard.lendingPools)
   const poolMetrics = useAppSelector((s) => s.investorDashboard.poolMetrics)
   const investorMetrics = useAppSelector((s) => s.investorDashboard.investorMetrics)
+
+  const contracts = useTestnetContracts({
+    estimateDepositHumanAmount:
+      currentStep === InvestmentStep.InvestmentConfirmation ? displayAmount : undefined,
+  })
 
   const poolInfo = useMemo(
     () => buildLiveInvestmentPoolInfo(lendingPool.poolTitle, poolMetrics),
@@ -46,8 +61,63 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
     if (step === undefined) setInternalStep(next)
   }
 
+  useEffect(() => {
+    if (currentStep !== InvestmentStep.FlowFailure) setFlowFailure(null)
+  }, [currentStep])
+
+  const openFlowFailure = (source: unknown, returnStep: InvestmentStep) => {
+    setFlowFailure({ message: formatFlowFailureMessage(source), returnStep })
+    setStep(InvestmentStep.FlowFailure)
+  }
+
+  const walletMockTokenLabel = useMemo(() => {
+    if (!contracts.isConnected) return 'Connect your wallet to view wallet balance (Sepolia).'
+    if (!contracts.isCorrectNetwork)
+      return `Switch to ${contracts.testnetChain.name} to see your on-chain wallet balance.`
+    const formatted = contracts.mockTokenBalanceFormatted
+    return formatted === '—' ? 'Wallet Balance: —' : `Wallet Balance: $${formatted}`
+  }, [contracts.isConnected, contracts.isCorrectNetwork, contracts.mockTokenBalanceFormatted, contracts.testnetChain.name])
+
+  const handlePoolContinue = () => {
+    const gate = contracts.canDepositHuman(displayAmount)
+    if (!gate.ok) {
+      openFlowFailure(gate.message ?? 'Cannot continue', InvestmentStep.PoolSelection)
+      return
+    }
+    setStep(InvestmentStep.InvestmentConfirmation)
+  }
+
+  const handleInvestConfirm = async () => {
+    setInvestSubmitting(true)
+    try {
+      await contracts.depositFundingPool(displayAmount)
+      setStep(InvestmentStep.InvestmentCompleted)
+    } catch (e) {
+      openFlowFailure(e, InvestmentStep.InvestmentConfirmation)
+    } finally {
+      setInvestSubmitting(false)
+    }
+  }
+
   const renderInvestmentStep = () => {
     switch (currentStep) {
+      case InvestmentStep.FlowFailure:
+        return (
+          <FlowFailureStep
+            message={flowFailure?.message ?? 'Something went wrong. Please try again.'}
+            onPrimary={() => {
+              const back = flowFailure?.returnStep ?? InvestmentStep.PoolSelection
+              setFlowFailure(null)
+              setStep(back)
+            }}
+            secondaryLabel="Change amount"
+            onSecondary={() => {
+              setFlowFailure(null)
+              setStep(InvestmentStep.AmountEntry)
+            }}
+          />
+        )
+
       case InvestmentStep.InvestmentConfirmation:
         return (
           <InvestmentConfirmationStep
@@ -58,8 +128,10 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
               poolInfo.name,
               poolMetrics,
               investorMetrics,
+              { gasFeeEstimateDisplay: contracts.depositGasFeeLabel },
             )}
-            onInvest={() => setStep(InvestmentStep.InvestmentCompleted)}
+            isSubmitting={investSubmitting || contracts.isWritePending}
+            onInvest={handleInvestConfirm}
           />
         )
 
@@ -80,7 +152,8 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
             amountDisplay={amountDisplay}
             pool={poolInfo}
             detailsLabel={INVESTMENT_TERMS_LABEL}
-            onContinue={() => setStep(InvestmentStep.InvestmentConfirmation)}
+            walletTokenBalanceLabel={walletMockTokenLabel}
+            onContinue={handlePoolContinue}
           />
         )
 

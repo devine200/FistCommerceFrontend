@@ -3,10 +3,11 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { buildProfileOverviewBreadcrumbs } from '@/components/dashboard/shared/dashboardBreadcrumbs'
 import InvestorProfileOverviewContent from '@/components/dashboard/investor/profile/InvestorProfileOverviewContent'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
+import { useAppSelector } from '@/store/hooks'
 
 const InvestorProfileOverviewPage = () => {
   const { pathname } = useLocation()
-  const walletDisplay = '0x7A3F...92C1'
+  const walletDisplay = useAppSelector((s) => s.investorDashboard.walletDisplay)
 
   const topBarBreadcrumbs: DashboardBreadcrumbItem[] = buildProfileOverviewBreadcrumbs(
     '/dashboard/investor',

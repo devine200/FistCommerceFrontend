@@ -3,6 +3,7 @@ export enum WithdrawalStep {
   MethodConfirmation = 'method-confirmation',
   FinalConfirmation = 'final-confirmation',
   WithdrawalCompleted = 'withdrawal-completed',
+  FlowFailure = 'flow-failure',
 }
 
 export type WithdrawalReviewRow = {

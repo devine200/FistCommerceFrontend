@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useConnection } from 'wagmi'
+import { useSwitchChain } from 'wagmi'
+import { sepolia } from 'wagmi/chains'
 
 import { resetUserSession } from '@/session/resetUserSession'
 import { store } from '@/store'
@@ -14,6 +16,23 @@ import { setWalletFromProvider } from '@/store/slices/walletSlice'
 export default function WalletReduxSync() {
   const dispatch = useAppDispatch()
   const { status, address, chainId } = useConnection()
+  const { switchChainAsync } = useSwitchChain()
+
+  const didAutoSwitchRef = useRef(false)
+  useEffect(() => {
+    const connected = status === 'connected'
+    if (!connected || !address) {
+      didAutoSwitchRef.current = false
+      return
+    }
+    if (chainId === sepolia.id) return
+    if (didAutoSwitchRef.current) return
+    didAutoSwitchRef.current = true
+    void switchChainAsync({ chainId: sepolia.id }).catch(() => {
+      // User may reject chain switch; dashboard will show a prompt.
+    })
+  }, [status, address, chainId, switchChainAsync])
+
   useEffect(() => {
     const { onboarded, accessToken } = store.getState().auth
     if (onboarded && !accessToken?.length) {

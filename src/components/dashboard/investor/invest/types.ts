@@ -3,6 +3,7 @@ export enum InvestmentStep {
   PoolSelection = 'pool-selection',
   InvestmentConfirmation = 'investment-confirmation',
   InvestmentCompleted = 'investment-completed',
+  FlowFailure = 'flow-failure',
 }
 
 export type InvestmentPoolInfo = {

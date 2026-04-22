@@ -1,8 +1,9 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useConnection, useDisconnect } from 'wagmi'
 import { arbitrum, mainnet, sepolia } from 'wagmi/chains'
 
 import walletIcon from '@/assets/Icon (1).png'
+import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 
 const CHAIN_LABEL: Record<number, string> = {
   [arbitrum.id]: arbitrum.name,
@@ -26,6 +27,21 @@ const InvestorProfileWalletsTabContent = () => {
   const { status, address, chainId, connector } = useConnection()
   const { disconnectAsync, isPending: disconnectPending } = useDisconnect()
   const [copied, setCopied] = useState(false)
+  const contracts = useTestnetContracts()
+
+  const walletTokenBalanceLabel = useMemo(() => {
+    if (!contracts.isConnected) return 'Connect your wallet to view on-chain mock token balance (Sepolia).'
+    if (!contracts.isCorrectNetwork) {
+      return `Switch to ${contracts.testnetChain.name} to read your mock ERC-20 balance from the contract.`
+    }
+    const formatted = contracts.mockTokenBalanceFormatted
+    return formatted === '—' ? 'Wallet Balance: —' : `Wallet Balance: $${formatted}`
+  }, [
+    contracts.isConnected,
+    contracts.isCorrectNetwork,
+    contracts.mockTokenBalanceFormatted,
+    contracts.testnetChain.name,
+  ])
 
   const connected = status === 'connected' && Boolean(address)
   const chainLabel =
@@ -89,9 +105,11 @@ const InvestorProfileWalletsTabContent = () => {
             </div>
 
             <div className="text-left sm:text-right shrink-0">
-              <p className="text-[#8B92A3] text-[12px]">Balance</p>
+              <p className="text-[#8B92A3] text-[12px]">Balance (on-chain)</p>
               <div className="mt-1 flex flex-col gap-2 sm:items-end">
-                <p className="text-[#0B1220] text-[30px] font-semibold leading-tight">—</p>
+                <p className="text-[#0B1220] text-[22px] sm:text-[26px] font-semibold leading-tight max-w-[min(100%,20rem)] sm:max-w-xs">
+                  {walletTokenBalanceLabel}
+                </p>
                 <button
                   type="button"
                   onClick={() => void handleDisconnect()}

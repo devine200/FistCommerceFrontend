@@ -161,13 +161,74 @@ function authHeaders(accessToken: string | null | undefined): HeadersInit {
   }
 }
 
+function asJsonObject(raw: unknown): Record<string, unknown> {
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+}
+
+/** Prefer first key present with a non-empty string or finite number (DRF snake_case vs camelCase). */
+function pickStringField(r: Record<string, unknown>, ...keys: string[]): string {
+  for (const k of keys) {
+    const v = r[k]
+    if (typeof v === 'string') {
+      const t = v.trim()
+      if (t.length) return t
+    }
+    if (typeof v === 'number' && Number.isFinite(v)) return String(v)
+  }
+  return ''
+}
+
+function pickNumberField(r: Record<string, unknown>, ...keys: string[]): number {
+  for (const k of keys) {
+    const v = r[k]
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (typeof v === 'string' && v.trim()) {
+      const n = Number(v.replace(/,/g, ''))
+      if (Number.isFinite(n)) return n
+    }
+  }
+  return NaN
+}
+
+/**
+ * Coerce `GET /api/metrics/investor/` JSON into `InvestorMetrics`.
+ * Django often returns `net_deposited` while the UI historically used `netDeposited`.
+ */
+function normalizeInvestorMetricsPayload(raw: unknown): InvestorMetrics {
+  const r = asJsonObject(raw)
+  return {
+    total_deposited: pickStringField(r, 'total_deposited', 'totalDeposited'),
+    total_withdrawn: pickStringField(r, 'total_withdrawn', 'totalWithdrawn'),
+    current_position_value: pickStringField(r, 'current_position_value', 'currentPositionValue'),
+    total_interest_earned: pickStringField(r, 'total_interest_earned', 'totalInterestEarned'),
+    share_of_pool: pickStringField(r, 'share_of_pool', 'shareOfPool'),
+    netDeposited: pickStringField(r, 'netDeposited', 'net_deposited'),
+    roi: pickNumberField(r, 'roi'),
+  }
+}
+
+/** Coerce `GET /api/metrics/pool/` JSON into `PoolMetrics` (snake_case aliases). */
+function normalizePoolMetricsPayload(raw: unknown): PoolMetrics {
+  const r = asJsonObject(raw)
+  return {
+    tvl: pickStringField(r, 'tvl'),
+    liquidAssets: pickStringField(r, 'liquidAssets', 'liquid_assets'),
+    outstanding: pickStringField(r, 'outstanding'),
+    availableLiquidity: pickStringField(r, 'availableLiquidity', 'available_liquidity'),
+    utilization: pickNumberField(r, 'utilization'),
+    apy: pickNumberField(r, 'apy'),
+    minDeposit: pickNumberField(r, 'minDeposit', 'min_deposit'),
+  }
+}
+
 export async function fetchPoolMetrics(accessToken: string | null | undefined): Promise<PoolMetrics> {
   const base = apiBaseUrl()
   const res = await fetchWithAuthRecovery(`${base}/api/metrics/pool/`, {
     method: 'GET',
     headers: authHeaders(accessToken),
   })
-  return await parseJsonResponse<PoolMetrics>(res)
+  const raw = await parseJsonResponse<unknown>(res)
+  return normalizePoolMetricsPayload(raw)
 }
 
 export async function fetchInvestorMetrics(accessToken: string | null | undefined): Promise<InvestorMetrics> {
@@ -176,5 +237,36 @@ export async function fetchInvestorMetrics(accessToken: string | null | undefine
     method: 'GET',
     headers: authHeaders(accessToken),
   })
-  return await parseJsonResponse<InvestorMetrics>(res)
+  const raw = await parseJsonResponse<unknown>(res)
+  return normalizeInvestorMetricsPayload(raw)
+}
+
+/** `GET /api/metrics/investor/transactions` */
+export type InvestorTransactionApi = {
+  transaction_type: string
+  /** Human-readable token amount (from wei). */
+  amount: string
+  timestamp: string
+  transaction_hash: string
+}
+
+export type InvestorTransactionsResponse = {
+  transactions: InvestorTransactionApi[]
+}
+
+export const convertTimestampToDate = (timestamp: string): string => {
+  const date = new Date(timestamp)
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+export async function fetchInvestorTransactions(
+  accessToken: string | null | undefined,
+): Promise<InvestorTransactionApi[]> {
+  const base = apiBaseUrl()
+  const res = await fetchWithAuthRecovery(`${base}/api/metrics/investor/transactions`, {
+    method: 'GET',
+    headers: authHeaders(accessToken),
+  })
+  const data = await parseJsonResponse<InvestorTransactionsResponse>(res)
+  return data.transactions ? data.transactions : []
 }

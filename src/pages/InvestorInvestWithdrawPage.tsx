@@ -92,7 +92,14 @@ const InvestorInvestWithdrawPage = () => {
         </div>
 
         <div className="w-full lg:hidden">
-          <div className="w-full rounded-[6px] border border-[#E6E8EC] bg-white overflow-hidden">
+          <div
+            className={`w-full rounded-[6px] border border-[#E6E8EC] bg-white overflow-hidden ${
+              (isWithdrawMode && withdrawStep === WithdrawalStep.FlowFailure) ||
+              (!isWithdrawMode && investStep === InvestmentStep.FlowFailure)
+                ? 'hidden'
+                : ''
+            }`}
+          >
             <div className="grid grid-cols-4">
               {(isWithdrawMode ? WITHDRAW_TABS : INVEST_TABS).map((tab, idx) => {
                 const activeIndex = isWithdrawMode ? withdrawActiveIndex : investActiveIndex
