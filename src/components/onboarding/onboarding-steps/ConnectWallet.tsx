@@ -1,12 +1,17 @@
 import React from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useConnect, useConnection, useConnectors, useDisconnect } from 'wagmi'
+import { useChainId, useConnect, useConnection, useConnectors, useDisconnect, useSignTypedData } from 'wagmi'
 
+import { ApiRequestError, formatApiRequestErrorPlain, getApiBaseUrl } from '@/api/client'
+import { createWalletLoginSignable, postWalletLogin } from '@/api/walletSession'
 import metamaskIcon from '@/assets/metamask.png'
 import zerionIcon from '@/assets/zerion.png'
 import ledgerIcon from '@/assets/ledger.png'
 import phantomIcon from '@/assets/phantom.png'
+import { applyWalletLoginResponse } from '@/session/loginBridge'
+import { unlockAfterConnectWallet } from '@/state/session'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { patchAuth } from '@/store/slices/authSlice'
 import { setInvestorWalletDisplay } from '@/store/slices/investorDashboardSlice'
 import { setMerchantWalletDisplay } from '@/store/slices/merchantDashboardSlice'
 
@@ -14,8 +19,8 @@ type WalletId = 'metamask' | 'zerion' | 'ledger' | 'phantom'
 
 /** Maps onboarding UI rows to wagmi connector `id` values from `src/wagmi.ts`. */
 const WALLET_CONNECTOR_IDS: Record<WalletId, string> = {
-  metamask: 'metaMaskSDK',
-  zerion: 'zerion',
+  metamask: 'metaMask',
+  zerion: 'walletConnect',
   ledger: 'walletConnect',
   phantom: 'phantom',
 }
@@ -23,6 +28,14 @@ const WALLET_CONNECTOR_IDS: Record<WalletId, string> = {
 function truncateAddress(address: string) {
   if (address.length <= 12) return address
   return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
+
+function isWalletSignRejected(e: unknown): boolean {
+  if (!(e instanceof Error)) return false
+  if (e.name === 'UserRejectedRequestError') return true
+  const code = (e as { code?: number }).code
+  if (code === 4001) return true
+  return /user rejected|denied transaction signature|request rejected/i.test(e.message)
 }
 
 interface ConnectWalletProps {
@@ -36,13 +49,18 @@ const ConnectWallet = ({ onContinue }: ConnectWalletProps) => {
   const connectors = useConnectors()
   const { connectAsync, error: connectError, reset: resetConnect } = useConnect()
   const { disconnectAsync } = useDisconnect()
+  const { signTypedDataAsync } = useSignTypedData()
+  const chainId = useChainId()
   const [rowError, setRowError] = React.useState<string | null>(null)
+  const [authInFlight, setAuthInFlight] = React.useState(false)
   const [connectingWalletId, setConnectingWalletId] = React.useState<WalletId | null>(null)
+  /** Zerion and Ledger share the WalletConnect connector; track which row opened the session. */
+  const [walletConnectChoice, setWalletConnectChoice] = React.useState<'zerion' | 'ledger' | null>(null)
 
   const { pathname } = useLocation()
   const navigate = useNavigate()
 
-  const ledgerConfigured = Boolean(import.meta.env.VITE_WALLETCONNECT_PROJECT_ID)
+  const walletConnectConfigured = Boolean(import.meta.env.VITE_WALLETCONNECT_PROJECT_ID)
 
   React.useEffect(() => {
     if (connection.status !== 'connected' || !connection.address) return
@@ -51,26 +69,100 @@ const ConnectWallet = ({ onContinue }: ConnectWalletProps) => {
     else dispatch(setInvestorWalletDisplay(display))
   }, [connection.status, connection.address, dispatch, role])
 
+  React.useEffect(() => {
+    if (connection.status === 'disconnected') setWalletConnectChoice(null)
+  }, [connection.status])
+
   const activeWalletId = React.useMemo((): WalletId | null => {
     if (connection.status !== 'connected' || !connection.connector) return null
     const id = connection.connector.id
+    if (id === 'walletConnect') {
+      return walletConnectChoice === 'zerion' || walletConnectChoice === 'ledger' ? walletConnectChoice : null
+    }
     const entry = (Object.entries(WALLET_CONNECTOR_IDS) as [WalletId, string][]).find(
       ([, connectorId]) => connectorId === id,
     )
     return entry?.[0] ?? null
-  }, [connection.status, connection.connector])
+  }, [connection.status, connection.connector, walletConnectChoice])
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (onContinue) return onContinue()
 
-    if (pathname.startsWith('/onboarding/investor')) {
-      navigate('/onboarding/investor/verify-identity')
+    if (connection.status !== 'connected' || !connection.address) return
+
+    if (!role) {
+      setRowError('Choose investor or merchant on the previous step before signing in.')
       return
     }
 
-    if (pathname.startsWith('/onboarding/merchant')) {
-      navigate('/onboarding/merchant/verify-identity')
+    if (!getApiBaseUrl()) {
+      setRowError(
+        'API base URL is not configured. Set VITE_API_BASE_URL in your .env file (see .env.example) and restart the dev server.',
+      )
       return
+    }
+
+    setRowError(null)
+    setAuthInFlight(true)
+    try {
+      const address = connection.address as `0x${string}`
+      const signable = createWalletLoginSignable(chainId, address)
+      const signature = await signTypedDataAsync({
+        domain: signable.domain,
+        types: signable.types,
+        primaryType: signable.primaryType,
+        message: signable.message,
+        account: address,
+      })
+      const login = await postWalletLogin({
+        signedMessage: signable.signedMessageForApi,
+        signature,
+        signerAddress: address,
+        role,
+      })
+      const returningUser = login.registered || login.onboarded
+      if (returningUser) {
+        applyWalletLoginResponse(
+          dispatch,
+          {
+            access_token: login.accessToken,
+            refresh_token: login.refreshToken,
+            registered: login.registered,
+            onboarded: login.onboarded,
+            kycStatus: login.kycStatus,
+            user: login.user ?? undefined,
+            role: login.roleFromApi ?? undefined,
+          },
+          { fallbackRole: role },
+        )
+        navigate('/continue')
+        return
+      }
+
+      dispatch(patchAuth({ accessToken: login.accessToken, refreshToken: login.refreshToken ?? null }))
+      unlockAfterConnectWallet(role)
+
+      if (pathname.startsWith('/onboarding/investor')) {
+        navigate('/onboarding/investor/verify-identity')
+        return
+      }
+
+      if (pathname.startsWith('/onboarding/merchant')) {
+        navigate('/onboarding/merchant/verify-identity')
+        return
+      }
+    } catch (e) {
+      if (isWalletSignRejected(e)) {
+        setRowError('Signature was cancelled. Please try again when you are ready to sign in.')
+      } else if (e instanceof ApiRequestError) {
+        setRowError(formatApiRequestErrorPlain(e))
+      } else {
+        const message = e instanceof Error ? e.message : 'Could not complete wallet sign-in.'
+        setRowError(message)
+      }
+      console.error(e)
+    } finally {
+      setAuthInFlight(false)
     }
   }
 
@@ -94,9 +186,9 @@ const ConnectWallet = ({ onContinue }: ConnectWalletProps) => {
     setRowError(null)
     resetConnect()
 
-    if (walletId === 'ledger' && !ledgerConfigured) {
+    if ((walletId === 'zerion' || walletId === 'ledger') && !walletConnectConfigured) {
       setRowError(
-        'Ledger and other mobile wallets use WalletConnect. Set VITE_WALLETCONNECT_PROJECT_ID (from https://dashboard.reown.com ) in your environment.',
+        'Zerion and Ledger use WalletConnect. Add VITE_WALLETCONNECT_PROJECT_ID to a .env file in the project root (copy from .env.example), get a free project id at https://dashboard.reown.com , then restart the dev server.',
       )
       return
     }
@@ -113,9 +205,15 @@ const ConnectWallet = ({ onContinue }: ConnectWalletProps) => {
         await disconnectAsync()
       }
       await connectAsync({ connector })
+      if (walletId === 'zerion' || walletId === 'ledger') {
+        setWalletConnectChoice(walletId)
+      } else {
+        setWalletConnectChoice(null)
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Could not connect wallet.'
       setRowError(message)
+      console.error(e)
     } finally {
       setConnectingWalletId(null)
     }
@@ -141,14 +239,15 @@ const ConnectWallet = ({ onContinue }: ConnectWalletProps) => {
         ) : null}
 
         {displayError ? (
-          <p className="text-[14px] text-red-600 mb-4" role="alert">
+          <p className="text-[14px] text-red-600 mb-4 whitespace-pre-wrap" role="alert">
             {displayError}
           </p>
         ) : null}
 
         <div className="flex flex-col">
           {wallets.map((wallet) => {
-            const unavailable = wallet.id === 'ledger' && !ledgerConfigured
+            const unavailable =
+              (wallet.id === 'ledger' || wallet.id === 'zerion') && !walletConnectConfigured
             const isConnecting = connectingWalletId === wallet.id
             const isConnected = wallet.id === activeWalletId
 
@@ -202,11 +301,11 @@ const ConnectWallet = ({ onContinue }: ConnectWalletProps) => {
         <div className="mt-auto lg:mt-6 pt-5 lg:pt-0">
           <button
             type="button"
-            onClick={handleContinue}
-            disabled={connection.status !== 'connected'}
+            onClick={() => void handleContinue()}
+            disabled={connection.status !== 'connected' || authInFlight}
             className="bg-[#195EBC] text-white px-4 py-3 rounded-md w-full mt-1 disabled:opacity-60"
           >
-            Continue
+            {authInFlight ? 'Signing in…' : 'Continue'}
           </button>
         </div>
       </div>

@@ -72,7 +72,7 @@ const KycVerificationCard = ({
 
           <button
             type="button"
-            className="mt-4 lg:mt-2 bg-[#195EBC] text-white px-4 py-3 lg:py-2 rounded-[4px] w-full lg:w-fit text-[14px] sm:text-[16px] lg:text-[24px] leading-none flex items-center justify-center lg:justify-start gap-2"
+            className="mt-4 lg:mt-2 bg-[#195EBC] text-white px-4 py-4 lg:py-4 rounded-[4px] w-full lg:w-fit text-[14px] sm:text-[16px] lg:text-[20px] leading-none flex items-center justify-center lg:justify-start gap-2"
             onClick={() => setIsModalOpen(true)}
           >
             <span>{hasStartedKyc ? 'View Progress' : 'Begin Verification'}</span>

@@ -1,14 +1,23 @@
+import { useMemo } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 
+import { resolveInvestorPoolLayoutMeta } from '@/components/dashboard/investor/lending-pool-detail/investorPoolDetailFromMetrics'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 import InvestorLendingPoolHowItWorksPageContent from '@/components/dashboard/investor/lending-pool-detail/InvestorLendingPoolHowItWorksPageContent'
-import { getInvestorPoolDetailConfig } from '@/components/dashboard/investor/lending-pool-detail/investorPoolDetailConfig'
+import { useAppSelector } from '@/store/hooks'
 
 const InvestorLendingPoolHowItWorksPage = () => {
   const { poolSlug } = useParams<{ poolSlug: string }>()
-  const config = getInvestorPoolDetailConfig(poolSlug)
+  const lendingPool = useAppSelector((s) => s.investorDashboard.lendingPools)
+  const walletAddress = useAppSelector((s) => s.wallet.address)
+  const walletDisplayFallback = useAppSelector((s) => s.investorDashboard.walletDisplay)
 
-  if (!config || !poolSlug) {
+  const layout = useMemo(
+    () => resolveInvestorPoolLayoutMeta(poolSlug, lendingPool, walletAddress, walletDisplayFallback),
+    [poolSlug, lendingPool, walletAddress, walletDisplayFallback],
+  )
+
+  if (!layout.ok || !poolSlug) {
     return <Navigate to="/dashboard/investor/overview" replace />
   }
 
@@ -18,7 +27,7 @@ const InvestorLendingPoolHowItWorksPage = () => {
     { label: 'How it works' },
   ]
 
-  const tb = config.topBar
+  const tb = layout.topBar
 
   return (
     <DashboardLayout
@@ -26,7 +35,7 @@ const InvestorLendingPoolHowItWorksPage = () => {
       topBarBreadcrumbs={topBarBreadcrumbs}
       topBarBreadcrumbLinksMuted={Boolean(tb)}
       topBarWalletDisplay={tb?.walletDisplay}
-      topBarNotificationUnread={tb?.showUnreadNotification}
+      topBarNotificationUnread={tb?.showUnreadNotification ?? false}
     >
       <InvestorLendingPoolHowItWorksPageContent />
     </DashboardLayout>

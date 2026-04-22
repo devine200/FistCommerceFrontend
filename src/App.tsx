@@ -1,5 +1,9 @@
 import type { ReactNode } from 'react'
 import { useConnect, useConnection, useConnectors, useDisconnect } from 'wagmi'
+
+import InvestorDashboardSessionLayout from '@/components/session/InvestorDashboardSessionLayout'
+import KycFinancialRoutesGuard from '@/components/session/KycFinancialRoutesGuard'
+import MerchantDashboardSessionLayout from '@/components/session/MerchantDashboardSessionLayout'
 import { Navigate, Outlet, RouterProvider, createBrowserRouter } from 'react-router-dom'
 
 import { useAppSelector } from '@/store/hooks'
@@ -97,14 +101,21 @@ const DefaultWagmiPage = () => {
 }
 
 const RootRedirect = () => {
-  const { onboarded, role } = useAppSelector((s) => s.auth)
+  const { onboarded, role, accessToken } = useAppSelector((s) => s.auth)
+  const { status } = useConnection()
   if (!onboarded) return <Navigate to="/onboarding" replace />
+  const connected = status === 'connected'
+  if (!connected || !accessToken?.length) {
+    if (!role) return <Navigate to="/onboarding/choose-role" replace />
+    return <Navigate to={`/onboarding/${role}/connect-wallet`} replace />
+  }
+  if (!role) return <Navigate to="/onboarding/choose-role" replace />
   return <Navigate to={`/dashboard/${role}/overview`} replace />
 }
 
 const RequireOnboarded = ({ children }: { children: ReactNode }) => {
-  const { onboarded, role } = useAppSelector((s) => s.auth)
-  if (!onboarded) return <Navigate to={`/onboarding/${role}/choose-role`} replace />
+  const { onboarded } = useAppSelector((s) => s.auth)
+  if (!onboarded) return <Navigate to="/onboarding/choose-role" replace />
   return <>{children}</>
 }
 
@@ -137,16 +148,17 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="/onboarding/investor/choose-role" replace />,
+        element: <Navigate to="/onboarding/choose-role" replace />,
+      },
+      {
+        path: 'choose-role',
+        element: <InvestorLayout />,
+        children: [{ index: true, element: <ChooseRole /> }],
       },
       {
         path: 'merchant',
         element: <MerchantLayout />,
         children: [
-          {
-            path: 'choose-role',
-            element: <ChooseRole />
-          },
           {
             path: 'connect-wallet',
             element: <ConnectWallet />
@@ -161,7 +173,7 @@ const router = createBrowserRouter([
           },
           {
             path: '*',
-            element: <Navigate to="choose-role" replace />,
+            element: <Navigate to="/onboarding/choose-role" replace />,
           },
         ]
       },
@@ -169,10 +181,6 @@ const router = createBrowserRouter([
         path: 'investor',
         element: <InvestorLayout />,
         children: [
-          {
-            path: 'choose-role',
-            element: <ChooseRole />
-          },
           {
             path: 'connect-wallet',
             element: <ConnectWallet />
@@ -187,7 +195,7 @@ const router = createBrowserRouter([
           },
           {
             path: '*',
-            element: <Navigate to="choose-role" replace />,
+            element: <Navigate to="/onboarding/choose-role" replace />,
           },
         ]
       },
@@ -228,7 +236,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'investor',
-        element: <Outlet />,
+        element: <InvestorDashboardSessionLayout />,
         children: [
           {
             index: true,
@@ -270,11 +278,19 @@ const router = createBrowserRouter([
           },
           {
             path: 'lending-pool/:poolSlug/invest',
-            element: <InvestorInvestWithdrawPage />,
+            element: (
+              <KycFinancialRoutesGuard>
+                <InvestorInvestWithdrawPage />
+              </KycFinancialRoutesGuard>
+            ),
           },
           {
             path: 'lending-pool/:poolSlug/withdraw',
-            element: <InvestorInvestWithdrawPage />,
+            element: (
+              <KycFinancialRoutesGuard>
+                <InvestorInvestWithdrawPage />
+              </KycFinancialRoutesGuard>
+            ),
           },
           {
             path: 'lending-pool/:poolSlug/invest-withdraw',
@@ -375,7 +391,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'merchant',
-        element: <Outlet />,
+        element: <MerchantDashboardSessionLayout />,
         children: [
           {
             index: true,
@@ -391,15 +407,27 @@ const router = createBrowserRouter([
           },
           {
             path: 'receivables/:receivableId/repay',
-            element: <MerchantRepayLoanPage />,
+            element: (
+              <KycFinancialRoutesGuard>
+                <MerchantRepayLoanPage />
+              </KycFinancialRoutesGuard>
+            ),
           },
           {
             path: 'receivables/:receivableId/repay/confirm',
-            element: <MerchantRepayLoanConfirmationPage />,
+            element: (
+              <KycFinancialRoutesGuard>
+                <MerchantRepayLoanConfirmationPage />
+              </KycFinancialRoutesGuard>
+            ),
           },
           {
             path: 'receivables/:receivableId/repay/success',
-            element: <MerchantRepayLoanSuccessPage />,
+            element: (
+              <KycFinancialRoutesGuard>
+                <MerchantRepayLoanSuccessPage />
+              </KycFinancialRoutesGuard>
+            ),
           },
           {
             path: 'receivables/:receivableId',
@@ -437,11 +465,19 @@ const router = createBrowserRouter([
           },
           {
             path: 'lending-pool/:poolSlug/apply-loan',
-            element: <MerchantApplyLoanPage />,
+            element: (
+              <KycFinancialRoutesGuard>
+                <MerchantApplyLoanPage />
+              </KycFinancialRoutesGuard>
+            ),
           },
           {
             path: 'lending-pool/:poolSlug/apply-loan/success',
-            element: <MerchantApplyLoanSuccessPage />,
+            element: (
+              <KycFinancialRoutesGuard>
+                <MerchantApplyLoanSuccessPage />
+              </KycFinancialRoutesGuard>
+            ),
           },
           {
             path: '*',

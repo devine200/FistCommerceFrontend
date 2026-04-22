@@ -1,4 +1,4 @@
-import { injected, metaMask, walletConnect } from '@wagmi/connectors'
+import { injected, walletConnect } from '@wagmi/connectors'
 import { createConfig, http } from 'wagmi'
 import { arbitrum, mainnet, sepolia } from 'wagmi/chains'
 
@@ -8,8 +8,7 @@ const appOrigin =
   typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'
 
 const connectors = [
-  metaMask(),
-  injected({ target: 'zerion' }),
+  injected({ target: 'metaMask' }),
   injected({ target: 'phantom' }),
   ...(walletConnectProjectId
     ? [

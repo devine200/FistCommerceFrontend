@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 
+import { resolveInvestorPoolLayoutMeta } from '@/components/dashboard/investor/lending-pool-detail/investorPoolDetailFromMetrics'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 import InvestorInvestCard from '@/components/dashboard/investor/invest/InvestorInvestCard'
 import InvestorWithdrawFlow from '@/components/dashboard/investor/withdraw/InvestorWithdrawFlow'
-import { getInvestorPoolDetailConfig } from '@/components/dashboard/investor/lending-pool-detail/investorPoolDetailConfig'
+import { useAppSelector } from '@/store/hooks'
 import { WithdrawalStep } from '@/components/dashboard/investor/withdraw/types'
 import { InvestmentStep } from '@/components/dashboard/investor/invest/types'
 
@@ -29,14 +30,22 @@ const InvestorInvestWithdrawPage = () => {
   const { poolSlug } = useParams<{ poolSlug: string }>()
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const config = getInvestorPoolDetailConfig(poolSlug)
+  const lendingPool = useAppSelector((s) => s.investorDashboard.lendingPools)
+  const walletAddress = useAppSelector((s) => s.wallet.address)
+  const walletDisplayFallback = useAppSelector((s) => s.investorDashboard.walletDisplay)
+
+  const layout = useMemo(
+    () => resolveInvestorPoolLayoutMeta(poolSlug, lendingPool, walletAddress, walletDisplayFallback),
+    [poolSlug, lendingPool, walletAddress, walletDisplayFallback],
+  )
+
   const isWithdrawMode = pathname.endsWith('/withdraw')
   const pageTitle = isWithdrawMode ? 'Withdrawal Request' : 'Invest Funds'
   const pageSubtitle = isWithdrawMode
     ? 'Withdraw capital or earnings from your lending pool position'
     : 'Deploy capital into a lending pool and start earning yield.'
 
-  if (!config || !poolSlug) {
+  if (!layout.ok || !poolSlug) {
     return <Navigate to="/dashboard/investor/overview" replace />
   }
 
@@ -51,7 +60,7 @@ const InvestorInvestWithdrawPage = () => {
     { label: 'Invest/Withdraw' },
   ]
 
-  const tb = config.topBar
+  const tb = layout.topBar
 
   return (
     <DashboardLayout
@@ -59,7 +68,7 @@ const InvestorInvestWithdrawPage = () => {
       topBarBreadcrumbs={topBarBreadcrumbs}
       topBarBreadcrumbLinksMuted={Boolean(tb)}
       topBarWalletDisplay={tb?.walletDisplay}
-      topBarNotificationUnread={tb?.showUnreadNotification}
+      topBarNotificationUnread={tb?.showUnreadNotification ?? false}
     >
       <div className="max-w-[980px] w-full mx-auto pt-4 sm:pt-6 lg:pt-8 pb-6 flex flex-col gap-4 sm:gap-6">
         {isWithdrawMode ? (

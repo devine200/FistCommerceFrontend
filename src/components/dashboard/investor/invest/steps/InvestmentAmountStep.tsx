@@ -1,4 +1,5 @@
 import arbitrumLogo from '@/assets/arbitrum_icon.jpeg.png'
+import { formatInvestAmountUsd } from '@/components/dashboard/investor/invest/config'
 
 interface InvestmentAmountStepProps {
   amount: number
@@ -18,7 +19,9 @@ const InvestmentAmountStep = ({
   return (
     <section className="rounded-[10px] border border-[#D9DEE8] bg-white px-5 py-8 sm:px-6 sm:py-10">
       <p className="text-[#6B7488] text-[30px] text-center">Amount</p>
-      <p className="text-[#667085] text-[64px] leading-none font-semibold text-center mt-4">${amount}</p>
+      <p className="text-[#667085] text-[64px] leading-none font-semibold text-center mt-4">
+        {formatInvestAmountUsd(amount)}
+      </p>
 
       <div className="flex justify-center flex-wrap gap-3 mt-8">
         {quickAmounts.map((v) => (
@@ -49,7 +52,8 @@ const InvestmentAmountStep = ({
       <button
         type="button"
         onClick={onContinue}
-        className="mt-10 w-full rounded-[6px] bg-[#195EBC] text-white text-[18px] font-medium h-[50px] hover:bg-[#154a9a] transition-colors"
+        disabled={amount <= 0}
+        className="mt-10 w-full rounded-[6px] bg-[#195EBC] text-white text-[18px] font-medium h-[50px] hover:bg-[#154a9a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Continue
       </button>

@@ -3,24 +3,21 @@ import DashboardSectionTitle from '@/components/dashboard/shared/DashboardSectio
 import { useAppSelector } from '@/store/hooks'
 
 const InvestorLendingPool = () => {
-  const pools = useAppSelector((s) => s.investorDashboard.lendingPools)
+  const pool = useAppSelector((s) => s.investorDashboard.lendingPools)
 
   return (
     <section className="flex flex-col gap-4">
       <DashboardSectionTitle>Lending Pools</DashboardSectionTitle>
       <div className="flex flex-col gap-4">
-        {pools.map((pool) => (
-          <LendingPoolOpportunityCard
-            key={pool.id}
-            viewDetailsTo={pool.viewDetailsTo}
-            poolTitle={pool.poolTitle}
-            tagline={pool.tagline}
-            apyDisplay={pool.apyDisplay}
-            tvlDisplay={pool.tvlDisplay}
-            minDepositDisplay={pool.minDepositDisplay}
-            utilizationDisplay={pool.utilizationDisplay}
-          />
-        ))}
+        <LendingPoolOpportunityCard
+          viewDetailsTo={pool.viewDetailsTo}
+          poolTitle={pool.poolTitle}
+          tagline={pool.tagline}
+          apyDisplay={pool.apyDisplay}
+          tvlDisplay={pool.tvlDisplay}
+          minDepositDisplay={pool.minDepositDisplay}
+          utilizationDisplay={pool.utilizationDisplay}
+        />
       </div>
     </section>
   )

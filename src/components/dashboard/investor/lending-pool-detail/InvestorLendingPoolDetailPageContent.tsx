@@ -29,6 +29,7 @@ const InvestorLendingPoolDetailPageContent = ({ config, poolSlug }: InvestorLend
       <InvestorSmartContractAndTransactionsSection
         contractRows={config.contractRows}
         transactions={config.transactions}
+        contractExplorerHref={config.contractExplorerHref}
       />
     </div>
   )

@@ -1,14 +1,15 @@
 import OnboardingStep from '@/components/onboarding/onboarding-steps/OnboardingStep'
+import OnboardingStepOutletGuard from '@/components/session/OnboardingStepOutletGuard'
 import logo from '@/assets/logo.png'
 import { v4 as uuidv4 } from 'uuid'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 const OnboardingLayout = () => {
     const { pathname } = useLocation()
     const navigate = useNavigate()
 
     const stepRoutes = [
-        '/onboarding/investor/choose-role',
+        '/onboarding/choose-role',
         '/onboarding/investor/connect-wallet',
         '/onboarding/investor/verify-identity',
         '/onboarding/investor/investment-explainer',
@@ -107,7 +108,7 @@ const OnboardingLayout = () => {
             </div>
 
             <div className="flex justify-around items-center w-full">
-                <Outlet />
+                <OnboardingStepOutletGuard />
             </div>
         </div>
     )

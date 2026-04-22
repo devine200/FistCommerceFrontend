@@ -86,8 +86,8 @@ export const LANDING_FOOTER_COLUMNS: LandingFooterColumn[] = [
   {
     title: 'Quick links',
     links: [
-      { label: 'Investor login', to: '/onboarding/investor/choose-role', variant: 'route' },
-      { label: 'Merchant login', to: '/onboarding/merchant/choose-role', variant: 'route' },
+      { label: 'Investor login', to: '/onboarding/choose-role', variant: 'route' },
+      { label: 'Merchant login', to: '/onboarding/choose-role', variant: 'route' },
     ],
   },
 ]

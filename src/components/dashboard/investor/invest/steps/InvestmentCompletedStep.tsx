@@ -3,7 +3,8 @@ import kycPendingIllustration from '@/assets/kyc-inprogress.png'
 import type { InvestmentCompletedMetric } from '@/components/dashboard/investor/invest/types'
 
 interface InvestmentCompletedStepProps {
-  amount: number
+  /** Formatted USD string (includes `$` and grouping). */
+  amountDisplay: string
   poolName: string
   metrics: InvestmentCompletedMetric[]
   backToDashboardTo: string
@@ -11,7 +12,7 @@ interface InvestmentCompletedStepProps {
 }
 
 const InvestmentCompletedStep = ({
-  amount,
+  amountDisplay,
   poolName,
   metrics,
   backToDashboardTo,
@@ -23,7 +24,7 @@ const InvestmentCompletedStep = ({
         <img src={kycPendingIllustration} alt="" className="h-20 w-20 object-contain" draggable={false} />
         <h2 className="mt-4 text-[#0B1220] font-bold text-[34px] leading-tight">Investment Successful</h2>
         <p className="mt-2 max-w-[560px] text-[#6B7488] text-[15px] leading-relaxed">
-          Your ${amount.toLocaleString()} USDT has been deployed to {poolName}. You&apos;ll start earning yield immediately.
+          Your {amountDisplay} USDC has been deployed to {poolName}. You&apos;ll start earning yield immediately.
         </p>
 
         <div className="mt-6 rounded-[6px] border border-[#E6E8EC] bg-white overflow-hidden">

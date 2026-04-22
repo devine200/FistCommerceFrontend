@@ -1,10 +1,11 @@
 import arbitrumLogo from '@/assets/arbitrum_icon.jpeg.png'
-import type { WithdrawalSourceCard } from '@/components/dashboard/investor/withdraw/types'
+import { formatInvestAmountUsd } from '@/components/dashboard/investor/invest/config'
 
 interface WithdrawAmountStepProps {
   amount: number
   destinationWallet: string
-  sourceCards: WithdrawalSourceCard[]
+  /** Formatted position value from investor metrics (or fallback). */
+  investmentBalanceDisplay: string
   quickAmounts: readonly number[]
   onAmountSelect: (value: number) => void
   onContinue: () => void
@@ -13,32 +14,28 @@ interface WithdrawAmountStepProps {
 const WithdrawAmountStep = ({
   amount,
   destinationWallet,
-  sourceCards,
+  investmentBalanceDisplay,
   quickAmounts,
   onAmountSelect,
   onContinue,
 }: WithdrawAmountStepProps) => {
-  const sourceCard = sourceCards[0]
-
   return (
     <>
       <section className="rounded-[10px] border border-[#D9DEE8] bg-white p-4 sm:p-6">
         <h2 className="text-[#6B7488] font-medium text-[16px] sm:text-[20px] mb-3 sm:mb-4">Withdraw Funds</h2>
 
-        {sourceCard ? (
-          <div className="grid grid-cols-1 gap-3">
-            <div className="rounded-[6px] border border-[#195EBC] bg-[#E8EFFB] px-4 py-3 text-left">
-              <p className="text-[#8B92A3] text-[12px] sm:text-[14px]">{sourceCard.label}</p>
-              <p className="text-[#0B1220] text-[26px] sm:text-[34px] font-bold leading-tight mt-1">{sourceCard.value}</p>
-            </div>
-          </div>
-        ) : null}
+        <div className="rounded-[6px] border border-[#195EBC] bg-[#E8EFFB] px-4 py-3 text-left">
+          <p className="text-[#8B92A3] text-[12px] sm:text-[14px]">Investment balance</p>
+          <p className="text-[#0B1220] text-[26px] sm:text-[34px] font-bold leading-tight mt-1">
+            {investmentBalanceDisplay}
+          </p>
+        </div>
       </section>
 
       <section className="rounded-[10px] border border-[#D9DEE8] bg-white px-4 py-6 sm:px-6 sm:py-10">
         <p className="text-[#6B7488] text-[14px] sm:text-[16px] text-center">Amount</p>
         <p className="text-[#667085] text-[44px] sm:text-[64px] leading-none font-semibold text-center mt-3 sm:mt-4">
-          ${amount}
+          {formatInvestAmountUsd(amount)}
         </p>
 
         <div className="flex justify-center flex-wrap gap-3 mt-6 sm:mt-8">
@@ -70,7 +67,8 @@ const WithdrawAmountStep = ({
         <button
           type="button"
           onClick={onContinue}
-          className="mt-6 sm:mt-10 w-full rounded-[6px] bg-[#195EBC] text-white text-[16px] sm:text-[18px] font-medium h-[50px] hover:bg-[#154a9a] transition-colors"
+          disabled={amount <= 0}
+          className="mt-6 sm:mt-10 w-full rounded-[6px] bg-[#195EBC] text-white text-[16px] sm:text-[18px] font-medium h-[50px] hover:bg-[#154a9a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Continue
         </button>

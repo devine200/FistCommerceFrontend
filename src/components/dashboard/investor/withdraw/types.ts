@@ -5,14 +5,6 @@ export enum WithdrawalStep {
   WithdrawalCompleted = 'withdrawal-completed',
 }
 
-export type WithdrawalSource = 'principal' | 'earnings'
-
-export type WithdrawalSourceCard = {
-  key: WithdrawalSource
-  label: string
-  value: string
-}
-
 export type WithdrawalReviewRow = {
   label: string
   value: string

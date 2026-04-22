@@ -1,19 +1,20 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+
+import { formatInvestAmountUsd } from '@/components/dashboard/investor/invest/config'
 import {
   buildWithdrawalCompletedMetrics,
   buildWithdrawalReviewRows,
-  WITHDRAWAL_POOL_NAME,
+  getInvestmentBalanceDisplay,
   WITHDRAWAL_PROCESSING_TIME,
   WITHDRAWAL_WARNING,
-  WITHDRAW_DEFAULT_AMOUNT,
   WITHDRAW_QUICK_AMOUNTS,
-  WITHDRAW_SOURCES,
 } from '@/components/dashboard/investor/withdraw/config'
 import WithdrawAmountStep from '@/components/dashboard/investor/withdraw/steps/WithdrawAmountStep'
 import WithdrawCompletedStep from '@/components/dashboard/investor/withdraw/steps/WithdrawCompletedStep'
 import WithdrawFinalConfirmationStep from '@/components/dashboard/investor/withdraw/steps/WithdrawFinalConfirmationStep'
 import WithdrawMethodConfirmationStep from '@/components/dashboard/investor/withdraw/steps/WithdrawMethodConfirmationStep'
 import { WithdrawalStep } from '@/components/dashboard/investor/withdraw/types'
+import { useAppSelector } from '@/store/hooks'
 
 interface InvestorWithdrawFlowProps {
   walletDisplay?: string
@@ -21,30 +22,50 @@ interface InvestorWithdrawFlowProps {
   onStepChange?: (step: WithdrawalStep) => void
 }
 
+function shortWalletDisplay(full: string | null | undefined, fallback: string): string {
+  const a = full?.trim() ?? ''
+  if (!a) return fallback
+  if (a.length <= 12) return a
+  return `${a.slice(0, 6)}…${a.slice(-4)}`
+}
+
 const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWithdrawFlowProps) => {
   const [amount, setAmount] = useState(0)
   const [internalStep, setInternalStep] = useState<WithdrawalStep>(WithdrawalStep.AmountEntry)
   const withdrawalStep = step ?? internalStep
-  const selectedSource = WITHDRAW_SOURCES[0]?.key ?? 'balance'
+
+  const lendingPool = useAppSelector((s) => s.investorDashboard.lendingPools)
+  const poolMetrics = useAppSelector((s) => s.investorDashboard.poolMetrics)
+  const investorMetrics = useAppSelector((s) => s.investorDashboard.investorMetrics)
+  const walletAddress = useAppSelector((s) => s.wallet.address)
+
+  const poolName = lendingPool.poolTitle?.trim() || 'Lending pool'
+  const investmentBalanceDisplay = useMemo(() => getInvestmentBalanceDisplay(investorMetrics), [investorMetrics])
+  const destinationWallet = shortWalletDisplay(walletAddress, walletDisplay ?? '—')
+  const displayAmount = amount
+  const amountDisplay = formatInvestAmountUsd(displayAmount)
 
   const setWithdrawalStep = (next: WithdrawalStep) => {
     onStepChange?.(next)
     if (step === undefined) setInternalStep(next)
   }
 
-  const displayAmount = amount > 0 ? amount : WITHDRAW_DEFAULT_AMOUNT
-  const destinationWallet = walletDisplay ?? '0x7A3F...92C1'
-
   const renderWithdrawalStep = () => {
     switch (withdrawalStep) {
       case WithdrawalStep.MethodConfirmation:
         return (
           <WithdrawMethodConfirmationStep
-            amount={displayAmount}
-            poolName={WITHDRAWAL_POOL_NAME}
+            amountDisplay={amountDisplay}
+            poolName={poolName}
             processingTime={WITHDRAWAL_PROCESSING_TIME}
             warningText={WITHDRAWAL_WARNING}
-            reviewRows={buildWithdrawalReviewRows(selectedSource, displayAmount, destinationWallet)}
+            reviewRows={buildWithdrawalReviewRows(
+              displayAmount,
+              destinationWallet,
+              poolName,
+              poolMetrics,
+              investorMetrics,
+            )}
             onContinue={() => setWithdrawalStep(WithdrawalStep.FinalConfirmation)}
           />
         )
@@ -52,7 +73,7 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
       case WithdrawalStep.FinalConfirmation:
         return (
           <WithdrawFinalConfirmationStep
-            amount={displayAmount}
+            amountDisplay={amountDisplay}
             destinationWallet={destinationWallet}
             processingTime={WITHDRAWAL_PROCESSING_TIME}
             onConfirm={() => setWithdrawalStep(WithdrawalStep.WithdrawalCompleted)}
@@ -62,7 +83,8 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
       case WithdrawalStep.WithdrawalCompleted:
         return (
           <WithdrawCompletedStep
-            amount={displayAmount}
+            amountDisplay={amountDisplay}
+            poolName={poolName}
             metrics={buildWithdrawalCompletedMetrics(displayAmount)}
             backToDashboardTo="/dashboard/investor/overview"
           />
@@ -74,7 +96,7 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
           <WithdrawAmountStep
             amount={amount}
             destinationWallet={destinationWallet}
-            sourceCards={WITHDRAW_SOURCES}
+            investmentBalanceDisplay={investmentBalanceDisplay}
             quickAmounts={WITHDRAW_QUICK_AMOUNTS}
             onAmountSelect={setAmount}
             onContinue={() => setWithdrawalStep(WithdrawalStep.MethodConfirmation)}

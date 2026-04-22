@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useParams } from 'react-router-dom'
+
 import {
   buildInvestmentCompletedMetrics,
   buildInvestmentReviewRows,
-  INVEST_DEFAULT_AMOUNT,
-  INVESTMENT_POOL,
+  buildLiveInvestmentPoolInfo,
+  formatInvestAmountUsd,
   INVESTMENT_TERMS_LABEL,
   INVESTMENT_WARNING,
   INVEST_QUICK_AMOUNTS,
@@ -13,7 +15,7 @@ import InvestmentCompletedStep from '@/components/dashboard/investor/invest/step
 import InvestmentConfirmationStep from '@/components/dashboard/investor/invest/steps/InvestmentConfirmationStep'
 import InvestmentPoolSelectionStep from '@/components/dashboard/investor/invest/steps/InvestmentPoolSelectionStep'
 import { InvestmentStep } from '@/components/dashboard/investor/invest/types'
-import { useParams } from 'react-router-dom'
+import { useAppSelector } from '@/store/hooks'
 
 interface InvestorInvestCardProps {
   walletDisplay?: string
@@ -26,8 +28,18 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
   const [amount, setAmount] = useState(0)
   const [internalStep, setInternalStep] = useState<InvestmentStep>(InvestmentStep.AmountEntry)
   const currentStep = step ?? internalStep
-  const displayAmount = amount > 0 ? amount : INVEST_DEFAULT_AMOUNT
+  const displayAmount = amount
+  const amountDisplay = formatInvestAmountUsd(displayAmount)
   const resolvedPoolSlug = poolSlug ?? 'fist-commerce-lending-pool'
+
+  const lendingPool = useAppSelector((s) => s.investorDashboard.lendingPools)
+  const poolMetrics = useAppSelector((s) => s.investorDashboard.poolMetrics)
+  const investorMetrics = useAppSelector((s) => s.investorDashboard.investorMetrics)
+
+  const poolInfo = useMemo(
+    () => buildLiveInvestmentPoolInfo(lendingPool.poolTitle, poolMetrics),
+    [lendingPool.poolTitle, poolMetrics],
+  )
 
   const setStep = (next: InvestmentStep) => {
     onStepChange?.(next)
@@ -39,9 +51,14 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
       case InvestmentStep.InvestmentConfirmation:
         return (
           <InvestmentConfirmationStep
-            amount={displayAmount}
+            amountDisplay={amountDisplay}
             warningText={INVESTMENT_WARNING}
-            reviewRows={buildInvestmentReviewRows(displayAmount)}
+            reviewRows={buildInvestmentReviewRows(
+              displayAmount,
+              poolInfo.name,
+              poolMetrics,
+              investorMetrics,
+            )}
             onInvest={() => setStep(InvestmentStep.InvestmentCompleted)}
           />
         )
@@ -49,9 +66,9 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
       case InvestmentStep.InvestmentCompleted:
         return (
           <InvestmentCompletedStep
-            amount={displayAmount}
-            poolName={INVESTMENT_POOL.name}
-            metrics={buildInvestmentCompletedMetrics(displayAmount)}
+            amountDisplay={amountDisplay}
+            poolName={poolInfo.name}
+            metrics={buildInvestmentCompletedMetrics(displayAmount, poolMetrics, investorMetrics)}
             backToDashboardTo="/dashboard/investor/overview"
             viewPoolDetailsTo={`/dashboard/investor/lending-pool/${resolvedPoolSlug}`}
           />
@@ -60,8 +77,8 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
       case InvestmentStep.PoolSelection:
         return (
           <InvestmentPoolSelectionStep
-            displayAmount={displayAmount}
-            pool={INVESTMENT_POOL}
+            amountDisplay={amountDisplay}
+            pool={poolInfo}
             detailsLabel={INVESTMENT_TERMS_LABEL}
             onContinue={() => setStep(InvestmentStep.InvestmentConfirmation)}
           />

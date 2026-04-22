@@ -18,6 +18,7 @@ const MerchantLendingPool = ({ totalDepositsDisplay: totalDepositsDisplayProp }:
   const navigate = useNavigate()
   const { totalDepositsDisplay: totalFromStore, lendingPools } = useAppSelector((s) => s.merchantDashboard)
   const totalDepositsDisplay = totalDepositsDisplayProp ?? totalFromStore
+  const pool = lendingPools
 
   return (
     <section className="flex flex-col gap-4">
@@ -47,18 +48,15 @@ const MerchantLendingPool = ({ totalDepositsDisplay: totalDepositsDisplayProp }:
 
       <DashboardBorderedPanel title="All Lending Pools">
         <div className="flex flex-col gap-4">
-          {lendingPools.map((pool) => (
-            <LendingPoolOpportunityCard
-              key={pool.id}
-              viewDetailsTo={pool.viewDetailsTo}
-              poolTitle={pool.poolTitle}
-              tagline={pool.tagline}
-              apyDisplay={pool.apyDisplay}
-              tvlDisplay={pool.tvlDisplay}
-              minDepositDisplay={pool.minDepositDisplay}
-              utilizationDisplay={pool.utilizationDisplay}
-            />
-          ))}
+          <LendingPoolOpportunityCard
+            viewDetailsTo={pool.viewDetailsTo}
+            poolTitle={pool.poolTitle}
+            tagline={pool.tagline}
+            apyDisplay={pool.apyDisplay}
+            tvlDisplay={pool.tvlDisplay}
+            minDepositDisplay={pool.minDepositDisplay}
+            utilizationDisplay={pool.utilizationDisplay}
+          />
         </div>
       </DashboardBorderedPanel>
     </section>

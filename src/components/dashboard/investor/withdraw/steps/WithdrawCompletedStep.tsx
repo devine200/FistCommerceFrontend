@@ -4,29 +4,40 @@ import kycPendingIllustration from '@/assets/kyc-inprogress.png'
 import type { WithdrawalCompletedMetric } from '@/components/dashboard/investor/withdraw/types'
 
 interface WithdrawCompletedStepProps {
-  amount: number
+  /** Formatted USD string (includes `$` and grouping). */
+  amountDisplay: string
+  poolName: string
   metrics: WithdrawalCompletedMetric[]
   backToDashboardTo: string
 }
 
 const WithdrawCompletedStep = ({
-  amount,
+  amountDisplay,
+  poolName,
   metrics,
   backToDashboardTo,
 }: WithdrawCompletedStepProps) => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false)
-  const withdrawalRef = useMemo(() => `FW-${String(amount).padStart(6, '0')}`, [amount])
+  const withdrawalRef = useMemo(() => {
+    const digits = amountDisplay.replace(/\D/g, '')
+    const tail = digits.slice(-6).padStart(6, '0')
+    return `FW-${tail}`
+  }, [amountDisplay])
 
-  const detailRows = [
-    ['Transaction ID', '0x7A3F...92C1'],
-    ['Date / Time', '10/10/25 2:08PM'],
-    ['Requested Type', 'Wallet Transfer'],
-    ['Withdraw Amount', `$${amount.toLocaleString()}`],
-    ['Fees Deducted', '$0.00'],
-    ['Net Received', `$${amount.toLocaleString()}`],
-    ['Wallet Address', '0x7A3F...92C1'],
-    ['Network', 'Arbitrum'],
-  ] as const
+  const detailRows = useMemo(
+    () =>
+      [
+        ['Transaction ID', '—'],
+        ['Date / Time', new Intl.DateTimeFormat('en-US', { dateStyle: 'short', timeStyle: 'short' }).format(new Date())],
+        ['Requested Type', 'Wallet Transfer'],
+        ['Withdraw Amount', amountDisplay],
+        ['Fees Deducted', '$0.00'],
+        ['Net Received', amountDisplay],
+        ['Pool', poolName],
+        ['Network', 'Arbitrum One'],
+      ] as const,
+    [amountDisplay, poolName],
+  )
 
   return (
     <>
@@ -34,7 +45,8 @@ const WithdrawCompletedStep = ({
         <img src={kycPendingIllustration} alt="" className="h-20 w-20 object-contain" draggable={false} />
         <h2 className="mt-4 text-[#0B1220] font-bold text-[34px] leading-tight">Withdrawal Initiated!</h2>
         <p className="mt-2 max-w-[560px] text-[#6B7488] text-[15px] leading-relaxed">
-          Your withdrawal of ${amount.toLocaleString()} USDT has been submitted. Expected processing time: 24-48 hrs.
+          Your withdrawal of {amountDisplay} USDC from {poolName} has been submitted. Expected processing time: 24-48
+          hrs.
         </p>
 
         <div className="mt-6 rounded-[6px] border border-[#E6E8EC] bg-white overflow-hidden">
@@ -82,7 +94,7 @@ const WithdrawCompletedStep = ({
             <div className="mt-4 rounded-[8px] border border-[#FDE2E2] bg-[#FFF5F5] px-4 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[#DC2626] text-[15px] font-semibold">- ${amount.toLocaleString()}</p>
+                  <p className="text-[#DC2626] text-[15px] font-semibold">- {amountDisplay}</p>
                   <p className="text-[#6B7488] text-[12px] mt-0.5">{withdrawalRef}</p>
                 </div>
                 <span className="inline-flex items-center rounded-full border border-[#FCD34D] bg-[#FFFBEB] px-2.5 py-1 text-[11px] font-semibold text-[#B45309]">

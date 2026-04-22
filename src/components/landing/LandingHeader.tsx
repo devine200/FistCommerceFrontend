@@ -8,8 +8,8 @@ export type LandingHeaderProps = {
 }
 
 export function LandingHeader({
-  fundingHref = '/onboarding/merchant/choose-role',
-  investingHref = '/onboarding/investor/choose-role',
+  fundingHref = '/onboarding/choose-role',
+  investingHref = '/onboarding/choose-role',
 }: LandingHeaderProps) {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#060d18]/90 backdrop-blur-md">

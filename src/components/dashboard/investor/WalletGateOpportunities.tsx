@@ -20,16 +20,10 @@ const WalletGateOpportunities = () => {
       <div className="absolute inset-0 bg-white/45" />
 
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <h3 className="text-[#195EBC] font-bold text-[22px] sm:text-[28px] lg:text-[40px]">Connect Your Wallet</h3>
+        <h3 className="text-[#195EBC] font-bold text-[22px] sm:text-[28px] lg:text-[40px]">KYC Verification Required</h3>
         <p className="text-[#26344D] mt-2 lg:mt-1 text-[14px] sm:text-[16px] lg:text-[24px] max-w-[520px] px-4">
-          Kindly connect your wallet to see all opportunities for your receivable
+          Kindly complete your KYC verification to see all opportunities for your receivable
         </p>
-        <button
-          type="button"
-          className="mt-4 lg:mt-3 bg-[#195EBC] text-white px-4 py-3 sm:py-4 rounded-[4px] text-[14px] sm:text-[16px] lg:text-[24px] leading-none w-[220px] sm:w-[260px] lg:w-auto"
-        >
-          Connect Wallet
-        </button>
       </div>
     </section>
   )

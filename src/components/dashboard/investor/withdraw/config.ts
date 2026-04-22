@@ -1,37 +1,55 @@
-import type {
-  WithdrawalCompletedMetric,
-  WithdrawalReviewRow,
-  WithdrawalSource,
-  WithdrawalSourceCard,
-} from '@/components/dashboard/investor/withdraw/types'
+import {
+  displayDashboardMetricString,
+  displayDashboardPercentString,
+  displayPoolApyPercent,
+  type InvestorMetrics,
+  type PoolMetrics,
+} from '@/api/metrics'
+import { formatInvestAmountUsd } from '@/components/dashboard/investor/invest/config'
+import type { WithdrawalCompletedMetric, WithdrawalReviewRow } from '@/components/dashboard/investor/withdraw/types'
 
 export const WITHDRAW_QUICK_AMOUNTS = [500, 1000, 2500, 5000] as const
-export const WITHDRAW_DEFAULT_AMOUNT = 10000
 
-export const WITHDRAW_SOURCES: WithdrawalSourceCard[] = [
-  { key: 'principal', label: 'Principal', value: '$20,000' },
-  { key: 'earnings', label: 'Earnings', value: '$4,000' },
-]
+const INVESTMENT_BALANCE_FALLBACK = '$20,000.00'
 
-export const WITHDRAWAL_POOL_NAME = 'Titan Growth Fund'
 export const WITHDRAWAL_METHOD = 'Standard Withdrawal'
 export const WITHDRAWAL_PROCESSING_TIME = '24-48 hrs'
 export const WITHDRAWAL_WARNING =
   "Standard withdrawals are processed within 24-48 hours. You'll receive a confirmation once the transaction is complete."
 
-export function withdrawalSourceLabel(source: WithdrawalSource): string {
-  return source === 'principal' ? 'Principal' : 'Earnings'
+/** Total position in the pool — shown as “Investment balance” on withdraw. */
+export function getInvestmentBalanceDisplay(investorMetrics: InvestorMetrics | null): string {
+  if (!investorMetrics) return INVESTMENT_BALANCE_FALLBACK
+  return displayDashboardMetricString(investorMetrics.current_position_value)
 }
 
 export function buildWithdrawalReviewRows(
-  source: WithdrawalSource,
   amount: number,
   destinationWallet: string,
+  poolName: string,
+  poolMetrics: PoolMetrics | null,
+  investorMetrics: InvestorMetrics | null,
 ): WithdrawalReviewRow[] {
-  const amountText = `$${amount.toLocaleString()}`
+  const amountText = formatInvestAmountUsd(amount)
+  const rows: WithdrawalReviewRow[] = []
 
-  return [
-    { label: 'Source', value: withdrawalSourceLabel(source) },
+  rows.push({ label: 'Pool', value: poolName?.trim() || '—' })
+
+  if (poolMetrics) {
+    rows.push({ label: 'Pool TVL', value: displayDashboardMetricString(poolMetrics.tvl) })
+    rows.push({ label: 'Pool APY', value: displayPoolApyPercent(poolMetrics.apy) })
+  }
+
+  rows.push({ label: 'Investment balance', value: getInvestmentBalanceDisplay(investorMetrics) })
+
+  if (investorMetrics?.share_of_pool?.trim()) {
+    rows.push({
+      label: 'Your pool share',
+      value: displayDashboardPercentString(investorMetrics.share_of_pool),
+    })
+  }
+
+  rows.push(
     { label: 'Method', value: WITHDRAWAL_METHOD },
     { label: 'Processing Time', value: WITHDRAWAL_PROCESSING_TIME },
     { label: 'Withdrawal Amount', value: amountText },
@@ -39,11 +57,13 @@ export function buildWithdrawalReviewRows(
     { label: 'Net Amount', value: amountText, valueTone: 'primary' },
     { label: 'Destination', value: destinationWallet },
     { label: 'Network', value: 'Arbitrum One' },
-  ]
+  )
+
+  return rows
 }
 
 export function buildWithdrawalCompletedMetrics(amount: number): WithdrawalCompletedMetric[] {
-  const amountText = `$${amount.toLocaleString()}`
+  const amountText = formatInvestAmountUsd(amount)
 
   return [
     { label: 'Amount', value: amountText },

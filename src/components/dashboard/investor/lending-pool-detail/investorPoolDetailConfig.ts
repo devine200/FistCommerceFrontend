@@ -8,18 +8,17 @@ const FIST_COMMERCE: InvestorPoolDetailConfig = {
     showUnreadNotification: true,
   },
   headerStats: [
-    { label: 'Total Deposited', value: '$340K', hint: '$340 USDT' },
-    { label: 'Liquid Asset', value: '$120K', hint: '$340 USDT' },
-    { label: 'Maximum loan', value: '$120K', hint: '$340 USDT' },
-    { label: 'Loan Interest', value: '5.3%', hint: 'To be repaid' },
-    { label: 'Target Repayment Duration', value: '30-60 Days' },
+    { label: 'Total Deposited', value: '$340K' },
+    { label: 'Liquid Asset', value: '$120K' },
+    { label: 'Maximum loan', value: '$120K' },
+    { label: 'Loan Interest', value: '5.3%' },
+    { label: 'Target Repayment Duration', value: '30-90 Days' },
   ],
   myStats: [
-    { label: 'Invested', value: '$20K', hint: '$20,000 USDT' },
-    { label: 'Pool Share', value: '2.5%', hint: '$340 USDT' },
-    { label: 'Earnings', value: '$4K', hint: 'Interest earned' },
-    { label: 'Pending Returns', value: '$3K', hint: 'To be repaid' },
-    { label: 'Next Payout Date', value: 'May 29th, 2026' },
+    { label: 'Invested', value: '$20K' },
+    { label: 'Pool Share', value: '2.5%' },
+    { label: 'Earnings', value: '$4K' },
+    { label: 'Pending Returns', value: '$3K' },
   ],
   poolPerformanceStats: [
     { label: 'Total Value Locked (TVL)', value: '$800K' },
@@ -34,7 +33,7 @@ const FIST_COMMERCE: InvestorPoolDetailConfig = {
     {
       icon: 'clock',
       title: 'Target Loan Duration',
-      description: '30–60 days short-term financing',
+      description: '30–90 days short-term financing',
     },
     {
       icon: 'briefcase',
@@ -58,7 +57,7 @@ const FIST_COMMERCE: InvestorPoolDetailConfig = {
       value: '0x7a3B...9F2e',
       copyValue: '0x7a3B1c4d9e2f8a0b5c6d7e8f9F2e1234567890abcd',
     },
-    { label: 'Blockchain Network', value: 'Arbitrum One' },
+    { label: 'Blockchain Network', value: 'Ethereum Sepolia' },
     { label: 'Audit Status', value: 'Audited by OpenZeppelin', badge: 'Certified' },
     { label: 'Protocol Version', value: 'Version 2.0' },
   ],
@@ -103,7 +102,30 @@ const POOLS: Record<string, InvestorPoolDetailConfig> = {
   'titan-growth-fund': { ...FIST_COMMERCE, title: 'Titan Growth Fund' },
 }
 
-export function getInvestorPoolDetailConfig(slug: string | undefined): InvestorPoolDetailConfig | null {
+export type GetInvestorPoolDetailConfigOptions = {
+  /** When set, the current dashboard pool id may use the default template if not in `POOLS`. */
+  dashboardPoolId?: string
+}
+
+/**
+ * Static copy, strategy, contracts, and demo transactions for pool detail routes.
+ * Hero / my-stats values are replaced at runtime when metrics load (see `mergeInvestorPoolDetailWithMetrics`).
+ */
+export function getInvestorPoolDetailConfig(
+  slug: string | undefined,
+  options?: GetInvestorPoolDetailConfigOptions,
+): InvestorPoolDetailConfig | null {
   if (!slug) return null
-  return POOLS[slug] ?? null
+  if (POOLS[slug]) return POOLS[slug]
+  if (options?.dashboardPoolId && slug === options.dashboardPoolId) {
+    return { ...FIST_COMMERCE }
+  }
+  return null
+}
+
+export function investorPoolSlugMatchesDashboard(
+  poolSlug: string | undefined,
+  dashboardPoolId: string,
+): boolean {
+  return Boolean(poolSlug && (POOLS[poolSlug] !== undefined || poolSlug === dashboardPoolId))
 }

@@ -38,7 +38,7 @@ const AdminLoginPage = () => {
   const dismissError = () => setFeedback(null)
 
   const completeSignIn = () => {
-    dispatch(patchAuth({ onboarded: true }))
+    dispatch(patchAuth({ onboarded: true, accessToken: 'admin-session', refreshToken: null }))
     navigate('/dashboard/admin/overview', { replace: true })
     setFeedback(null)
   }

@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 
 import DashboardSideNav from '@/components/dashboard/shared/DashboardSideNav'
 import DashboardTopBar from '@/components/dashboard/shared/DashboardTopBar'
+import { useWallet } from '@/hooks/useWallet'
 
 import type { DashboardLayoutProps } from '@/components/dashboard/shared/types'
 
@@ -34,9 +35,8 @@ const DashboardLayout = ({
     [isNavOpen],
   )
 
-  const effectiveWalletDisplay =
-    topBarWalletDisplay ??
-    (dashboardBasePath === '/dashboard/merchant' ? '0x7A3F...92C1' : undefined)
+  const { shortAddress } = useWallet()
+  const effectiveWalletDisplay = shortAddress ?? topBarWalletDisplay
 
   return (
     <main className="h-dvh w-full bg-[#EEF0F4] flex overflow-hidden">

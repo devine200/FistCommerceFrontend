@@ -14,6 +14,7 @@
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-query": "latest",
     "@types/node": "^25.5.0",
+    "@walletconnect/ethereum-provider": "^2.23.9",
     "clsx": "^2.1.1",
     "react": "latest",
     "react-dom": "latest",
@@ -37,5 +38,8 @@
     "tailwindcss": "^4.2.2",
     "typescript": "latest",
     "vite": "latest"
+  },
+  "overrides": {
+    "ox": "0.14.17"
   }
 }

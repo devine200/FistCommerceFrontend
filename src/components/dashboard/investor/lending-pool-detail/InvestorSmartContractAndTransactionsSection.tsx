@@ -6,9 +6,9 @@ import { POOL_SECTION_TITLE } from '@/components/dashboard/shared/poolDetailTypo
 interface InvestorSmartContractAndTransactionsSectionProps {
   contractRows: ContractField[]
   transactions: RecentTx[]
+  /** Full URL to the pool contract on Sepolia (or API-provided explorer). */
+  contractExplorerHref?: string | null
 }
-
-const ETHERSCAN_HREF = 'https://arbiscan.io'
 
 function ExternalLinkGlyph({ className }: { className?: string }) {
   return (
@@ -40,6 +40,7 @@ const amountClass = (tone: RecentTx['amountTone']) => {
 const InvestorSmartContractAndTransactionsSection = ({
   contractRows,
   transactions,
+  contractExplorerHref,
 }: InvestorSmartContractAndTransactionsSectionProps) => {
   const [copied, setCopied] = useState(false)
 
@@ -91,15 +92,17 @@ const InvestorSmartContractAndTransactionsSection = ({
       <div className="mt-8 pt-8 border-t border-[#E6E8EC]">
         <div className="flex flex-row flex-wrap items-center justify-between gap-3 mb-4">
           <h2 className={POOL_SECTION_TITLE}>Recent Transactions</h2>
-          <a
-            href={ETHERSCAN_HREF}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-[#195EBC] text-[15px] font-semibold hover:underline shrink-0"
-          >
-            View on Etherscan
-            <ExternalLinkGlyph className="opacity-90" />
-          </a>
+          {contractExplorerHref ? (
+            <a
+              href={contractExplorerHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[#195EBC] text-[15px] font-semibold hover:underline shrink-0"
+            >
+              View on Etherscan
+              <ExternalLinkGlyph className="opacity-90" />
+            </a>
+          ) : null}
         </div>
 
         <div className="rounded-[10px] border border-[#E6E8EC] overflow-hidden bg-white">
@@ -108,9 +111,20 @@ const InvestorSmartContractAndTransactionsSection = ({
               <li key={tx.id}>
                 <div className="flex flex-col gap-3 py-3 px-4 sm:flex-row sm:items-center sm:gap-8">
                   <div className="min-w-0 flex-1 flex flex-col gap-1.5">
-                    <span className="inline-flex w-fit max-w-full rounded-[6px] border border-[#E8EBF0] bg-[#F4F7F9] px-2.5 py-1 text-[#195EBC] text-[13px] font-medium tracking-tight">
-                      {tx.walletShort}
-                    </span>
+                    {tx.walletExplorerHref ? (
+                      <a
+                        href={tx.walletExplorerHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex w-fit max-w-full rounded-[6px] border border-[#E8EBF0] bg-[#F4F7F9] px-2.5 py-1 text-[#195EBC] text-[13px] font-medium tracking-tight hover:bg-[#E8EFFB]"
+                      >
+                        {tx.walletShort}
+                      </a>
+                    ) : (
+                      <span className="inline-flex w-fit max-w-full rounded-[6px] border border-[#E8EBF0] bg-[#F4F7F9] px-2.5 py-1 text-[#195EBC] text-[13px] font-medium tracking-tight">
+                        {tx.walletShort}
+                      </span>
+                    )}
                     <span className="text-[#0B1220] font-bold text-[15px] leading-tight">{tx.type}</span>
                   </div>
                   <div className="flex flex-row items-center justify-between gap-6 sm:justify-end sm:shrink-0 sm:min-w-56">

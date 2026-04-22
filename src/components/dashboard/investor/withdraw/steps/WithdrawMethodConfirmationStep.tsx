@@ -1,7 +1,8 @@
 import type { WithdrawalReviewRow } from '@/components/dashboard/investor/withdraw/types'
 
 interface WithdrawMethodConfirmationStepProps {
-  amount: number
+  /** Formatted USD string (includes `$` and grouping). */
+  amountDisplay: string
   poolName: string
   processingTime: string
   reviewRows: WithdrawalReviewRow[]
@@ -15,7 +16,7 @@ const valueToneClass = (tone?: WithdrawalReviewRow['valueTone']) => {
 }
 
 const WithdrawMethodConfirmationStep = ({
-  amount,
+  amountDisplay,
   poolName,
   processingTime,
   reviewRows,
@@ -32,12 +33,12 @@ const WithdrawMethodConfirmationStep = ({
           <div className="bg-linear-to-r from-[#2A6CC8] to-[#73A4E7] px-5 py-5 sm:px-6 sm:py-6 flex items-start justify-between gap-4">
             <div>
               <p className="text-white/80 text-[10px]">You are withdrawing</p>
-              <p className="text-white font-bold text-[40px] leading-none mt-1">${amount.toLocaleString()}</p>
-              <p className="text-white/90 text-[14px] mt-1">USDT from {poolName}</p>
+              <p className="text-white font-bold text-[40px] leading-none mt-1">{amountDisplay}</p>
+              <p className="text-white/90 text-[14px] mt-1">USDC from {poolName}</p>
             </div>
             <div className="rounded-[8px] bg-white/15 border border-white/20 px-5 py-4 text-right shrink-0 min-w-[160px]">
               <p className="text-white/80 text-[10px]">You'll receive</p>
-              <p className="text-white font-bold text-[35px] leading-none mt-1">${amount.toLocaleString()}</p>
+              <p className="text-white font-bold text-[35px] leading-none mt-1">{amountDisplay}</p>
               <p className="text-white/80 text-[10px] mt-1">{processingTime} processing</p>
             </div>
           </div>

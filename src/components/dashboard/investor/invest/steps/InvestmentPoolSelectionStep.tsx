@@ -1,14 +1,15 @@
 import type { InvestmentPoolInfo } from '@/components/dashboard/investor/invest/types'
 
 interface InvestmentPoolSelectionStepProps {
-  displayAmount: number
+  /** Formatted USD string (e.g. from `formatInvestAmountUsd`). */
+  amountDisplay: string
   pool: InvestmentPoolInfo
   detailsLabel: string
   onContinue: () => void
 }
 
 const InvestmentPoolSelectionStep = ({
-  displayAmount,
+  amountDisplay,
   pool,
   detailsLabel,
   onContinue,
@@ -18,7 +19,7 @@ const InvestmentPoolSelectionStep = ({
       <section className="rounded-[10px] border border-[#D9DEE8] bg-white p-5 sm:p-6">
         <h2 className="text-[#0B1220] font-bold text-[30px] leading-tight">Select Lending Pool</h2>
         <p className="text-[#6B7488] text-[14px] mt-1.5">
-          Choose which pool to deploy your ${displayAmount.toLocaleString()} USDT into
+          Choose which pool to deploy your {amountDisplay} USDC into
         </p>
 
         <button type="button" className="mt-5 w-full rounded-[10px] border border-[#3B82F6] bg-[#F7FAFF] px-6 py-5 text-left">
@@ -60,7 +61,7 @@ const InvestmentPoolSelectionStep = ({
 
       <section className="rounded-[10px] border border-[#D9DEE8] bg-white p-5 sm:p-6">
         <p className="text-[#0B1220] text-[30px] font-bold leading-tight">
-          Investing ${displayAmount.toLocaleString()} into {pool.name}
+          Investing {amountDisplay} into {pool.name}
         </p>
         <button
           type="button"

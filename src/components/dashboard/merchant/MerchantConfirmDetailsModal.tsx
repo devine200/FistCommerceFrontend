@@ -1,4 +1,7 @@
+import { useRef, useState } from 'react'
+
 import backArrowIcon from '@/assets/ph_arrow-left.png'
+import { isValidPhoneNumber, PHONE_VALIDITY_HINT } from '@/utils/phoneNumber'
 
 interface MerchantConfirmDetailsModalProps {
   onBack: () => void
@@ -10,6 +13,19 @@ interface MerchantConfirmDetailsModalProps {
  * with merchant mock defaults and copy.
  */
 const MerchantConfirmDetailsModal = ({ onBack, onContinue }: MerchantConfirmDetailsModalProps) => {
+  const phoneRef = useRef<HTMLInputElement>(null)
+  const [phoneError, setPhoneError] = useState('')
+
+  const handleContinue = () => {
+    const raw = phoneRef.current?.value ?? ''
+    if (!isValidPhoneNumber(raw)) {
+      setPhoneError(PHONE_VALIDITY_HINT)
+      return
+    }
+    setPhoneError('')
+    onContinue()
+  }
+
   return (
     <div className="max-w-[620px] mx-auto">
       <div className="flex items-start gap-3 mb-3">
@@ -38,11 +54,26 @@ const MerchantConfirmDetailsModal = ({ onBack, onContinue }: MerchantConfirmDeta
         </div>
 
         <div className="flex flex-col gap-3">
-          <label className="text-black text-[14px] sm:text-[16px]">Phone Number</label>
+          <label htmlFor="confirm-merchant-phone" className="text-black text-[14px] sm:text-[16px]">
+            Phone Number
+          </label>
           <input
-            defaultValue="Dave's Enterprises"
+            ref={phoneRef}
+            id="confirm-merchant-phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            defaultValue="+1 555 010 0199"
+            aria-invalid={Boolean(phoneError)}
+            aria-describedby={phoneError ? 'confirm-merchant-phone-err' : undefined}
+            onInput={() => setPhoneError('')}
             className="w-full border border-[#CFE0FF] rounded-md px-4 py-3 text-[#195EBC] text-[14px] sm:text-[16px] focus:outline-none"
           />
+          {phoneError ? (
+            <p id="confirm-merchant-phone-err" className="text-red-600 text-[13px] sm:text-[14px]" role="alert">
+              {phoneError}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-3">
@@ -72,7 +103,7 @@ const MerchantConfirmDetailsModal = ({ onBack, onContinue }: MerchantConfirmDeta
 
       <button
         type="button"
-        onClick={onContinue}
+        onClick={handleContinue}
         className="mt-5 bg-[#195EBC] text-white px-5 py-3 rounded-md w-full text-[15px] sm:text-[16px] font-semibold"
       >
         Continue

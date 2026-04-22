@@ -1,12 +1,13 @@
 interface WithdrawFinalConfirmationStepProps {
-  amount: number
+  /** Formatted USD string (includes `$` and grouping). */
+  amountDisplay: string
   destinationWallet: string
   processingTime: string
   onConfirm: () => void
 }
 
 const WithdrawFinalConfirmationStep = ({
-  amount,
+  amountDisplay,
   destinationWallet,
   processingTime,
   onConfirm,
@@ -20,7 +21,7 @@ const WithdrawFinalConfirmationStep = ({
         <div className="mt-5 rounded-[10px] border border-[#E6E8EC] bg-[#F8FAFC] p-5">
           <div className="flex items-center justify-between gap-4 py-2">
             <span className="text-[#6B7488] text-[14px]">Amount</span>
-            <span className="text-[#0B1220] font-semibold text-[16px]">${amount.toLocaleString()}</span>
+            <span className="text-[#0B1220] font-semibold text-[16px]">{amountDisplay}</span>
           </div>
           <div className="flex items-center justify-between gap-4 py-2 border-t border-[#E6E8EC]">
             <span className="text-[#6B7488] text-[14px]">Destination</span>

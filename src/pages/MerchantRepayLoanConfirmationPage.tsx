@@ -49,7 +49,7 @@ const MerchantRepayLoanConfirmationPage = () => {
   const totalPayment = '$640.00'
 
   const warningText =
-    'Funds will be locked for the loan duration (30–60 days). Early withdrawal may incur penalties. Smart contract interactions are irreversible.'
+    'Funds will be locked for the loan duration (30–90 days). Early withdrawal may incur penalties. Smart contract interactions are irreversible.'
 
   const ReviewRow = ({ label, value }: { label: string; value: string }) => (
     <div className="flex items-center justify-between gap-4 py-3 border-b border-[#EDF0F4]">

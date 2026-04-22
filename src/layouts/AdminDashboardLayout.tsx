@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 
 import AdminSideNav from '@/components/admin/AdminSideNav'
 import AdminTopBar from '@/components/admin/AdminTopBar'
+import { useWallet } from '@/hooks/useWallet'
 import { AdminMerchantProfileBreadcrumb } from '@/components/admin/merchants'
 import {
   AdminInvestorActivityDetailBreadcrumb,
@@ -70,6 +71,7 @@ const AdminDashboardLayout = () => {
   }, [pathname])
 
   const menuButtonLabel = mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'
+  const { shortAddress } = useWallet()
 
   return (
     <main className="h-dvh w-full bg-[#EEF0F4] flex overflow-hidden">
@@ -98,7 +100,7 @@ const AdminDashboardLayout = () => {
           title={pageTitle}
           leading={topBarLeading}
           notificationUnread
-          walletDisplay="0x7A3F...92C1"
+          walletDisplay={shortAddress ?? undefined}
           onMenuClick={() => setMobileNavOpen((v) => !v)}
           menuButtonAriaLabel={menuButtonLabel}
         />

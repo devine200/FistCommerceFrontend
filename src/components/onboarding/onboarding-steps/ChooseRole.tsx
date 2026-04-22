@@ -2,7 +2,8 @@ import investIcon from '@/assets/invest-icon.png'
 import merchantIcon from '@/assets/merchant-icon.png'
 import logo from '@/assets/logo.png'
 import { useNavigate } from 'react-router-dom'
-import { setRole } from '@/state/session'
+
+import { setRole, unlockAfterChooseRole } from '@/state/session'
 
 interface ChooseRoleProps {
   onContinueInvestor?: () => void
@@ -16,6 +17,7 @@ const ChooseRole = ({ onContinueInvestor, onContinueMerchant }: ChooseRoleProps)
     if (onContinueInvestor) onContinueInvestor()
     else {
       setRole('investor')
+      unlockAfterChooseRole('investor')
       navigate('/onboarding/investor/connect-wallet')
     }
   }
@@ -24,6 +26,7 @@ const ChooseRole = ({ onContinueInvestor, onContinueMerchant }: ChooseRoleProps)
     if (onContinueMerchant) onContinueMerchant()
     else {
       setRole('merchant')
+      unlockAfterChooseRole('merchant')
       navigate('/onboarding/merchant/connect-wallet')
     }
   }

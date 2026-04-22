@@ -1,7 +1,8 @@
 import type { InvestmentReviewRow } from '@/components/dashboard/investor/invest/types'
 
 interface InvestmentConfirmationStepProps {
-  amount: number
+  /** Formatted USD string (includes `$` and grouping). */
+  amountDisplay: string
   warningText: string
   reviewRows: InvestmentReviewRow[]
   onInvest: () => void
@@ -12,7 +13,12 @@ const valueToneClass = (tone?: InvestmentReviewRow['valueTone']) => {
   return 'text-[#0B1220]'
 }
 
-const InvestmentConfirmationStep = ({ amount, warningText, reviewRows, onInvest }: InvestmentConfirmationStepProps) => {
+const InvestmentConfirmationStep = ({
+  amountDisplay,
+  warningText,
+  reviewRows,
+  onInvest,
+}: InvestmentConfirmationStepProps) => {
   return (
     <>
       <section className="rounded-[10px] border border-[#D9DEE8] bg-white p-5 sm:p-6">
@@ -22,8 +28,8 @@ const InvestmentConfirmationStep = ({ amount, warningText, reviewRows, onInvest 
         <div className="mt-5 rounded-[10px] border border-[#E6E8EC] bg-[#F8FAFC] px-5 py-6">
           <div className="text-center">
             <p className="text-[#6B7488] text-[12px] uppercase tracking-wide">Total Investment</p>
-            <p className="text-[#0B1220] text-[42px] font-semibold leading-tight mt-2">${amount.toLocaleString()}</p>
-            <p className="text-[#6B7488] text-[14px] mt-1">USDT</p>
+            <p className="text-[#0B1220] text-[42px] font-semibold leading-tight mt-2">{amountDisplay}</p>
+            <p className="text-[#6B7488] text-[14px] mt-1">USDC</p>
           </div>
         </div>
       </section>

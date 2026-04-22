@@ -1,5 +1,21 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
+import {
+  displayDashboardMetricString,
+  displayPoolApyPercent,
+  displayPoolMinDeposit,
+  displayPoolUtilization,
+  fetchInvestorMetrics,
+  fetchPoolMetrics,
+  type InvestorMetrics,
+  type PoolMetrics,
+} from '@/api/metrics'
+import { deriveKycStatusFromInvestorRecord, fetchInvestorKycRecord } from '@/api/kycInvestor'
+import { fetchRecentPayoutTransactions, type RecentPayoutBundle } from '@/api/payout'
+import { patchAuth, type UserRole } from '@/store/slices/authSlice'
+import { setKycStatus } from '@/store/slices/kycSlice'
+import { setRecentPayoutBundle } from '@/store/slices/recentTransactionsSlice'
+
 export type LendingPoolCardState = {
   id: string
   viewDetailsTo: string
@@ -15,7 +31,10 @@ export type InvestorDashboardSyncStatus = 'idle' | 'loading' | 'succeeded' | 'fa
 
 export type InvestorDashboardState = {
   walletDisplay: string
-  lendingPools: LendingPoolCardState[]
+  lendingPools: LendingPoolCardState
+  /** Raw API payloads (used by detail pages for richer info). */
+  poolMetrics: PoolMetrics | null
+  investorMetrics: InvestorMetrics | null
   status: InvestorDashboardSyncStatus
   error: string | null
   lastUpdated: number | null
@@ -23,29 +42,90 @@ export type InvestorDashboardState = {
 
 const initialState: InvestorDashboardState = {
   walletDisplay: '0x7A3F...92C1',
-  lendingPools: [
-    {
-      id: 'fist-commerce-lending-pool',
-      viewDetailsTo: '/dashboard/investor/lending-pool/fist-commerce-lending-pool',
-      poolTitle: 'Fist Commerce Lending Pool',
-      tagline: 'For short-duration loans with stable returns.',
-      apyDisplay: '6-8% APY',
-      tvlDisplay: '538,500 USDC',
-      minDepositDisplay: '100 USDC',
-      utilizationDisplay: '60% Allocated',
-    },
-  ],
+  lendingPools: {
+    id: 'fist-commerce-lending-pool',
+    viewDetailsTo: '/dashboard/investor/lending-pool/fist-commerce-lending-pool',
+    poolTitle: 'Fist Commerce Lending Pool',
+    tagline: 'For short-duration loans with stable returns.',
+    apyDisplay: '6-8% APY',
+    tvlDisplay: '538,500 USDC',
+    minDepositDisplay: '100 USDC',
+    utilizationDisplay: '60% Allocated',
+  },
+  poolMetrics: null,
+  investorMetrics: null,
   status: 'idle',
   error: null,
   lastUpdated: null,
 }
 
-export const refreshInvestorDashboard = createAsyncThunk('investorDashboard/refresh', async () => {
-  await new Promise<void>((resolve) => {
-    setTimeout(resolve, 400)
-  })
-  return { refreshedAt: Date.now() }
-})
+// NOTE: Single-pool UX — keep one default pool card and only hydrate a few fields from API metrics.
+
+function patchCardFromPoolMetrics(card: LendingPoolCardState, pool: PoolMetrics): LendingPoolCardState {
+  const apy = displayPoolApyPercent(pool.apy)
+  const tvl = displayDashboardMetricString(pool.tvl)
+  const minDeposit = displayPoolMinDeposit(pool.minDeposit)
+  const utilization = displayPoolUtilization(pool.utilization)
+
+  return {
+    ...card,
+    apyDisplay: apy !== '—' ? (apy.includes('APY') ? apy : `${apy} APY`) : card.apyDisplay,
+    tvlDisplay: tvl !== '—' ? (tvl.includes('USDC') || tvl.includes('USDT') ? tvl : `${tvl} USDC`) : card.tvlDisplay,
+    minDepositDisplay:
+      minDeposit !== '—'
+        ? minDeposit.includes('USDC') || minDeposit.includes('USDT')
+          ? minDeposit
+          : `${minDeposit} USDC`
+        : card.minDepositDisplay,
+    utilizationDisplay:
+      utilization !== '—'
+        ? utilization.toLowerCase().includes('allocated')
+          ? utilization
+          : `${utilization} Allocated`
+        : card.utilizationDisplay,
+  }
+}
+
+type RefreshInvestorAuth = {
+  auth?: { accessToken?: string | null; role?: UserRole | null }
+}
+
+const emptyRecentPayout: RecentPayoutBundle = {
+  transactions: [],
+  contractAddress: null,
+  explorerBaseUrl: null,
+}
+
+export const refreshInvestorDashboard = createAsyncThunk(
+  'investorDashboard/refresh',
+  async (_arg, thunkApi) => {
+    const state = thunkApi.getState() as RefreshInvestorAuth
+    const accessToken = state.auth?.accessToken
+    const role = state.auth?.role
+
+    const [poolMetrics, investorMetrics, recentPayout] = await Promise.all([
+      fetchPoolMetrics(accessToken),
+      fetchInvestorMetrics(accessToken),
+      fetchRecentPayoutTransactions(accessToken).catch(() => emptyRecentPayout),
+    ])
+
+    if (role === 'investor' && accessToken?.trim()) {
+      try {
+        const kycRecord = await fetchInvestorKycRecord(accessToken)
+        const kycStatus = deriveKycStatusFromInvestorRecord(kycRecord)
+        thunkApi.dispatch(setKycStatus(kycStatus))
+        thunkApi.dispatch(patchAuth({ kycVerified: kycStatus === 'verified' }))
+      } catch {
+        /* keep existing KYC slice / auth flags */
+      }
+    }
+
+    const refreshedAt = Date.now()
+    thunkApi.dispatch(setRecentPayoutBundle({ bundle: recentPayout, fetchedAt: refreshedAt }))
+
+    return { refreshedAt, poolMetrics, investorMetrics }
+  },
+)
 
 const investorDashboardSlice = createSlice({
   name: 'investorDashboard',
@@ -54,15 +134,16 @@ const investorDashboardSlice = createSlice({
     setInvestorWalletDisplay: (state, action: PayloadAction<string>) => {
       state.walletDisplay = action.payload
     },
-    setInvestorLendingPools: (state, action: PayloadAction<LendingPoolCardState[]>) => {
+    setInvestorLendingPools: (state, action: PayloadAction<LendingPoolCardState>) => {
       state.lendingPools = action.payload
     },
     patchInvestorPool: (
       state,
       action: PayloadAction<{ id: string; patch: Partial<LendingPoolCardState> }>,
     ) => {
-      const pool = state.lendingPools.find((p) => p.id === action.payload.id)
-      if (pool) Object.assign(pool, action.payload.patch)
+      if (state.lendingPools.id === action.payload.id) {
+        Object.assign(state.lendingPools, action.payload.patch)
+      }
     },
     resetInvestorDashboard: () => initialState,
   },
@@ -75,10 +156,19 @@ const investorDashboardSlice = createSlice({
       .addCase(refreshInvestorDashboard.fulfilled, (state, action) => {
         state.status = 'succeeded'
         state.lastUpdated = action.payload.refreshedAt
+        state.poolMetrics = action.payload.poolMetrics
+        state.investorMetrics = action.payload.investorMetrics
+
+        // Single pool UX: keep default card + hydrate its metrics from the API response.
+        const current = state.lendingPools
+        state.lendingPools = patchCardFromPoolMetrics(current, action.payload.poolMetrics)
       })
       .addCase(refreshInvestorDashboard.rejected, (state, action) => {
         state.status = 'failed'
-        state.error = typeof action.payload === 'string' ? action.payload : 'Refresh failed'
+        state.error =
+          (typeof action.payload === 'string' ? action.payload : null) ??
+          action.error.message ??
+          'Refresh failed'
       })
   },
 })
