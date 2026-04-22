@@ -26,7 +26,6 @@ const MerchantLoanDetailPage = () => {
     >
       <LendingPoolDetailPageContent
         config={config}
-        poolSlug={poolSlug}
         onApplyToBorrow={() => navigate(`/dashboard/merchant/lending-pool/${poolSlug}/apply-loan`)}
       />
     </DashboardLayout>

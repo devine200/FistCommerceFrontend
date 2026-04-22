@@ -1,45 +1,19 @@
 import {
   displayDashboardMetricString,
-  displayDashboardPercentString,
   formatDashboardCompactUsd,
   formatDashboardPercentMetric,
 } from '@/api/metrics'
+import type { MerchantLoanApi } from '@/api/loans'
 import LendingPoolDetailHeroBanner from '@/components/dashboard/merchant/lending-pool-detail/LendingPoolDetailHeroBanner'
 import LendingPoolDetailOverview from '@/components/dashboard/merchant/lending-pool-detail/LendingPoolDetailOverview'
 import MerchantLoansTable from '@/components/dashboard/merchant/lending-pool-detail/MerchantLoansTable'
-import type { LendingPoolDetailConfig } from '@/components/dashboard/merchant/lending-pool-detail/types'
+import type { LendingPoolDetailConfig, MerchantLoanTableRowData } from '@/components/dashboard/merchant/lending-pool-detail/types'
 import { useNavigate } from 'react-router-dom'
 import { useAppSelector } from '@/store/hooks'
 
 interface LendingPoolDetailPageContentProps {
   config: LendingPoolDetailConfig
-  poolSlug?: string
   onApplyToBorrow?: () => void
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object') return null
-  return value as Record<string, unknown>
-}
-
-function extractPoolItems(payload: unknown): unknown[] {
-  if (Array.isArray(payload)) return payload
-  const rec = asRecord(payload)
-  const maybe = rec?.results ?? rec?.data ?? rec?.pools ?? rec?.items
-  return Array.isArray(maybe) ? maybe : []
-}
-
-function findPoolMetricsBySlug(poolMetrics: unknown, slug: string | undefined): Record<string, unknown> | null {
-  if (!slug) return null
-  const items = extractPoolItems(poolMetrics)
-  for (const item of items) {
-    const rec = asRecord(item)
-    if (!rec) continue
-    const idRaw = rec.slug ?? rec.id ?? rec.pool_slug ?? rec.poolSlug ?? rec.pool_id ?? rec.poolId
-    const id = typeof idRaw === 'string' ? idRaw.trim() : ''
-    if (id && id === slug) return rec
-  }
-  return null
 }
 
 function fmtUsd(v: unknown): string | null {
@@ -48,36 +22,81 @@ function fmtUsd(v: unknown): string | null {
   return null
 }
 
-function fmtPct(v: unknown): string | null {
-  if (typeof v === 'number' && Number.isFinite(v)) return formatDashboardPercentMetric(v)
-  if (typeof v === 'string' && v.trim()) return displayDashboardPercentString(v.trim())
-  return null
+function fmtDdMmYyyy(isoLike: string): string {
+  const d = new Date(isoLike)
+  if (!Number.isFinite(d.getTime())) return '—'
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yyyy = String(d.getFullYear())
+  return `${dd}-${mm}-${yyyy}`
 }
 
-const LendingPoolDetailPageContent = ({ config, onApplyToBorrow, poolSlug }: LendingPoolDetailPageContentProps) => {
-  const navigate = useNavigate()
-  const poolMetricsPayload = useAppSelector((s) => s.merchantDashboard.poolMetrics)
-  const pool = findPoolMetricsBySlug(poolMetricsPayload, poolSlug)
+function loanStatusLabel(statusRaw: string): string {
+  const s = (statusRaw ?? '').trim().toLowerCase()
+  if (!s) return 'Unpaid'
+  if (s.includes('repaid') || s.includes('paid') || s === 'completed') return 'Repaid'
+  if (s.includes('default')) return 'Defaulted'
+  return 'Unpaid'
+}
 
-  const stats = pool
+function loanApiToMerchantLoanRow(loan: MerchantLoanApi): MerchantLoanTableRowData {
+  return {
+    id: loan.id,
+    merchantName: `Merchant ${loan.user ?? loan.id.slice(0, 6)}`,
+    walletShort: '—',
+    loanAmount: displayDashboardMetricString(loan.loan_amount),
+    issueDate: fmtDdMmYyyy(loan.created_at),
+    repaymentDue: '—',
+    repaymentAmount: '—',
+    debtStatus: loanStatusLabel(loan.status),
+  }
+}
+
+const LendingPoolDetailPageContent = ({ config, onApplyToBorrow }: LendingPoolDetailPageContentProps) => {
+  const navigate = useNavigate()
+  const poolMetrics = useAppSelector((s) => s.merchantDashboard.poolMetrics)
+  const { loans: merchantLoansApi, status: merchantLoansStatus, error: merchantLoansError } = useAppSelector(
+    (s) => s.merchantReceivables,
+  )
+
+  const stats = poolMetrics
     ? config.stats.map((s) => {
         const nextValue =
           s.label === 'Total Deposited'
-            ? fmtUsd(pool.total_deposited ?? pool.totalDeposited ?? pool.total_pool_size ?? pool.totalPoolSize)
+            ? fmtUsd(poolMetrics.tvl)
             : s.label === 'Liquid Asset'
-              ? fmtUsd(pool.liquid_asset ?? pool.liquidAsset ?? pool.available_liquidity ?? pool.availableLiquidity)
+              ? fmtUsd(poolMetrics.liquidAssets)
               : s.label === 'Maximum loan'
-                ? fmtUsd(pool.maximum_loan ?? pool.maximumLoan ?? pool.max_loan ?? pool.maxLoan)
+                ? null
                 : s.label === 'Loan Interest'
-                  ? fmtPct(pool.loan_interest ?? pool.loanInterest ?? pool.borrow_apr ?? pool.borrowApr)
+                  ? null
                   : s.label === 'Target Repayment Duration'
-                    ? (typeof (pool.target_repayment_duration ?? pool.targetRepaymentDuration) === 'string'
-                        ? String(pool.target_repayment_duration ?? pool.targetRepaymentDuration)
-                        : null)
+                    ? null
                     : null
         return nextValue ? { ...s, value: nextValue } : s
       })
     : config.stats
+
+  const financialInfoRows = poolMetrics
+    ? config.financialInfoRows.map((row) => {
+        const nextValue =
+          row.label === 'Available Liquidity'
+            ? fmtUsd(poolMetrics.availableLiquidity)
+            : row.label === 'Total Pool Size'
+              ? fmtUsd(poolMetrics.tvl)
+              : row.label === 'Average APY to Investors'
+                ? (Number.isFinite(poolMetrics.apy) ? `${formatDashboardPercentMetric(poolMetrics.apy)} APY` : null)
+                : row.label === 'Utilization Rate'
+                  ? (Number.isFinite(poolMetrics.utilization)
+                      ? formatDashboardPercentMetric(poolMetrics.utilization)
+                      : null)
+                  : null
+        return nextValue ? { ...row, value: nextValue } : row
+      })
+    : config.financialInfoRows
+
+  const merchantLoanRows =
+    merchantLoansApi.length > 0 ? merchantLoansApi.map(loanApiToMerchantLoanRow) : config.loans
 
   return (
     <div className="flex flex-col gap-6 pb-8">
@@ -99,10 +118,20 @@ const LendingPoolDetailPageContent = ({ config, onApplyToBorrow, poolSlug }: Len
       />
       <LendingPoolDetailOverview
         overviewParagraphs={config.overviewParagraphs}
-        financialInfoRows={config.financialInfoRows}
+        financialInfoRows={financialInfoRows}
         termsForLoanRows={config.termsForLoanRows}
       />
-      <MerchantLoansTable loans={config.loans} />
+      {merchantLoansStatus === 'loading' ? (
+        <div className="text-[#8B92A3] text-[13px] px-1" role="status">
+          Loading merchant loans…
+        </div>
+      ) : null}
+      {merchantLoansStatus === 'failed' && merchantLoansError?.trim() ? (
+        <div className="text-[#B91C1C] text-[13px] px-1" role="alert">
+          {merchantLoansError.trim()}
+        </div>
+      ) : null}
+      <MerchantLoansTable loans={merchantLoanRows} />
     </div>
   )
 }

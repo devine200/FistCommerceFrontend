@@ -1,16 +1,13 @@
 import walletTabIcon from '@/assets/Icon (1).png'
 import profileTabIcon from '@/assets/Icon.png'
 import historyTabIcon from '@/assets/Icon (2).png'
+import { displayDashboardMetricString } from '@/api/metrics'
+import type { MerchantMetrics, PoolMetrics } from '@/api/metrics'
 import type {
   InvestorPortfolioMetric,
   InvestorProfileStat,
   InvestorProfileTab,
 } from '@/components/dashboard/investor/profile/types'
-
-export const MERCHANT_PROFILE = {
-  name: 'Dre Andrew',
-  email: 'besserasasocial@gmail.com',
-}
 
 export const MERCHANT_PROFILE_TABS: InvestorProfileTab[] = [
   { id: 'overview', label: 'Overview', to: 'overview', icon: profileTabIcon },
@@ -18,30 +15,36 @@ export const MERCHANT_PROFILE_TABS: InvestorProfileTab[] = [
   { id: 'history', label: 'Activities', to: 'history', icon: historyTabIcon },
 ]
 
-export const MERCHANT_PROFILE_STATS: InvestorProfileStat[] = [
-  {
-    icon: 'money',
-    title: 'Total Borrowed',
-    subtitle: 'Amount borrowed from Lending Pool',
-    primaryValue: '$24K',
-    secondaryValue: '$24,000 USDT',
-  },
-  {
-    icon: 'dollar',
-    title: 'Total Repaid',
-    subtitle: 'Amount repaid from loans',
-    primaryValue: '$28,520K',
-    secondaryValue: '$28,520 USDT',
-    tone: 'positive',
-  },
-  {
-    icon: 'money',
-    title: 'Member Since',
-    subtitle: 'Date Joined',
-    primaryValue: 'Mar 2025',
-    secondaryValue: '',
-  },
-]
+export function buildMerchantProfileStatsFromApi(merchantMetrics: MerchantMetrics | null): InvestorProfileStat[] {
+  const totalBorrowed = merchantMetrics ? displayDashboardMetricString(merchantMetrics.credit.totalBorrowed) : '—'
+  const totalRepaid = merchantMetrics ? displayDashboardMetricString(merchantMetrics.performance.totalRepaid) : '—'
+  const activeLoans = merchantMetrics ? String(merchantMetrics.credit.activeLoans) : '—'
+
+  return [
+    {
+      icon: 'money',
+      title: 'Total Borrowed',
+      subtitle: 'Amount borrowed from Lending Pool',
+      primaryValue: totalBorrowed,
+      secondaryValue: '',
+    },
+    {
+      icon: 'dollar',
+      title: 'Total Repaid',
+      subtitle: 'Amount repaid from loans',
+      primaryValue: totalRepaid,
+      secondaryValue: '',
+      tone: 'positive',
+    },
+    {
+      icon: 'money',
+      title: 'Active Loans',
+      subtitle: 'Currently outstanding facilities',
+      primaryValue: activeLoans,
+      secondaryValue: '',
+    },
+  ]
+}
 
 export const MERCHANT_PORTFOLIO = {
   title: 'Portfolio Summary',
@@ -49,9 +52,30 @@ export const MERCHANT_PORTFOLIO = {
   poolMeta: 'Moderate risk, Moderate returns.',
 }
 
-export const MERCHANT_PORTFOLIO_METRICS: InvestorPortfolioMetric[] = [
-  { label: 'Total Deposited', value: '$340K', helper: '$340 USDT' },
-  { label: 'Liquid Asset', value: '$120K', helper: '$340 USDT' },
-  { label: 'Borrow APR', value: '5.3%', helper: 'To be repayed' },
-  { label: 'Target Repayment Duration', value: '30-90 Days', helper: '' },
-]
+export function buildMerchantPortfolioMetricsFromApi(
+  merchantMetrics: MerchantMetrics | null,
+  poolMetrics: PoolMetrics | null,
+): InvestorPortfolioMetric[] {
+  return [
+    {
+      label: 'Total Pool Size',
+      value: poolMetrics ? displayDashboardMetricString(poolMetrics.tvl) : '—',
+      helper: '',
+    },
+    {
+      label: 'Available Liquidity',
+      value: poolMetrics ? displayDashboardMetricString(poolMetrics.availableLiquidity) : '—',
+      helper: '',
+    },
+    {
+      label: 'Total Borrowed',
+      value: merchantMetrics ? displayDashboardMetricString(merchantMetrics.credit.totalBorrowed) : '—',
+      helper: '',
+    },
+    {
+      label: 'Total Repaid',
+      value: merchantMetrics ? displayDashboardMetricString(merchantMetrics.performance.totalRepaid) : '—',
+      helper: '',
+    },
+  ]
+}

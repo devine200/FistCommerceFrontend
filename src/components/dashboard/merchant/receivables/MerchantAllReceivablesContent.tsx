@@ -2,13 +2,10 @@ import moneyIcon from '@/assets/Money.png'
 import dollarIcon from '@/assets/CurrencyDollarSimple.png'
 import primeChevronRight from '@/assets/prime_chevron-right.png'
 import magnifyingGlassIcon from '@/assets/MagnifyingGlass.png'
-import {
-  MERCHANT_RECEIVABLES_ROWS,
-  MERCHANT_RECEIVABLES_SUMMARY,
-} from '@/components/dashboard/merchant/receivables/merchantReceivablesConfig'
 import type { ReceivableSummaryCard, ReceivableTableRow } from '@/components/dashboard/merchant/receivables/types'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAppSelector } from '@/store/hooks'
 
 const summaryIconSrc = (card: ReceivableSummaryCard) => (card.icon === 'dollar' ? dollarIcon : moneyIcon)
 
@@ -59,7 +56,47 @@ const MerchantAllReceivablesContent = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
   const mobileSearchInputRef = useRef<HTMLInputElement | null>(null)
-  const totalCount = MERCHANT_RECEIVABLES_ROWS.length
+  const { rows, status, error } = useAppSelector((s) => s.merchantReceivables)
+  const totalCount = rows.length
+
+  const summaryCards = useMemo((): ReceivableSummaryCard[] => {
+    // Minimal summary from what we have on `/loan/request` today.
+    const totalReceivables = rows.length
+    const defaulted = rows.filter((r) => r.debtStatusVariant === 'defaulted').length
+    const repaid = rows.filter((r) => r.debtStatusVariant === 'repaid').length
+    const unpaid = rows.filter((r) => r.debtStatusVariant === 'unpaid').length
+
+    return [
+      {
+        id: 'total-count',
+        icon: 'money',
+        title: 'Total Receivables',
+        primaryValue: String(totalReceivables),
+        secondaryValue: 'From your loan requests',
+      },
+      {
+        id: 'unpaid',
+        icon: 'dollar',
+        title: 'Unpaid',
+        primaryValue: String(unpaid),
+        secondaryValue: 'Open receivables',
+      },
+      {
+        id: 'repaid',
+        icon: 'dollar',
+        title: 'Repaid',
+        primaryValue: String(repaid),
+        secondaryValue: 'Closed receivables',
+      },
+      {
+        id: 'defaulted',
+        icon: 'money',
+        title: 'Defaulted',
+        primaryValue: String(defaulted),
+        secondaryValue: 'Needs attention',
+      },
+    ]
+  }, [rows])
 
   const goToReceivable = (id: string) => {
     navigate(`/dashboard/merchant/receivables/${id}`)
@@ -67,9 +104,9 @@ const MerchantAllReceivablesContent = () => {
 
   const filteredRows = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
-    if (!q) return MERCHANT_RECEIVABLES_ROWS
-    return MERCHANT_RECEIVABLES_ROWS.filter((row) => matchesSearch(rowHaystack(row), q))
-  }, [searchTerm])
+    if (!q) return rows
+    return rows.filter((row) => matchesSearch(rowHaystack(row), q))
+  }, [searchTerm, rows])
 
   useEffect(() => {
     if (!isMobileSearchOpen) return
@@ -99,7 +136,7 @@ const MerchantAllReceivablesContent = () => {
       {/* Mobile summary (single card, 2x2) */}
       <section className="lg:hidden rounded-[10px] border border-[#E6E8EC] bg-white p-4">
         <div className="grid grid-cols-2 gap-x-6 gap-y-6">
-          {MERCHANT_RECEIVABLES_SUMMARY.map((card) => (
+          {summaryCards.map((card) => (
             <div key={card.id} className="min-w-0">
               <p className="text-[#6B7488] text-[11px] leading-tight">{card.title}</p>
               <p className="text-[#0B1220] text-[16px] font-semibold mt-1">{card.primaryValue}</p>
@@ -111,7 +148,7 @@ const MerchantAllReceivablesContent = () => {
 
       {/* Desktop summary cards */}
       <section className="hidden lg:grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {MERCHANT_RECEIVABLES_SUMMARY.map((card) => (
+        {summaryCards.map((card) => (
           <article
             key={card.id}
             className="rounded-[10px] border border-[#E6E8EC] bg-white px-6 py-5 shadow-sm"
@@ -145,6 +182,16 @@ const MerchantAllReceivablesContent = () => {
         </div>
 
         <div className="p-3">
+          {status === 'loading' ? (
+            <div className="px-2 py-8 text-center text-[#8B92A3] text-[13px]" role="status">
+              Loading receivables…
+            </div>
+          ) : null}
+          {status === 'failed' && error ? (
+            <div className="px-2 py-8 text-center text-[#B91C1C] text-[13px]" role="alert">
+              {error}
+            </div>
+          ) : null}
           {isMobileSearchOpen ? (
             <div className="mb-3">
               <div className="h-[42px] w-full rounded-[6px] border border-[#D5DAE2] px-3 flex items-center gap-2">
@@ -229,6 +276,16 @@ const MerchantAllReceivablesContent = () => {
         </div>
 
         <div className="overflow-x-auto px-8 pb-8 pt-4">
+          {status === 'loading' ? (
+            <div className="py-10 text-center text-[#8B92A3] text-[14px]" role="status">
+              Loading receivables…
+            </div>
+          ) : null}
+          {status === 'failed' && error ? (
+            <div className="py-10 text-center text-[#B91C1C] text-[14px]" role="alert">
+              {error}
+            </div>
+          ) : null}
           <table className="w-full min-w-[1000px] text-left text-[14px] border-collapse">
             <thead>
               <tr className="bg-[#F8FAFC] text-[#4D5D80] border-b border-[#E6E8EC]">
@@ -287,7 +344,7 @@ const MerchantAllReceivablesContent = () => {
           </table>
         </div>
 
-        {filteredRows.length === 0 ? (
+        {status !== 'loading' && status !== 'failed' && filteredRows.length === 0 ? (
           <div className="px-8 py-12 text-center text-[#8B92A3] text-[14px] border-t border-[#EDF0F4]">
             No receivables match your search.
           </div>

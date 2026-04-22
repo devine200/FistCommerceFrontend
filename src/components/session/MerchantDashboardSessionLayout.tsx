@@ -6,6 +6,8 @@ import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFul
 import DashboardSessionGuard from '@/components/session/DashboardSessionGuard'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { refreshMerchantDashboard } from '@/store/slices/merchantDashboardSlice'
+import { refreshMerchantReceivables } from '@/store/slices/merchantReceivablesSlice'
+import { refreshMerchantTransactions } from '@/store/slices/merchantTransactionsSlice'
 
 export default function MerchantDashboardSessionLayout() {
   const dispatch = useAppDispatch()
@@ -25,6 +27,8 @@ export default function MerchantDashboardSessionLayout() {
     if (!accessToken?.trim()) return
     didKickoffRef.current = true
     void dispatch(refreshMerchantDashboard())
+    void dispatch(refreshMerchantReceivables())
+    void dispatch(refreshMerchantTransactions())
   }, [dispatch, status, accessToken])
 
   useEffect(() => {

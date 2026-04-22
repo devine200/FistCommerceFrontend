@@ -17,7 +17,7 @@ const FINANCIAL_INFO_ROWS: { label: string; value: string }[] = [
 ]
 
 const TERMS_FOR_LOAN_ROWS: { label: string; value: string }[] = [
-  { label: 'Borrow APR', value: '5.3% APR' },
+  { label: 'Borrow APR', value: '6-8% APR' },
   { label: 'Repayment Structure', value: 'In full at Maturity' },
   { label: 'Loan Duration', value: '30-90 Days' },
   { label: 'Grace Period', value: 'N/A' },
@@ -48,7 +48,7 @@ const BASE_POOL: Omit<LendingPoolDetailConfig, 'title' | 'subtitle' | 'loans'> =
     { label: 'Total Deposited', value: '$340K', hint: '≈ $340K USDT' },
     { label: 'Liquid Asset', value: '$120K', hint: '≈ $120K USDT' },
     { label: 'Maximum loan', value: '$120K', hint: 'Per facility cap' },
-    { label: 'Loan Interest', value: '5.3%', hint: 'To be repaid' },
+    { label: 'Loan Interest', value: '6-8%', hint: 'To be repaid' },
     { label: 'Target Repayment Duration', value: '30-90 Days' },
   ],
 }

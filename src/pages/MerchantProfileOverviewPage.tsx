@@ -1,17 +1,18 @@
 import { Outlet, useLocation } from 'react-router-dom'
 
 import {
-  MERCHANT_PROFILE,
-  MERCHANT_PROFILE_STATS,
   MERCHANT_PROFILE_TABS,
+  buildMerchantProfileStatsFromApi,
 } from '@/components/dashboard/merchant/profile/merchantProfileConfig'
 import MerchantProfileOverviewContent from '@/components/dashboard/merchant/profile/MerchantProfileOverviewContent'
 import { buildProfileOverviewBreadcrumbs } from '@/components/dashboard/shared/dashboardBreadcrumbs'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
+import { useAppSelector } from '@/store/hooks'
 
 const MerchantProfileOverviewPage = () => {
   const { pathname } = useLocation()
-  const walletDisplay = '0x7A3F...92C1'
+  const walletDisplay = useAppSelector((s) => s.merchantDashboard.walletDisplay)
+  const merchantMetrics = useAppSelector((s) => s.merchantDashboard.merchantMetrics)
 
   const topBarBreadcrumbs: DashboardBreadcrumbItem[] = buildProfileOverviewBreadcrumbs(
     '/dashboard/merchant',
@@ -25,12 +26,7 @@ const MerchantProfileOverviewPage = () => {
       topBarWalletDisplay={walletDisplay}
     >
       <div className="flex flex-col gap-4 pb-8">
-        <MerchantProfileOverviewContent
-          name={MERCHANT_PROFILE.name}
-          email={MERCHANT_PROFILE.email}
-          stats={MERCHANT_PROFILE_STATS}
-          tabs={MERCHANT_PROFILE_TABS}
-        />
+        <MerchantProfileOverviewContent tabs={MERCHANT_PROFILE_TABS} stats={buildMerchantProfileStatsFromApi(merchantMetrics)} />
         <Outlet />
       </div>
     </DashboardLayout>

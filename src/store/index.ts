@@ -26,6 +26,8 @@ import { adminMerchantsReducer } from '@/store/slices/adminMerchantsSlice'
 import { investorDashboardReducer } from '@/store/slices/investorDashboardSlice'
 import { recentTransactionsReducer } from '@/store/slices/recentTransactionsSlice'
 import { merchantDashboardReducer } from '@/store/slices/merchantDashboardSlice'
+import { merchantTransactionsReducer } from '@/store/slices/merchantTransactionsSlice'
+import { merchantReceivablesReducer } from '@/store/slices/merchantReceivablesSlice'
 import { kycReducer } from '@/store/slices/kycSlice'
 import { onboardingReducer } from '@/store/slices/onboardingSlice'
 import { onboardingProfileDraftReducer } from '@/store/slices/onboardingProfileDraftSlice'
@@ -112,6 +114,8 @@ const rootReducer = combineReducers({
   investorDashboard: investorDashboardReducer,
   recentTransactions: recentTransactionsReducer,
   merchantDashboard: merchantDashboardReducer,
+  merchantTransactions: merchantTransactionsReducer,
+  merchantReceivables: merchantReceivablesReducer,
 })
 
 export const store = configureStore({

@@ -24,6 +24,21 @@ export type InvestorProfileInfo = {
   created_at: string
 }
 
+/** `GET/POST` `/api/auth/merchant-profile` — merchant profile serializer fields (best-effort; API may omit some). */
+export type MerchantProfileInfo = {
+  fullname: string
+  email: string
+  phone_number: string
+  business_name: string
+  business_address: string
+  business_country: string
+  business_year_of_operation: string
+  business_industry: string
+  business_website: string
+  /** ISO datetime */
+  created_at: string
+}
+
 function profileStringField(value: unknown): string {
   if (value === null || value === undefined) return ''
   return String(value).trim()
@@ -46,11 +61,38 @@ function normalizeInvestorProfilePayload(raw: unknown): InvestorProfileInfo | nu
   }
 }
 
+function normalizeMerchantProfilePayload(raw: unknown): MerchantProfileInfo | null {
+  if (raw === null || raw === undefined) return null
+  const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null
+  if (!o) return null
+  return {
+    fullname: profileStringField(o.fullname),
+    email: profileStringField(o.email),
+    phone_number: profileStringField(o.phone_number),
+    business_name: profileStringField(o.business_name),
+    business_address: profileStringField(o.business_address),
+    business_country: profileStringField(o.business_country),
+    business_year_of_operation: profileStringField(o.business_year_of_operation),
+    business_industry: profileStringField(o.business_industry),
+    business_website: profileStringField(o.business_website),
+    created_at: profileStringField(o.created_at),
+  }
+}
+
+function unwrapProfileEnvelope(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw
+  const rec = raw as Record<string, unknown>
+  if ('data' in rec) return rec.data
+  return raw
+}
+
 function tokenAuthHeaders(accessToken: string): HeadersInit {
+  const t = accessToken.trim()
+  const authValue = /^Token\s+\S+/i.test(t) ? t : `Token ${t}`
   return {
     Accept: 'application/json',
     'Content-Type': 'application/json',
-    Authorization: `Token ${accessToken.trim()}`,
+    Authorization: authValue,
   }
 }
 
@@ -93,10 +135,30 @@ export async function fetchInvestorProfile(
     headers: tokenAuthHeaders(t),
   })
 
-  
   if (res.status === 404) return null
-  const raw = await parseJsonResponse<{message: string; data: InvestorProfileInfo }>(res)
-  return normalizeInvestorProfilePayload(raw.data)
+  const raw = await parseJsonResponse<unknown>(res)
+  return normalizeInvestorProfilePayload(unwrapProfileEnvelope(raw))
+}
+
+/**
+ * `GET /api/auth/merchant-profile` — current merchant’s profile row.
+ * Returns `null` when the server responds with 404 (no profile yet).
+ */
+export async function fetchMerchantProfile(
+  accessToken: string | null | undefined,
+): Promise<MerchantProfileInfo | null> {
+  const t = typeof accessToken === 'string' ? accessToken.trim() : ''
+  if (!t) return null
+
+  const base = requireApiBaseUrl()
+  const res = await fetchWithAuthRecovery(`${base}${MERCHANT_PROFILE_PATH}`, {
+    method: 'GET',
+    headers: tokenAuthHeaders(t),
+  })
+
+  if (res.status === 404) return null
+  const raw = await parseJsonResponse<unknown>(res)
+  return normalizeMerchantProfilePayload(unwrapProfileEnvelope(raw))
 }
 
 export async function postInvestorProfile(

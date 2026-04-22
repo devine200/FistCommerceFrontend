@@ -7,6 +7,9 @@ import cloudUploadIcon from '@/assets/cloud-upload.png'
 import documentCheckedIcon from '@/assets/doc-checked.png'
 import documentDownloadIcon from '@/assets/doc-download.png'
 import documentBinIcon from '@/assets/doc-bin.png'
+import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { postMerchantLoanRequest } from '@/api/loanRequest'
+import { useAppSelector } from '@/store/hooks'
 
 type RiskAcknowledgementKey = 'repaymentTerms' | 'latePaymentPenalties' | 'smartContractEnforcement'
 
@@ -18,6 +21,7 @@ type UploadedDoc = {
 const MerchantApplyLoanPage = () => {
   const { poolSlug } = useParams<{ poolSlug: string }>()
   const navigate = useNavigate()
+  const accessToken = useAppSelector((s) => s.auth.accessToken)
 
   const [amount, setAmount] = useState('')
   const [loanDuration, setLoanDuration] = useState('')
@@ -25,6 +29,10 @@ const MerchantApplyLoanPage = () => {
   const [receiveableName, setReceiveableName] = useState('')
   const [loanInterest, setLoanInterest] = useState('')
   const [repaymentAmount, setRepaymentAmount] = useState('')
+  const [riskTierId, setRiskTierId] = useState('1')
+  const [selectedDocument, setSelectedDocument] = useState<File | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const [riskAcknowledgements, setRiskAcknowledgements] = useState<Record<RiskAcknowledgementKey, boolean>>({
     repaymentTerms: false,
@@ -48,6 +56,8 @@ const MerchantApplyLoanPage = () => {
   }
 
   const allChecked = Object.values(riskAcknowledgements).every(Boolean)
+  const token = accessToken?.trim() ?? ''
+  const hasSession = Boolean(token)
 
   const downloadDocument = (doc: UploadedDoc) => {
     // Demo download (no real uploaded file yet).
@@ -60,8 +70,63 @@ const MerchantApplyLoanPage = () => {
     URL.revokeObjectURL(url)
   }
 
+  const submitLoanRequest = async () => {
+    if (submitting) return
+    setSubmitError(null)
+
+    if (!hasSession) {
+      setSubmitError('Missing session token. Please reconnect your wallet and try again.')
+      return
+    }
+
+    const amountNum = Number(amount.trim().replace(/,/g, ''))
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      setSubmitError('Enter a valid loan amount greater than 0.')
+      return
+    }
+
+    const tierNum = Number(riskTierId.trim())
+    if (!Number.isInteger(tierNum) || tierNum <= 0) {
+      setSubmitError('Risk tier ID must be a positive integer.')
+      return
+    }
+
+    if (!selectedDocument) {
+      setSubmitError('Please upload your KYC document (PDF, DOC, or DOCX).')
+      return
+    }
+
+    if (!allChecked) {
+      setSubmitError('Please acknowledge all risk terms to continue.')
+      return
+    }
+
+    const form = new FormData()
+    form.append('loan_amount', String(amountNum))
+    form.append('risk_tier_id', String(tierNum))
+    form.append('document', selectedDocument)
+
+    setSubmitting(true)
+    try {
+      await postMerchantLoanRequest(token, form)
+      navigate(`/dashboard/merchant/lending-pool/${poolSlug}/apply-loan/success`)
+    } catch (e) {
+      if (e instanceof ApiRequestError) {
+        setSubmitError(formatApiRequestErrorPlain(e))
+      } else {
+        setSubmitError(e instanceof Error ? e.message : 'Could not submit loan request.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
-    <DashboardLayout dashboardBasePath="/dashboard/merchant" topBarBreadcrumbs={topBarBreadcrumbs} topBarWalletDisplay="0x7A3F...92C1">
+    <DashboardLayout
+      dashboardBasePath="/dashboard/merchant"
+      topBarBreadcrumbs={topBarBreadcrumbs}
+      topBarWalletDisplay="0x7A3F...92C1"
+    >
       <div className="max-w-[860px] w-full mx-auto pt-4 sm:pt-6 lg:pt-8 pb-6 flex flex-col gap-4 sm:gap-6">
         <div className="flex items-center gap-3">
           <button
@@ -88,6 +153,19 @@ const MerchantApplyLoanPage = () => {
                 placeholder="Enter an Amount"
                 className="mt-2 w-full border border-[#E6E8EC] rounded-[6px] px-4 py-2.5 text-[14px] outline-none focus:border-[#195EBC]"
               />
+            </label>
+
+            <label className="block">
+              <span className="text-[#6B7488] text-[12px]">Risk Tier Duration</span>
+              <select
+                value={riskTierId}
+                onChange={(e) => setRiskTierId(e.target.value)}
+                className="mt-2 w-full border border-[#E6E8EC] rounded-[6px] px-4 py-2.5 text-[14px] outline-none focus:border-[#195EBC]"
+              >
+                <option value="1">30 days</option>
+                <option value="2">60 days</option>
+                <option value="3">90 days</option>
+              </select>
             </label>
 
             <label className="block">
@@ -157,7 +235,7 @@ const MerchantApplyLoanPage = () => {
             </div>
 
             <div className="mt-3 text-[#6B7488] text-[14px] font-medium">Click to upload or drag and drop</div>
-            <div className="mt-2 text-[#8B92A3] text-[11px]">SVG, PNG, JPG or GIF (max 800x400px)</div>
+            <div className="mt-2 text-[#8B92A3] text-[11px]">PDF, DOC, or DOCX</div>
 
             <div className="mt-4 flex items-center gap-3">
               <div className="h-px flex-1 bg-[#EDF0F4]" />
@@ -165,12 +243,18 @@ const MerchantApplyLoanPage = () => {
               <div className="h-px flex-1 bg-[#EDF0F4]" />
             </div>
 
-            <button
-              type="button"
-              className="mt-4 inline-flex items-center justify-center px-6 py-2.5 bg-[#195EBC] text-white text-[14px] rounded-[6px] font-medium"
-            >
+            <label className="mt-4 inline-flex items-center justify-center px-6 py-2.5 bg-[#195EBC] text-white text-[14px] rounded-[6px] font-medium cursor-pointer">
               Browse Files
-            </button>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null
+                  setSelectedDocument(f)
+                }}
+              />
+            </label>
           </div>
 
           <div className="mt-5 flex flex-col gap-3">
@@ -253,15 +337,20 @@ const MerchantApplyLoanPage = () => {
           </div>
 
           <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 pb-4 sm:pb-6 pt-4 bg-white border-t border-[#EDF0F4] lg:static lg:border-t-0 lg:px-0 lg:pb-0 lg:pt-6 lg:mx-0">
+            {submitError ? (
+              <p className="mb-3 text-[#B91C1C] text-[13px]" role="alert">
+                {submitError}
+              </p>
+            ) : null}
             <button
               type="button"
-              disabled={!allChecked}
+              disabled={!allChecked || !hasSession || submitting}
               className={`w-full rounded-[6px] bg-[#1B66CF] text-white text-[15px] sm:text-[16px] font-semibold py-3 transition-colors ${
-                allChecked ? 'opacity-100 hover:bg-[#154a9a]' : 'opacity-60 cursor-not-allowed'
+                allChecked && hasSession && !submitting ? 'opacity-100 hover:bg-[#154a9a]' : 'opacity-60 cursor-not-allowed'
               }`}
-              onClick={() => navigate(`/dashboard/merchant/lending-pool/${poolSlug}/apply-loan/success`)}
+              onClick={() => void submitLoanRequest()}
             >
-              Submit Receivable Funding Application →
+              {submitting ? 'Submitting…' : 'Submit Receivable Funding Application →'}
             </button>
           </div>
         </section>

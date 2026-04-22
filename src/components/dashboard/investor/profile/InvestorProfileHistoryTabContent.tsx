@@ -3,7 +3,7 @@ import activityTrendIcon from '@/assets/Vector.png'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
-import { displayDashboardMetricString, fetchInvestorTransactions, type InvestorTransactionApi } from '@/api/metrics'
+import { fetchInvestorTransactions, type InvestorTransactionApi } from '@/api/metrics'
 import { blockExplorerTxUrl, getDefaultSepoliaBlockExplorerBase } from '@/api/payout'
 import { useAppSelector } from '@/store/hooks'
 
@@ -19,6 +19,21 @@ type ActivityItem = {
 }
 
 type ActivityFilter = 'all' | 'deposits' | 'withdrawals'
+
+function formatUsdWholeFloorTowardZero(raw: string): string {
+  const t = raw.trim()
+  if (!t) return '—'
+  const cleaned = t.replace(/[^0-9.,-]/g, '').replace(/,/g, '')
+  const n = Number(cleaned)
+  if (!Number.isFinite(n)) return '—'
+  const floored = n >= 0 ? Math.floor(n) : Math.ceil(n)
+  return floored.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })
+}
 
 const amountClass = (item: ActivityItem) => {
   if (item.positive) return 'text-[#22C55E]'
@@ -87,7 +102,7 @@ const InvestorProfileHistoryTabContent = () => {
           ? String(tx.timestamp ?? '').trim() || '—'
           : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
-        const baseAmount = displayDashboardMetricString(tx.amount)
+        const baseAmount = formatUsdWholeFloorTowardZero(String(tx.amount ?? ''))
         const positive = txType === 'withdrawal'
         const amount = positive ? `+${baseAmount}` : baseAmount
 

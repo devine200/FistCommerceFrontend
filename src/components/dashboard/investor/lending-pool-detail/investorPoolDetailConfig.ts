@@ -11,7 +11,7 @@ const FIST_COMMERCE: InvestorPoolDetailConfig = {
     { label: 'Total Deposited', value: '$340K' },
     { label: 'Liquid Asset', value: '$120K' },
     { label: 'Maximum loan', value: '$120K' },
-    { label: 'Loan Interest', value: '5.3%' },
+    { label: 'Loan Interest', value: '6-8%' },
     { label: 'Target Repayment Duration', value: '30-90 Days' },
   ],
   myStats: [
@@ -22,7 +22,7 @@ const FIST_COMMERCE: InvestorPoolDetailConfig = {
   ],
   poolPerformanceStats: [
     { label: 'Total Value Locked (TVL)', value: '$800K' },
-    { label: 'Average APY', value: '5.3%' },
+    { label: 'Average APY', value: '6-8%' },
     { label: 'Total Loans Funded', value: '142' },
     { label: 'Repayment Success Rate', value: '99.3%' },
     { label: 'Historical Default Rate', value: '2.4%' },

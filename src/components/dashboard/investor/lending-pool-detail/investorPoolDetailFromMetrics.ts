@@ -33,15 +33,46 @@ function walletTopBar(walletAddress: string | null | undefined, fallback: string
   return { walletDisplay: fallback.trim() || '—' }
 }
 
+function poolCardLikeFields(pool: PoolMetrics): {
+  tvl: string
+  apy: string
+  minDeposit: string
+  utilization: string
+} {
+  const apy = displayPoolApyPercent(pool.apy)
+  const tvl = displayDashboardMetricString(pool.tvl)
+  const minDeposit = displayPoolMinDeposit(pool.minDeposit)
+  const utilization = displayPoolUtilization(pool.utilization)
+
+  return {
+    apy: apy !== '—' ? (apy.includes('APY') ? apy : `${apy} APY`) : apy,
+    tvl: tvl !== '—' ? (tvl.includes('USDC') || tvl.includes('USDT') ? tvl : `${tvl} USDC`) : tvl,
+    minDeposit:
+      minDeposit !== '—'
+        ? minDeposit.includes('USDC') || minDeposit.includes('USDT')
+          ? minDeposit
+          : `${minDeposit} USDC`
+        : minDeposit,
+    utilization:
+      utilization !== '—'
+        ? utilization.toLowerCase().includes('allocated')
+          ? utilization
+          : `${utilization} Allocated`
+        : utilization,
+  }
+}
+
 export function poolMetricsToHeaderStats(pool: PoolMetrics): PoolStatItem[] {
+  const card = poolCardLikeFields(pool)
   return [
-    { label: 'TVL', value: displayDashboardMetricString(pool.tvl) },
+    // Keep these aligned with the investor dashboard pool card formatting.
+    { label: 'TVL', value: card.tvl },
     { label: 'Liquid assets', value: displayDashboardMetricString(pool.liquidAssets) },
     { label: 'Outstanding', value: displayDashboardMetricString(pool.outstanding) },
     { label: 'Available liquidity', value: displayDashboardMetricString(pool.availableLiquidity) },
-    { label: 'Utilization', value: displayPoolUtilization(pool.utilization) },
-    { label: 'APY', value: displayPoolApyPercent(pool.apy) },
-    { label: 'Min deposit', value: displayPoolMinDeposit(pool.minDeposit) },
+    { label: 'Utilization', value: card.utilization },
+    { label: 'APY', value: card.apy },
+    { label: 'Min deposit', value: card.minDeposit },
   ]
 }
 

@@ -13,6 +13,30 @@ export type InvestorMetrics = {
   roi: number
 }
 
+/** Raw API payload for `GET /api/metrics/investor/` (may be snake_case, strings, or JSON numbers). */
+export type InvestorMetricsApi = Record<string, unknown>
+
+/** `GET /api/metrics/merchant/` — merchant-side metrics used on merchant dashboard. */
+export type MerchantMetrics = {
+  credit: {
+    totalBorrowed: number
+    activeLoans: number
+    repaidLoans: number
+    defaultedLoans: number
+  }
+  performance: {
+    totalRepaid: number
+    repaymentRatio: number
+  }
+  risk: {
+    totalDefaulted: number
+    defaultRate: number
+  }
+}
+
+/** Raw API payload for `GET /api/metrics/merchant/`. */
+export type MerchantMetricsApi = Record<string, unknown>
+
 /** `GET /api/metrics/pool/` — dollar-like amounts are strings; ratios are numbers. */
 export type PoolMetrics = {
   tvl: string
@@ -25,6 +49,9 @@ export type PoolMetrics = {
   apy: number
   minDeposit: number
 }
+
+/** Raw API payload for `GET /api/metrics/pool/` (may be snake_case, strings, or JSON numbers). */
+export type PoolMetricsApi = Record<string, unknown>
 
 /** API string fields: show exactly what the server sent (trimmed); empty → em dash. */
 export function displayMetricsStringField(value: string): string {
@@ -153,16 +180,30 @@ function requireAccessToken(accessToken: string | null | undefined): string {
   return t
 }
 
+function tokenAuthValue(accessToken: string): string {
+  const t = accessToken.trim()
+  // Some backends return the whole `Token <key>` string; accept both.
+  return /^Token\s+\S+/i.test(t) ? t : `Token ${t}`
+}
+
 function authHeaders(accessToken: string | null | undefined): HeadersInit {
   const token = requireAccessToken(accessToken)
   return {
     Accept: 'application/json',
-    Authorization: `Token ${token}`,
+    Authorization: tokenAuthValue(token),
   }
 }
 
 function asJsonObject(raw: unknown): Record<string, unknown> {
   return raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+}
+
+function pickObjectField(r: Record<string, unknown>, ...keys: string[]): Record<string, unknown> {
+  for (const k of keys) {
+    const v = r[k]
+    if (v && typeof v === 'object' && !Array.isArray(v)) return v as Record<string, unknown>
+  }
+  return {}
 }
 
 /** Prefer first key present with a non-empty string or finite number (DRF snake_case vs camelCase). */
@@ -207,6 +248,29 @@ function normalizeInvestorMetricsPayload(raw: unknown): InvestorMetrics {
   }
 }
 
+function normalizeMerchantMetricsPayload(raw: unknown): MerchantMetrics {
+  const r = asJsonObject(raw)
+  const credit = pickObjectField(r, 'credit')
+  const performance = pickObjectField(r, 'performance')
+  const risk = pickObjectField(r, 'risk')
+  return {
+    credit: {
+      totalBorrowed: pickNumberField(credit, 'totalBorrowed', 'total_borrowed'),
+      activeLoans: pickNumberField(credit, 'activeLoans', 'active_loans'),
+      repaidLoans: pickNumberField(credit, 'repaidLoans', 'repaid_loans'),
+      defaultedLoans: pickNumberField(credit, 'defaultedLoans', 'defaulted_loans'),
+    },
+    performance: {
+      totalRepaid: pickNumberField(performance, 'totalRepaid', 'total_repaid'),
+      repaymentRatio: pickNumberField(performance, 'repaymentRatio', 'repayment_ratio'),
+    },
+    risk: {
+      totalDefaulted: pickNumberField(risk, 'totalDefaulted', 'total_defaulted'),
+      defaultRate: pickNumberField(risk, 'defaultRate', 'default_rate'),
+    },
+  }
+}
+
 /** Coerce `GET /api/metrics/pool/` JSON into `PoolMetrics` (snake_case aliases). */
 function normalizePoolMetricsPayload(raw: unknown): PoolMetrics {
   const r = asJsonObject(raw)
@@ -227,7 +291,7 @@ export async function fetchPoolMetrics(accessToken: string | null | undefined): 
     method: 'GET',
     headers: authHeaders(accessToken),
   })
-  const raw = await parseJsonResponse<unknown>(res)
+  const raw = await parseJsonResponse<PoolMetricsApi>(res)
   return normalizePoolMetricsPayload(raw)
 }
 
@@ -237,8 +301,18 @@ export async function fetchInvestorMetrics(accessToken: string | null | undefine
     method: 'GET',
     headers: authHeaders(accessToken),
   })
-  const raw = await parseJsonResponse<unknown>(res)
+  const raw = await parseJsonResponse<InvestorMetricsApi>(res)
   return normalizeInvestorMetricsPayload(raw)
+}
+
+export async function fetchMerchantMetrics(accessToken: string | null | undefined): Promise<MerchantMetrics> {
+  const base = apiBaseUrl()
+  const res = await fetchWithAuthRecovery(`${base}/api/metrics/merchant/`, {
+    method: 'GET',
+    headers: authHeaders(accessToken),
+  })
+  const raw = await parseJsonResponse<MerchantMetricsApi>(res)
+  return normalizeMerchantMetricsPayload(raw)
 }
 
 /** `GET /api/metrics/investor/transactions` */
@@ -269,4 +343,30 @@ export async function fetchInvestorTransactions(
   })
   const data = await parseJsonResponse<InvestorTransactionsResponse>(res)
   return data.transactions ? data.transactions : []
+}
+
+/** `GET /api/metrics/merchant/transactions` */
+export type MerchantTransactionApi = {
+  transaction_type: string
+  /** Already formatted for display by API (per integration contract). */
+  amount: string
+  timestamp: string
+  transaction_hash: string
+  receivable_id: string
+}
+
+export type MerchantTransactionsResponse = {
+  transactions: MerchantTransactionApi[]
+}
+
+export async function fetchMerchantTransactions(
+  accessToken: string | null | undefined,
+): Promise<MerchantTransactionApi[]> {
+  const base = apiBaseUrl()
+  const res = await fetchWithAuthRecovery(`${base}/api/metrics/merchant/transactions`, {
+    method: 'GET',
+    headers: authHeaders(accessToken),
+  })
+  const data = await parseJsonResponse<MerchantTransactionsResponse>(res)
+  return Array.isArray(data.transactions) ? data.transactions : []
 }

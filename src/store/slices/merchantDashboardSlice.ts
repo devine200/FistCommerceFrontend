@@ -2,13 +2,13 @@ import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/tool
 
 import {
   displayDashboardMetricString,
-  displayDashboardPercentString,
-  formatDashboardCompactUsd,
-  formatDashboardPercentMetric,
+  displayPoolApyPercent,
+  displayPoolMinDeposit,
+  displayPoolUtilization,
   formatDashboardPlainAmount,
-  fetchInvestorMetrics,
+  fetchMerchantMetrics,
   fetchPoolMetrics,
-  type InvestorMetrics,
+  type MerchantMetrics,
   type PoolMetrics,
 } from '@/api/metrics'
 import type { LendingPoolCardState } from '@/store/slices/investorDashboardSlice'
@@ -21,7 +21,7 @@ export type MerchantDashboardState = {
   lendingPools: LendingPoolCardState
   /** Raw API payloads (used by detail pages for richer info). */
   poolMetrics: PoolMetrics | null
-  investorMetrics: InvestorMetrics | null
+  merchantMetrics: MerchantMetrics | null
   status: MerchantDashboardSyncStatus
   error: string | null
   lastUpdated: number | null
@@ -41,7 +41,7 @@ const initialState: MerchantDashboardState = {
     utilizationDisplay: '60% Allocated',
   },
   poolMetrics: null,
-  investorMetrics: null,
+  merchantMetrics: null,
   status: 'idle',
   error: null,
   lastUpdated: null,
@@ -52,105 +52,16 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>
 }
 
-function formatUsdLike(value: unknown): string | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return formatDashboardCompactUsd(value)
-  if (typeof value === 'string' && value.trim()) return displayDashboardMetricString(value.trim())
-  return null
-}
-
-function formatPercentLike(value: unknown): string | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return formatDashboardPercentMetric(value)
-  if (typeof value === 'string' && value.trim()) return displayDashboardPercentString(value.trim())
-  return null
-}
-
-function extractPoolItems(payload: unknown): unknown[] {
-  if (Array.isArray(payload)) return payload
-  const rec = asRecord(payload)
-  const maybe = rec?.results ?? rec?.data ?? rec?.pools ?? rec?.items
-  if (Array.isArray(maybe)) return maybe
-
-  const looksLikeSinglePool =
-    typeof rec?.slug === 'string' ||
-    typeof rec?.pool_slug === 'string' ||
-    typeof rec?.id === 'string' ||
-    typeof rec?.poolId === 'string' ||
-    typeof rec?.pool_id === 'string'
-  return looksLikeSinglePool ? [payload] : []
-}
-
-// NOTE: Single-pool UX — keep one default pool card and only hydrate a few fields from API metrics.
-
-function pickPoolMetricsForDefaultCard(payload: unknown, defaultPoolId: string): Record<string, unknown> | null {
-  const items = extractPoolItems(payload)
-  if (!items.length) return null
-  for (const item of items) {
-    const rec = asRecord(item)
-    if (!rec) continue
-    const idRaw = rec.slug ?? rec.pool_slug ?? rec.id ?? rec.poolId ?? rec.pool_id ?? rec.poolSlug
-    const id = typeof idRaw === 'string' ? idRaw.trim() : ''
-    if (id && id === defaultPoolId) return rec
-  }
-  return asRecord(items[0]) ?? null
-}
-
-function patchCardFromPoolMetrics(card: LendingPoolCardState, pool: Record<string, unknown>): LendingPoolCardState {
-  const apy =
-    formatPercentLike(pool.apy) ??
-    formatPercentLike(pool.apy_percent) ??
-    formatPercentLike(pool.apy_percentage) ??
-    formatPercentLike(pool.avg_apy) ??
-    formatPercentLike(pool.average_apy) ??
-    formatPercentLike(pool.average_apy_percent) ??
-    formatPercentLike(pool.average_apy_percentage)
-
-  const tvl =
-    formatUsdLike(pool.tvl) ??
-    formatUsdLike(pool.tvl_usd) ??
-    formatUsdLike(pool.total_value_locked) ??
-    formatUsdLike(pool.total_value_locked_usd)
-
-  const minDeposit =
-    formatUsdLike(pool.minimum_deposit) ??
-    formatUsdLike(pool.minimum_deposit_amount) ??
-    formatUsdLike(pool.minDeposit) ??
-    formatUsdLike(pool.min_deposit) ??
-    formatUsdLike(pool.min_deposit_amount)
-
-  const utilization =
-    formatPercentLike(pool.utilization) ??
-    formatPercentLike(pool.utilization_rate) ??
-    formatPercentLike(pool.utilization_percent) ??
-    formatPercentLike(pool.utilization_percentage)
-
-  return {
-    ...card,
-    apyDisplay: apy ? (apy.includes('APY') ? apy : `${apy} APY`) : card.apyDisplay,
-    tvlDisplay: tvl ? (tvl.includes('USDC') || tvl.includes('USDT') ? tvl : `${tvl} USDC`) : card.tvlDisplay,
-    minDepositDisplay: minDeposit
-      ? minDeposit.includes('USDC') || minDeposit.includes('USDT')
-        ? minDeposit
-        : `${minDeposit} USDC`
-      : card.minDepositDisplay,
-    utilizationDisplay: utilization
-      ? utilization.toLowerCase().includes('allocated')
-        ? utilization
-        : `${utilization} Allocated`
-      : card.utilizationDisplay,
-  }
-}
-
 function extractTotalDepositedDisplay(payload: unknown): string | null {
   const rec = asRecord(payload)
-  const raw =
-    rec?.total_deposited ??
-    rec?.totalDeposited ??
-    rec?.total_deposits ??
-    rec?.totalDeposits ??
-    rec?.total ??
-    rec?.total_amount
+  const credit = rec && typeof rec.credit === 'object' && rec.credit ? (rec.credit as Record<string, unknown>) : null
+  const raw = credit?.totalBorrowed ?? credit?.total_borrowed
   if (typeof raw === 'number' && Number.isFinite(raw)) return formatDashboardPlainAmount(raw)
-  if (typeof raw === 'string' && raw.trim()) return displayDashboardMetricString(raw.trim())
+  if (typeof raw === 'string' && raw.trim()) {
+    const n = Number(raw.trim().replace(/,/g, ''))
+    if (Number.isFinite(n)) return formatDashboardPlainAmount(n)
+    return raw.trim()
+  }
   return null
 }
 
@@ -159,11 +70,11 @@ export const refreshMerchantDashboard = createAsyncThunk(
   async (_arg, thunkApi) => {
     const state = thunkApi.getState() as { auth?: { accessToken?: string | null } }
     const accessToken = state.auth?.accessToken
-    const [poolMetrics, investorMetrics] = await Promise.all([
+    const [poolMetrics, merchantMetrics] = await Promise.all([
       fetchPoolMetrics(accessToken),
-      fetchInvestorMetrics(accessToken),
+      fetchMerchantMetrics(accessToken),
     ])
-    return { refreshedAt: Date.now(), poolMetrics, investorMetrics }
+    return { refreshedAt: Date.now(), poolMetrics, merchantMetrics }
   },
 )
 
@@ -200,16 +111,23 @@ const merchantDashboardSlice = createSlice({
         state.status = 'succeeded'
         state.lastUpdated = action.payload.refreshedAt
         state.poolMetrics = action.payload.poolMetrics
-        state.investorMetrics = action.payload.investorMetrics
+        state.merchantMetrics = action.payload.merchantMetrics
 
-        // Single pool UX: keep default card + hydrate its metrics from the API response.
-        const current = state.lendingPools
-        if (current) {
-          const pool = pickPoolMetricsForDefaultCard(action.payload.poolMetrics, current.id)
-          if (pool) state.lendingPools = patchCardFromPoolMetrics(current, pool)
+        const pool = action.payload.poolMetrics
+        const tvl = pool ? displayDashboardMetricString(pool.tvl) : null
+        const util = pool ? displayPoolUtilization(pool.utilization) : null
+        const minDep = pool ? displayPoolMinDeposit(pool.minDeposit) : null
+        const apy = pool ? displayPoolApyPercent(pool.apy) : null
+
+        state.lendingPools = {
+          ...state.lendingPools,
+          tvlDisplay: tvl && tvl !== '—' ? tvl : state.lendingPools.tvlDisplay,
+          utilizationDisplay:
+            util && util !== '—' ? (util.toLowerCase().includes('allocated') ? util : `${util} Allocated`) : state.lendingPools.utilizationDisplay,
+          minDepositDisplay: minDep && minDep !== '—' ? `$${minDep}` : state.lendingPools.minDepositDisplay,
+          apyDisplay: apy && apy !== '—' ? (apy.includes('APY') ? apy : `${apy} APY`) : state.lendingPools.apyDisplay,
         }
-
-        const total = extractTotalDepositedDisplay(action.payload.investorMetrics)
+        const total = extractTotalDepositedDisplay(action.payload.merchantMetrics)
         if (total) state.totalDepositsDisplay = total
       })
       .addCase(refreshMerchantDashboard.rejected, (state, action) => {

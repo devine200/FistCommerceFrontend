@@ -3,6 +3,9 @@ import repayIcon from '@/assets/repay Icon (5).png'
 import primeChevronRight from '@/assets/prime_chevron-right.png'
 import { useMemo, useState } from 'react'
 
+import { convertTimestampToDate, type MerchantTransactionApi } from '@/api/metrics'
+import { useAppSelector } from '@/store/hooks'
+
 type MerchantActivityKind = 'withdrawal' | 'repayment' | 'loan'
 
 type MerchantActivityItem = {
@@ -15,45 +18,61 @@ type MerchantActivityItem = {
   withdrawalAmountPhrase?: string
   repaymentAmountPhrase?: string
   poolName?: string
+  receivableId?: string
 }
 
-const MERCHANT_ACTIVITIES: MerchantActivityItem[] = [
-  {
-    id: 'm-1',
-    kind: 'withdrawal',
-    withdrawalAmountPhrase: '$5000',
-    withdrawalToLabel: 'Wallet',
-    date: 'Mar 8, 2026',
-    amount: '$5,000',
-    amountTone: 'default',
-  },
-  {
-    id: 'm-2',
-    kind: 'withdrawal',
-    withdrawalAmountPhrase: '$5000',
-    withdrawalToLabel: 'Wallet',
-    date: 'Mar 8, 2026',
-    amount: '$5,000',
-    amountTone: 'default',
-  },
-  {
-    id: 'm-3',
-    kind: 'repayment',
-    repaymentAmountPhrase: '$7000',
-    poolName: 'Fist Commerce Pool',
-    date: 'Feb 20, 2026',
-    amount: '$15,000',
-    amountTone: 'default',
-  },
-  {
-    id: 'm-4',
-    kind: 'loan',
-    poolName: 'Fist Commerce Pool',
-    date: 'Feb 14, 2026',
-    amount: '-$2,500',
-    amountTone: 'negative',
-  },
-]
+function normalizeAmountLabel(amount: string): string {
+  const a = amount.trim()
+  if (!a) return '—'
+  if (/^[+-]?\$/.test(a)) return a
+  if (/^[+-]?\d/.test(a)) return `$${a}`
+  return a
+}
+
+function floorTowardZero(n: number): number {
+  return n >= 0 ? Math.floor(n) : Math.ceil(n)
+}
+
+function normalizeAmountLabelWholeDollars(amount: string): string {
+  const a = amount.trim()
+  if (!a) return '—'
+  const cleaned = a.replace(/[^0-9.,-]/g, '').replace(/,/g, '')
+  const n = Number(cleaned)
+  if (!Number.isFinite(n)) return normalizeAmountLabel(a)
+  const floored = floorTowardZero(n)
+  return floored.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })
+}
+
+function mapTransactionKind(t: string): MerchantActivityKind {
+  const k = t.trim().toLowerCase()
+  if (k.includes('withdraw')) return 'withdrawal'
+  if (k.includes('repaid') || k.includes('repay')) return 'repayment'
+  if (k.includes('loan') || k.includes('borrow')) return 'loan'
+  return 'loan'
+}
+
+function mapMerchantTransactionToActivity(tx: MerchantTransactionApi, poolName: string): MerchantActivityItem {
+  const kind = mapTransactionKind(tx.transaction_type)
+  const amountLabel = normalizeAmountLabelWholeDollars(tx.amount)
+
+  return {
+    id: tx.transaction_hash,
+    kind,
+    date: convertTimestampToDate(tx.timestamp),
+    amount: amountLabel,
+    amountTone: amountLabel.trim().startsWith('-') ? 'negative' : 'default',
+    withdrawalToLabel: kind === 'withdrawal' ? 'Wallet' : undefined,
+    withdrawalAmountPhrase: kind === 'withdrawal' ? amountLabel : undefined,
+    repaymentAmountPhrase: kind === 'repayment' ? amountLabel : undefined,
+    poolName: kind === 'withdrawal' ? undefined : poolName,
+    receivableId: tx.receivable_id?.trim() || undefined,
+  }
+}
 
 type ActivityFilter = 'all' | 'loans' | 'withdrawals' | 'repayments'
 
@@ -89,6 +108,8 @@ const searchableText = (item: MerchantActivityItem) => {
     item.withdrawalToLabel,
     item.withdrawalAmountPhrase,
     item.repaymentAmountPhrase,
+    item.receivableId,
+    item.id,
   ]
   return parts.filter(Boolean).join(' ').toLowerCase()
 }
@@ -110,21 +131,31 @@ const MerchantProfileActivitiesTabContent = () => {
   const [filter, setFilter] = useState<ActivityFilter>('all')
   const [searchTerm, setSearchTerm] = useState('')
 
+  const txStatus = useAppSelector((s) => s.merchantTransactions.status)
+  const txError = useAppSelector((s) => s.merchantTransactions.error)
+  const txItems = useAppSelector((s) => s.merchantTransactions.items)
+  const poolName = useAppSelector((s) => s.merchantDashboard.lendingPools.poolTitle) || 'Fist Commerce Pool'
+
+  const activities = useMemo(
+    () => txItems.map((tx) => mapMerchantTransactionToActivity(tx, poolName)),
+    [txItems, poolName],
+  )
+
   const filteredItems = useMemo(() => {
     const byKind =
       filter === 'loans'
-        ? MERCHANT_ACTIVITIES.filter((i) => i.kind === 'loan')
+        ? activities.filter((i) => i.kind === 'loan')
         : filter === 'withdrawals'
-          ? MERCHANT_ACTIVITIES.filter((i) => i.kind === 'withdrawal')
+          ? activities.filter((i) => i.kind === 'withdrawal')
           : filter === 'repayments'
-            ? MERCHANT_ACTIVITIES.filter((i) => i.kind === 'repayment')
-            : MERCHANT_ACTIVITIES
+            ? activities.filter((i) => i.kind === 'repayment')
+            : activities
 
     const normalizedQuery = searchTerm.trim().toLowerCase()
     if (!normalizedQuery) return byKind
 
     return byKind.filter((item) => itemMatchesQuery(searchableText(item), normalizedQuery))
-  }, [filter, searchTerm])
+  }, [activities, filter, searchTerm])
 
   const renderTitle = (item: MerchantActivityItem) => {
     if (item.kind === 'withdrawal') {
@@ -212,6 +243,16 @@ const MerchantProfileActivitiesTabContent = () => {
       </div>
 
       <div className="mt-5">
+        {txStatus === 'loading' ? (
+          <div className="border-t border-[#EDF0F4] py-10 text-center text-[#8B92A3] text-[14px]" role="status">
+            Loading activities…
+          </div>
+        ) : null}
+        {txStatus === 'failed' && txError ? (
+          <div className="border-t border-[#EDF0F4] py-10 text-center text-[#B91C1C] text-[14px]" role="alert">
+            {txError}
+          </div>
+        ) : null}
         {filteredItems.map((item) => (
           <article key={item.id} className="border-t border-[#EDF0F4] first:border-t-0 py-5">
             <button
@@ -237,7 +278,7 @@ const MerchantProfileActivitiesTabContent = () => {
             </button>
           </article>
         ))}
-        {filteredItems.length === 0 ? (
+        {txStatus !== 'loading' && txStatus !== 'failed' && filteredItems.length === 0 ? (
           <div className="border-t border-[#EDF0F4] py-10 text-center text-[#8B92A3] text-[14px]">
             No activities found for this receivable.
           </div>
