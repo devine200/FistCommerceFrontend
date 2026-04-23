@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { useConnection } from 'wagmi'
-import { useSwitchChain } from 'wagmi'
-import { sepolia } from 'wagmi/chains'
+import { sepolia } from 'viem/chains'
 
 import DashboardErrorModal from '@/components/dashboard/shared/DashboardErrorModal'
 import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFullPageLoading'
 import DashboardSessionGuard from '@/components/session/DashboardSessionGuard'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { refreshInvestorDashboard, setInvestorWalletDisplay } from '@/store/slices/investorDashboardSlice'
+import { useActiveWallet } from '@/wallet/useActiveWallet'
+import { ensureWalletChain } from '@/wallet/viemClients'
 
 function topBarWalletFromAddress(address: string): string {
   if (address.length <= 12) return address
@@ -20,24 +20,24 @@ export default function InvestorDashboardSessionLayout() {
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const status = useAppSelector((s) => s.investorDashboard.status)
   const error = useAppSelector((s) => s.investorDashboard.error)
-  const { status: walletStatus, address, chainId } = useConnection()
-  const { switchChainAsync } = useSwitchChain()
+  const { isConnected, address, wallet } = useActiveWallet()
+  const chainId = useAppSelector((s) => s.wallet.chainId)
   const [errorOpen, setErrorOpen] = useState(false)
   const [dismissedWrongChainId, setDismissedWrongChainId] = useState<number | null>(null)
   const didKickoffRef = useRef(false)
 
-  /** Keep dashboard top-bar wallet in sync with wagmi (ConnectWallet only runs during onboarding). */
+  /** Keep dashboard top-bar wallet in sync with Privy-selected active wallet. */
   useEffect(() => {
-    if (walletStatus !== 'connected' || !address) return
+    if (!isConnected || !address) return
     dispatch(setInvestorWalletDisplay(topBarWalletFromAddress(address)))
-  }, [dispatch, walletStatus, address])
+  }, [dispatch, isConnected, address])
 
   useEffect(() => {
     // When the session changes (reload / login / logout), allow a new kickoff.
     didKickoffRef.current = false
   }, [accessToken])
 
-  const isWrongNetwork = walletStatus === 'connected' && Boolean(address) && chainId != null && chainId !== sepolia.id
+  const isWrongNetwork = isConnected && Boolean(address) && chainId != null && chainId !== sepolia.id
   useEffect(() => {
     if (!isWrongNetwork) {
       setDismissedWrongChainId(null)
@@ -76,7 +76,10 @@ export default function InvestorDashboardSessionLayout() {
         retryLabel="Switch to Sepolia"
         primaryLabel="Dismiss"
         onClose={() => setDismissedWrongChainId(chainId ?? null)}
-        onRetry={() => void switchChainAsync({ chainId: sepolia.id })}
+        onRetry={() => {
+          if (!wallet) return
+          void ensureWalletChain(wallet, sepolia.id)
+        }}
       />
       <DashboardErrorModal
         open={errorOpen && status === 'failed'}

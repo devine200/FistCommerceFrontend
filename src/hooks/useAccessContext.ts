@@ -1,15 +1,16 @@
 import { useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
-import { useConnection } from 'wagmi'
 
 import type { AccessContext } from '@/access/types'
 import { useAppSelector } from '@/store/hooks'
 import { selectIsPersistReady } from '@/store/selectors/sessionSelectors'
+import { useActiveWallet } from '@/wallet/useActiveWallet'
 
 /** Snapshot of route + auth + wallet + KYC used by access evaluators */
 export function useAccessContext(): AccessContext {
   const location = useLocation()
-  const { status, address } = useConnection()
+  const { isConnected, address } = useActiveWallet()
+  const status = isConnected ? 'connected' : 'disconnected'
   const auth = useAppSelector((s) => s.auth)
   const onboarding = useAppSelector((s) => s.onboarding)
   const kycStatus = useAppSelector((s) => s.kyc.status)

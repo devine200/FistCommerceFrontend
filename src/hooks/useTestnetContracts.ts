@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { formatEther, formatUnits, parseUnits, type Hash } from 'viem'
-import { useAccount, useChainId, usePublicClient, useReadContract, useWriteContract } from 'wagmi'
-import { sepolia } from 'wagmi/chains'
+import { sepolia } from 'viem/chains'
 
 import {
   TESTNET_FUNDING_POOL_ABI,
@@ -10,6 +9,9 @@ import {
   TESTNET_MOCK_ERC20_ABI,
   TESTNET_MOCK_ERC20_ADDRESS,
 } from '@/contract_config/testnetDeployment'
+import { useAppSelector } from '@/store/hooks'
+import { useActiveWallet } from '@/wallet/useActiveWallet'
+import { ensureWalletChain, getPublicClient, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
 
 /** Chain where `testnet-deployment-config.json` contracts are deployed. */
 export const TESTNET_CONTRACTS_CHAIN = sepolia
@@ -72,72 +74,105 @@ export type UseTestnetContractsOptions = {
  * Use {@link TESTNET_CONTRACTS_CHAIN} — switch the wallet to Sepolia for reads/writes.
  */
 export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
-  const { address, isConnected } = useAccount()
-  const chainId = useChainId()
-  const publicClient = usePublicClient({ chainId: TESTNET_CONTRACTS_CHAIN.id })
-  const { writeContractAsync, isPending: isWritePending } = useWriteContract()
+  const { wallet, address, isConnected } = useActiveWallet()
+  const chainId = useAppSelector((s) => s.wallet.chainId)
+  const publicClient = useMemo(() => getPublicClient(), [])
+  const [isWritePending, setIsWritePending] = useState(false)
 
   const isCorrectNetwork = chainId === TESTNET_CONTRACTS_CHAIN.id
-  const enabled = Boolean(isConnected && address && isCorrectNetwork)
+  /** Reads use {@link getPublicClient} on Sepolia; they do not require the injected wallet’s chain. */
+  const readsEnabled = Boolean(isConnected && address && publicClient)
+  /** Writes / gas estimates still require the wallet to be on the deployment chain. */
+  const writesEnabled = Boolean(readsEnabled && isCorrectNetwork)
 
-  const { data: decimals, refetch: refetchDecimals } = useReadContract({
-    chainId: TESTNET_CONTRACTS_CHAIN.id,
-    address: TESTNET_MOCK_ERC20_ADDRESS,
-    abi: TESTNET_MOCK_ERC20_ABI,
-    functionName: 'decimals',
-    query: { enabled },
+  const decimalsQuery = useQuery({
+    queryKey: ['testnet-erc20-decimals', TESTNET_CONTRACTS_CHAIN.id],
+    enabled: Boolean(publicClient),
+    staleTime: 60_000,
+    queryFn: async () =>
+      await publicClient.readContract({
+        address: TESTNET_MOCK_ERC20_ADDRESS,
+        abi: TESTNET_MOCK_ERC20_ABI,
+        functionName: 'decimals',
+      }),
   })
 
-  const tokenDecimals = typeof decimals === 'number' ? decimals : 18
+  const tokenDecimals = typeof decimalsQuery.data === 'number' ? decimalsQuery.data : 18
 
-  const { data: balance, refetch: refetchBalance } = useReadContract({
-    chainId: TESTNET_CONTRACTS_CHAIN.id,
-    address: TESTNET_MOCK_ERC20_ADDRESS,
-    abi: TESTNET_MOCK_ERC20_ABI,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    query: { enabled },
+  const balanceQuery = useQuery({
+    queryKey: ['testnet-erc20-balance', TESTNET_CONTRACTS_CHAIN.id, address],
+    enabled: readsEnabled,
+    staleTime: 15_000,
+    queryFn: async () => {
+      if (!address) throw new Error('Wallet required')
+      return await publicClient.readContract({
+        address: TESTNET_MOCK_ERC20_ADDRESS,
+        abi: TESTNET_MOCK_ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [address as `0x${string}`],
+      })
+    },
   })
 
-  const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    chainId: TESTNET_CONTRACTS_CHAIN.id,
-    address: TESTNET_MOCK_ERC20_ADDRESS,
-    abi: TESTNET_MOCK_ERC20_ABI,
-    functionName: 'allowance',
-    args: address ? [address, TESTNET_FUNDING_POOL_ADDRESS] : undefined,
-    query: { enabled },
+  const allowanceQuery = useQuery({
+    queryKey: ['testnet-erc20-allowance', TESTNET_CONTRACTS_CHAIN.id, address, TESTNET_FUNDING_POOL_ADDRESS],
+    enabled: readsEnabled,
+    staleTime: 15_000,
+    queryFn: async () => {
+      if (!address) throw new Error('Wallet required')
+      return await publicClient.readContract({
+        address: TESTNET_MOCK_ERC20_ADDRESS,
+        abi: TESTNET_MOCK_ERC20_ABI,
+        functionName: 'allowance',
+        args: [address as `0x${string}`, TESTNET_FUNDING_POOL_ADDRESS],
+      })
+    },
   })
 
-  const { data: userShares, refetch: refetchShares } = useReadContract({
-    chainId: TESTNET_CONTRACTS_CHAIN.id,
-    address: TESTNET_FUNDING_POOL_ADDRESS,
-    abi: TESTNET_FUNDING_POOL_ABI,
-    functionName: 'shares',
-    args: address ? [address] : undefined,
-    query: { enabled },
+  const userSharesQuery = useQuery({
+    queryKey: ['testnet-pool-shares', TESTNET_CONTRACTS_CHAIN.id, address],
+    enabled: readsEnabled,
+    staleTime: 15_000,
+    queryFn: async () => {
+      if (!address) throw new Error('Wallet required')
+      return await publicClient.readContract({
+        address: TESTNET_FUNDING_POOL_ADDRESS,
+        abi: TESTNET_FUNDING_POOL_ABI,
+        functionName: 'shares',
+        args: [address as `0x${string}`],
+      })
+    },
   })
 
-  const { data: totalShares, refetch: refetchTotalShares } = useReadContract({
-    chainId: TESTNET_CONTRACTS_CHAIN.id,
-    address: TESTNET_FUNDING_POOL_ADDRESS,
-    abi: TESTNET_FUNDING_POOL_ABI,
-    functionName: 'totalShares',
-    query: { enabled },
+  const totalSharesQuery = useQuery({
+    queryKey: ['testnet-pool-totalShares', TESTNET_CONTRACTS_CHAIN.id],
+    enabled: Boolean(publicClient),
+    staleTime: 15_000,
+    queryFn: async () =>
+      await publicClient.readContract({
+        address: TESTNET_FUNDING_POOL_ADDRESS,
+        abi: TESTNET_FUNDING_POOL_ABI,
+        functionName: 'totalShares',
+      }),
   })
 
-  const { data: totalAssets, refetch: refetchTotalAssets } = useReadContract({
-    chainId: TESTNET_CONTRACTS_CHAIN.id,
-    address: TESTNET_FUNDING_POOL_ADDRESS,
-    abi: TESTNET_FUNDING_POOL_ABI,
-    functionName: 'totalAssets',
-    query: { enabled },
+  const totalAssetsQuery = useQuery({
+    queryKey: ['testnet-pool-totalAssets', TESTNET_CONTRACTS_CHAIN.id],
+    enabled: Boolean(publicClient),
+    staleTime: 15_000,
+    queryFn: async () =>
+      await publicClient.readContract({
+        address: TESTNET_FUNDING_POOL_ADDRESS,
+        abi: TESTNET_FUNDING_POOL_ABI,
+        functionName: 'totalAssets',
+      }),
   })
 
-  const balanceBn = typeof balance === 'bigint' ? balance : undefined
-  const allowanceBn = typeof allowance === 'bigint' ? allowance : undefined
-  const userSharesBn = typeof userShares === 'bigint' ? userShares : undefined
-  const totalSharesBn = typeof totalShares === 'bigint' ? totalShares : undefined
-  const totalAssetsBn = typeof totalAssets === 'bigint' ? totalAssets : undefined
+  const balanceBn = typeof balanceQuery.data === 'bigint' ? balanceQuery.data : undefined
+  const allowanceBn = typeof allowanceQuery.data === 'bigint' ? allowanceQuery.data : undefined
+  const userSharesBn = typeof userSharesQuery.data === 'bigint' ? userSharesQuery.data : undefined
+  const totalSharesBn = typeof totalSharesQuery.data === 'bigint' ? totalSharesQuery.data : undefined
+  const totalAssetsBn = typeof totalAssetsQuery.data === 'bigint' ? totalAssetsQuery.data : undefined
 
   const mockTokenBalanceFormatted = useMemo(
     () => formatTokenHuman(balanceBn, tokenDecimals),
@@ -148,9 +183,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
 
   const estimateDepositHuman = opts?.estimateDepositHumanAmount
   const depositGasQueryEnabled = Boolean(
-    publicClient &&
-      address &&
-      isCorrectNetwork &&
+    writesEnabled &&
       typeof estimateDepositHuman === 'number' &&
       Number.isFinite(estimateDepositHuman) &&
       estimateDepositHuman > 0 &&
@@ -179,7 +212,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
         abi: TESTNET_FUNDING_POOL_ABI,
         functionName: 'deposit',
         args: [amountWei],
-        account: address,
+        account: address as `0x${string}`,
       })
       if ((allowanceBn ?? 0n) < amountWei) {
         const approveGas = await publicClient.estimateContractGas({
@@ -187,7 +220,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
           abi: TESTNET_MOCK_ERC20_ABI,
           functionName: 'approve',
           args: [TESTNET_FUNDING_POOL_ADDRESS, amountWei],
-          account: address,
+          account: address as `0x${string}`,
         })
         gasUnits += approveGas
       }
@@ -199,9 +232,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
 
   const estimateWithdrawHuman = opts?.estimateWithdrawHumanAmount
   const withdrawGasQueryEnabled = Boolean(
-    publicClient &&
-      address &&
-      isCorrectNetwork &&
+    writesEnabled &&
       typeof estimateWithdrawHuman === 'number' &&
       Number.isFinite(estimateWithdrawHuman) &&
       estimateWithdrawHuman > 0 &&
@@ -239,7 +270,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
         abi: TESTNET_FUNDING_POOL_ABI,
         functionName: 'createWithdrawalRequest',
         args: [sharesNeeded],
-        account: address,
+        account: address as `0x${string}`,
       })
       const fees = await publicClient.estimateFeesPerGas()
       const unit = fees.maxFeePerGas ?? (await publicClient.getGasPrice())
@@ -277,20 +308,20 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
 
   const refetchBalances = useCallback(async () => {
     await Promise.all([
-      refetchDecimals(),
-      refetchBalance(),
-      refetchAllowance(),
-      refetchShares(),
-      refetchTotalShares(),
-      refetchTotalAssets(),
+      decimalsQuery.refetch(),
+      balanceQuery.refetch(),
+      allowanceQuery.refetch(),
+      userSharesQuery.refetch(),
+      totalSharesQuery.refetch(),
+      totalAssetsQuery.refetch(),
     ])
   }, [
-    refetchAllowance,
-    refetchBalance,
-    refetchDecimals,
-    refetchShares,
-    refetchTotalAssets,
-    refetchTotalShares,
+    allowanceQuery,
+    balanceQuery,
+    decimalsQuery,
+    totalAssetsQuery,
+    totalSharesQuery,
+    userSharesQuery,
   ])
 
   const canDepositHuman = useCallback(
@@ -345,44 +376,54 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       const gate = canDepositHuman(humanAmount)
       if (!gate.ok) throw new Error(gate.message ?? 'Cannot deposit')
       if (!address) throw new Error('Wallet required')
-      if (!publicClient) throw new Error('Network client unavailable')
+      if (!wallet) throw new Error('Wallet required')
 
       const amount = humanAmountToUnits(humanAmount, tokenDecimals)
       if (amount <= 0n) throw new Error('Invalid amount')
 
+      setIsWritePending(true)
       const currentAllowance = allowanceBn ?? 0n
-      if (currentAllowance < amount) {
-        const approveHash = await writeContractAsync({
-          chainId: TESTNET_CONTRACTS_CHAIN.id,
-          address: TESTNET_MOCK_ERC20_ADDRESS,
-          abi: TESTNET_MOCK_ERC20_ABI,
-          functionName: 'approve',
-          args: [TESTNET_FUNDING_POOL_ADDRESS, amount],
-        })
-        await publicClient.waitForTransactionReceipt({ hash: approveHash })
-        await refetchAllowance()
-      }
+      try {
+        await ensureWalletChain(wallet, TESTNET_CONTRACTS_CHAIN.id)
+        const walletClient = await getWalletClientFromPrivyWallet(wallet)
 
-      const depositHash = await writeContractAsync({
-        chainId: TESTNET_CONTRACTS_CHAIN.id,
-        address: TESTNET_FUNDING_POOL_ADDRESS,
-        abi: TESTNET_FUNDING_POOL_ABI,
-        functionName: 'deposit',
-        args: [amount],
-      })
-      await publicClient.waitForTransactionReceipt({ hash: depositHash })
-      await refetchBalances()
-      return depositHash
+        if (currentAllowance < amount) {
+          const approveHash = await walletClient.writeContract({
+            address: TESTNET_MOCK_ERC20_ADDRESS,
+            abi: TESTNET_MOCK_ERC20_ABI,
+            functionName: 'approve',
+            args: [TESTNET_FUNDING_POOL_ADDRESS, amount],
+            chain: TESTNET_CONTRACTS_CHAIN,
+            account: address as `0x${string}`,
+          })
+          await publicClient.waitForTransactionReceipt({ hash: approveHash })
+          await allowanceQuery.refetch()
+        }
+
+        const depositHash = await walletClient.writeContract({
+          address: TESTNET_FUNDING_POOL_ADDRESS,
+          abi: TESTNET_FUNDING_POOL_ABI,
+          functionName: 'deposit',
+          args: [amount],
+          chain: TESTNET_CONTRACTS_CHAIN,
+          account: address as `0x${string}`,
+        })
+        await publicClient.waitForTransactionReceipt({ hash: depositHash })
+        await refetchBalances()
+        return depositHash
+      } finally {
+        setIsWritePending(false)
+      }
     },
     [
       address,
       allowanceBn,
+      allowanceQuery,
       canDepositHuman,
       publicClient,
-      refetchAllowance,
       refetchBalances,
       tokenDecimals,
-      writeContractAsync,
+      wallet,
     ],
   )
 
@@ -390,7 +431,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     async (humanAmount: number): Promise<Hash> => {
       const gate = canWithdrawHuman(humanAmount)
       if (!gate.ok) throw new Error(gate.message ?? 'Cannot request withdrawal')
-      if (!publicClient) throw new Error('Network client unavailable')
+      if (!wallet) throw new Error('Wallet required')
 
       const assetWei = humanAmountToUnits(humanAmount, tokenDecimals)
       const sharesNeeded = tokenAmountToWithdrawShares(
@@ -400,25 +441,34 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       )
       if (sharesNeeded === null || sharesNeeded <= 0n) throw new Error('Could not compute shares for withdrawal')
 
-      const hash = await writeContractAsync({
-        chainId: TESTNET_CONTRACTS_CHAIN.id,
-        address: TESTNET_FUNDING_POOL_ADDRESS,
-        abi: TESTNET_FUNDING_POOL_ABI,
-        functionName: 'createWithdrawalRequest',
-        args: [sharesNeeded],
-      })
-      await publicClient.waitForTransactionReceipt({ hash })
-      await refetchBalances()
-      return hash
+      setIsWritePending(true)
+      try {
+        await ensureWalletChain(wallet, TESTNET_CONTRACTS_CHAIN.id)
+        const walletClient = await getWalletClientFromPrivyWallet(wallet)
+        const hash = await walletClient.writeContract({
+          address: TESTNET_FUNDING_POOL_ADDRESS,
+          abi: TESTNET_FUNDING_POOL_ABI,
+          functionName: 'createWithdrawalRequest',
+          args: [sharesNeeded],
+          chain: TESTNET_CONTRACTS_CHAIN,
+          account: (address as `0x${string}`) ?? null,
+        })
+        await publicClient.waitForTransactionReceipt({ hash })
+        await refetchBalances()
+        return hash
+      } finally {
+        setIsWritePending(false)
+      }
     },
     [
+      address,
       canWithdrawHuman,
       publicClient,
       refetchBalances,
       tokenDecimals,
       totalAssetsBn,
       totalSharesBn,
-      writeContractAsync,
+      wallet,
     ],
   )
 
@@ -437,7 +487,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     userPoolShares: userSharesBn,
     totalPoolShares: totalSharesBn,
     totalPoolAssets: totalAssetsBn,
-    isContractsLoading: enabled && (balance === undefined || decimals === undefined),
+    isContractsLoading: readsEnabled && (balanceQuery.isPending || decimalsQuery.isPending),
     isWritePending,
     refetchBalances,
     canDepositHuman,

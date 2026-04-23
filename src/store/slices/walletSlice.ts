@@ -1,7 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 export type WalletSliceState = {
-  /** Mirrors wagmi connection; not persisted */
+  /** Mirrors Privy-selected active wallet; not persisted */
   isConnected: boolean
   address: string | null
   chainId: number | undefined

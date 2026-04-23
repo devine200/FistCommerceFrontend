@@ -72,11 +72,20 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
 
   const walletMockTokenLabel = useMemo(() => {
     if (!contracts.isConnected) return 'Connect your wallet to view wallet balance (Sepolia).'
-    if (!contracts.isCorrectNetwork)
-      return `Switch to ${contracts.testnetChain.name} to see your on-chain wallet balance.`
+    if (contracts.isContractsLoading) return 'Loading balance…'
     const formatted = contracts.mockTokenBalanceFormatted
-    return formatted === '—' ? 'Wallet Balance: —' : `Wallet Balance: $${formatted}`
-  }, [contracts.isConnected, contracts.isCorrectNetwork, contracts.mockTokenBalanceFormatted, contracts.testnetChain.name])
+    const amountLine = formatted === '—' ? 'Wallet Balance: —' : `Wallet Balance: $${formatted}`
+    if (!contracts.isCorrectNetwork) {
+      return `${amountLine} (Sepolia contract view; switch to ${contracts.testnetChain.name} to deposit.)`
+    }
+    return amountLine
+  }, [
+    contracts.isConnected,
+    contracts.isContractsLoading,
+    contracts.isCorrectNetwork,
+    contracts.mockTokenBalanceFormatted,
+    contracts.testnetChain.name,
+  ])
 
   const handlePoolContinue = () => {
     const gate = contracts.canDepositHuman(displayAmount)

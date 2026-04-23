@@ -22,7 +22,7 @@ export type AccessContext = {
   role: UserRole | null
   onboarded: boolean
   accessToken: string | null
-  /** wagmi connection status (used to avoid redirecting during reconnect). */
+  /** Wallet connection status (used by access guards). */
   walletStatus: string
   walletConnected: boolean
   walletAddress: string | null

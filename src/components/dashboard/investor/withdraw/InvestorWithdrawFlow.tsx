@@ -85,11 +85,10 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
 
   const withdrawOnChainHint = useMemo(() => {
     if (!contracts.isConnected) return 'Connect your wallet to check on-chain pool position (Sepolia).'
-    if (!contracts.isCorrectNetwork)
-      return `Switch to ${contracts.testnetChain.name} to validate withdrawals against the testnet pool.`
     const { userPoolShares, totalPoolShares, totalPoolAssets, tokenDecimals } = contracts
-    if (userPoolShares === undefined || totalPoolShares === undefined || totalPoolAssets === undefined)
+    if (userPoolShares === undefined || totalPoolShares === undefined || totalPoolAssets === undefined) {
       return 'Reading your pool position…'
+    }
     if (totalPoolShares <= 0n)
       return 'No pool shares on-chain yet — fund the pool before withdrawing.'
     const assetWei = (userPoolShares * totalPoolAssets) / totalPoolShares
@@ -100,7 +99,11 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
       contracts.mockTokenBalanceFormatted === '—'
         ? 'Wallet Balance: —'
         : `Wallet Balance: $${contracts.mockTokenBalanceFormatted}`
-    return `On-chain pool position (approx.): ${position} mock token units. ${wallet}.`
+    const base = `On-chain pool position (approx.): ${position} mock token units. ${wallet}.`
+    if (!contracts.isCorrectNetwork) {
+      return `${base} Switch your wallet to ${contracts.testnetChain.name} to submit withdrawals.`
+    }
+    return base
   }, [
     contracts.isConnected,
     contracts.isCorrectNetwork,

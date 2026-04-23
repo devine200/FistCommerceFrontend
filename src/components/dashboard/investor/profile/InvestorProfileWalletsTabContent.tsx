@@ -1,9 +1,13 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useConnection, useDisconnect } from 'wagmi'
-import { arbitrum, mainnet, sepolia } from 'wagmi/chains'
+import { useLogout } from '@privy-io/react-auth'
+import { arbitrum, mainnet, sepolia } from 'viem/chains'
 
 import walletIcon from '@/assets/Icon (1).png'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
+import { disconnectPrivySession } from '@/session/disconnectPrivySession'
+import { resetUserSession } from '@/session/resetUserSession'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { useActiveWallet } from '@/wallet/useActiveWallet'
 
 const CHAIN_LABEL: Record<number, string> = {
   [arbitrum.id]: arbitrum.name,
@@ -11,39 +15,44 @@ const CHAIN_LABEL: Record<number, string> = {
   [sepolia.id]: sepolia.name,
 }
 
-function connectorDisplayName(connector: { id: string; name: string } | null | undefined): string {
-  if (!connector) return 'Wallet'
-  const { id, name } = connector
-  if (name && name.trim()) return name
-  const byId: Record<string, string> = {
-    metaMask: 'MetaMask',
+function walletClientTypeLabel(walletClientType: string | null | undefined): string {
+  if (!walletClientType) return 'Wallet'
+  const byType: Record<string, string> = {
+    privy: 'Embedded Wallet',
+    metamask: 'MetaMask',
     phantom: 'Phantom',
-    walletConnect: 'WalletConnect',
+    wallet_connect: 'WalletConnect',
+    coinbase_wallet: 'Coinbase Wallet',
   }
-  return byId[id] ?? id
+  return byType[walletClientType] ?? walletClientType
 }
 
 const InvestorProfileWalletsTabContent = () => {
-  const { status, address, chainId, connector } = useConnection()
-  const { disconnectAsync, isPending: disconnectPending } = useDisconnect()
+  const dispatch = useAppDispatch()
+  const { logout } = useLogout()
+  const { isConnected, address, walletClientType, wallet } = useActiveWallet()
+  const chainId = useAppSelector((s) => s.wallet.chainId)
+  const [disconnectPending, setDisconnectPending] = useState(false)
   const [copied, setCopied] = useState(false)
   const contracts = useTestnetContracts()
 
   const walletTokenBalanceLabel = useMemo(() => {
     if (!contracts.isConnected) return 'Connect your wallet to view on-chain mock token balance (Sepolia).'
-    if (!contracts.isCorrectNetwork) {
-      return `Switch to ${contracts.testnetChain.name} to read your mock ERC-20 balance from the contract.`
-    }
+    if (contracts.isContractsLoading) return 'Loading balance…'
     const formatted = contracts.mockTokenBalanceFormatted
-    return formatted === '—' ? 'Wallet Balance: —' : `Wallet Balance: $${formatted}`
+    const amountLine = formatted === '—' ? 'Wallet Balance: —' : `Wallet Balance: $${formatted}`
+    if (!contracts.isCorrectNetwork) {
+      return `${amountLine} (Sepolia contract view; switch your wallet to ${contracts.testnetChain.name} for deposits and withdrawals.)`
+    }
+    return amountLine
   }, [
     contracts.isConnected,
+    contracts.isContractsLoading,
     contracts.isCorrectNetwork,
     contracts.mockTokenBalanceFormatted,
     contracts.testnetChain.name,
   ])
 
-  const connected = status === 'connected' && Boolean(address)
   const chainLabel =
     chainId != null ? (CHAIN_LABEL[chainId] ?? `Chain ${chainId}`) : '—'
 
@@ -59,7 +68,16 @@ const InvestorProfileWalletsTabContent = () => {
   }, [address])
 
   const handleDisconnect = async () => {
-    await disconnectAsync()
+    setDisconnectPending(true)
+    try {
+      await disconnectPrivySession(wallet, logout)
+      resetUserSession(dispatch)
+      window.location.replace('/onboarding/choose-role')
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setDisconnectPending(false)
+    }
   }
 
   return (
@@ -68,7 +86,7 @@ const InvestorProfileWalletsTabContent = () => {
         <h2 className="text-[#4D5D80] text-[28px] font-semibold leading-tight">Connected Wallet</h2>
       </div>
 
-      {!connected ? (
+      {!isConnected ? (
         <p className="mt-4 text-[#6B7488] text-[14px] leading-relaxed">No wallet connected.</p>
       ) : (
         <article className="mt-4 rounded-[6px] border border-[#195EBC] bg-white p-4 sm:p-5">
@@ -81,7 +99,7 @@ const InvestorProfileWalletsTabContent = () => {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-[#0B1220] text-[24px] font-semibold leading-tight">
-                    {connectorDisplayName(connector)}
+                    {walletClientTypeLabel(walletClientType)}
                   </p>
                   <span className="rounded-full bg-[#E8EFFB] px-2 py-0.5 text-[11px] text-[#195EBC] font-medium">
                     Primary

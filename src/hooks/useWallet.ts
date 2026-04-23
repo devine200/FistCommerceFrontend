@@ -1,14 +1,12 @@
-import { useConnection } from 'wagmi'
-
 import { useAppSelector } from '@/store/hooks'
 import { formatWalletAddressForTopBar } from '@/utils/formatWalletAddressForTopBar'
+import { useActiveWallet } from '@/wallet/useActiveWallet'
 
-/** Wagmi as source of truth for live connection; Redux mirror for selectors / disconnect resets */
+/** Privy as source of truth for live connection; Redux mirror for selectors / disconnect resets */
 export function useWallet() {
   const redux = useAppSelector((s) => s.wallet)
-  const { status, address, chainId } = useConnection()
-  const connected = status === 'connected'
-  const addr = address ?? null
+  const { isConnected: connected, address: addr } = useActiveWallet()
+  const chainId = redux.chainId
   return {
     redux,
     isConnected: connected,

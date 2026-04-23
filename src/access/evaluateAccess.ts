@@ -143,7 +143,7 @@ export function evaluateDashboardSession(ctx: AccessContext): AccessDecision {
     return { allowed: true, redirectTo: null, reason: 'ok' }
   }
 
-  // Pause redirects while persisted auth is loading, and while wagmi is reconnecting.
+  // Pause redirects while persisted auth is loading.
   if (!ctx.persistedReady) {
     return { allowed: true, redirectTo: null, reason: 'ok' }
   }

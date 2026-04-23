@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { useConnect, useConnection, useConnectors, useDisconnect } from 'wagmi'
 
 import InvestorDashboardSessionLayout from '@/components/session/InvestorDashboardSessionLayout'
 import KycFinancialRoutesGuard from '@/components/session/KycFinancialRoutesGuard'
@@ -7,6 +6,7 @@ import MerchantDashboardSessionLayout from '@/components/session/MerchantDashboa
 import { Navigate, Outlet, RouterProvider, createBrowserRouter } from 'react-router-dom'
 
 import { useAppSelector } from '@/store/hooks'
+import { useActiveWallet } from '@/wallet/useActiveWallet'
 import OnboardingPage from '@/pages/OnboardingPage'
 import OnboardingCompleted, { OnboardingCompletedVariant } from '@/pages/OnboardingCompleted'
 import MerchantLayout from '@/layouts/MerchantOnboardingLayout'
@@ -56,56 +56,11 @@ import AdminInvestorProfilePage from '@/pages/AdminInvestorProfilePage'
 import AdminLoginPage from '@/pages/AdminLoginPage'
 import LandingPage from '@/pages/LandingPage'
 
-const DefaultWagmiPage = () => {
-  const connection = useConnection()
-  const { connect, status, error } = useConnect()
-  const connectors = useConnectors()
-  const { disconnect } = useDisconnect()
-
-  return (
-    <>
-      <div>
-        <h2>Connection</h2>
-
-        <div>
-          status: {connection.status}
-          <br />
-          addresses: {JSON.stringify(connection.addresses)}
-          <br />
-          chainId: {connection.chainId}
-        </div>
-
-        {connection.status === 'connected' && (
-          <button type="button" onClick={() => disconnect()}>
-            Disconnect
-          </button>
-        )}
-      </div>
-
-      <div>
-        <h2>Connect</h2>
-        {connectors.map((connector) => (
-          <button
-            key={connector.uid}
-            onClick={() => connect({ connector })}
-            type="button"
-          >
-            {connector.name}
-          </button>
-        ))}
-        <div>{status}</div>
-        <div>{error?.message}</div>
-      </div>
-    </>
-  ) 
-}
-
 const RootRedirect = () => {
   const { onboarded, role, accessToken } = useAppSelector((s) => s.auth)
-  const { status } = useConnection()
+  const { isConnected } = useActiveWallet()
   if (!onboarded) return <Navigate to="/onboarding" replace />
-  const connected = status === 'connected'
-  if (!connected || !accessToken?.length) {
+  if (!isConnected || !accessToken?.length) {
     if (!role) return <Navigate to="/onboarding/choose-role" replace />
     return <Navigate to={`/onboarding/${role}/connect-wallet`} replace />
   }
@@ -133,10 +88,6 @@ const router = createBrowserRouter([
   {
     path: '/continue',
     element: <RootRedirect />,
-  },
-  {
-    path: '/wagmi-debug',
-    element: <DefaultWagmiPage />,
   },
   {
     path: '/admin/login',

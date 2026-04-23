@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@fontsource/outfit": "^5.2.8",
+    "@privy-io/react-auth": "^3.22.1",
     "@reduxjs/toolkit": "^2.11.2",
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-query": "latest",
@@ -25,14 +26,12 @@
     "redux-persist": "^6.0.0",
     "serve": "^14.2.6",
     "uuid": "^13.0.0",
-    "viem": "latest",
-    "wagmi": "latest"
+    "viem": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "latest",
-    "@wagmi/cli": "latest",
     "autoprefixer": "^10.4.27",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.2",
