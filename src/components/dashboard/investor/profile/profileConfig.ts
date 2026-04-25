@@ -1,5 +1,5 @@
 import {
-  displayDashboardMetricString,
+  displayDashboardCompactUsd,
   displayDashboardPercentString,
   displayPoolApyPercent,
   displayPoolUtilization,
@@ -45,14 +45,14 @@ export function formatProfileDobForDisplay(dateOfBirth: string | null | undefine
 /** Stats row under the hero — `GET /api/metrics/investor/` fields: `total_deposited`, `total_interest_earned`, `current_position_value`. */
 export function buildInvestorProfileStatsFromApi(investorMetrics: InvestorMetrics | null): InvestorProfileStat[] {
   const totalInvested = investorMetrics
-    ? displayDashboardMetricString(investorMetrics.total_deposited)
-    : '—'
+    ? displayDashboardCompactUsd(investorMetrics.total_deposited)
+    : '$--'
   const totalEarnings = investorMetrics
-    ? displayDashboardMetricString(investorMetrics.total_interest_earned)
-    : '—'
+    ? displayDashboardCompactUsd(investorMetrics.total_interest_earned)
+    : '$--'
   const currentPosition = investorMetrics
-    ? displayDashboardMetricString(investorMetrics.current_position_value)
-    : '—'
+    ? displayDashboardCompactUsd(investorMetrics.current_position_value)
+    : '$--'
 
   return [
     {
@@ -94,17 +94,17 @@ export function buildInvestorPortfolioMetricsFromApi(
   return [
     {
       label: 'Total Deposited',
-      value: investorMetrics ? displayDashboardMetricString(investorMetrics.total_deposited) : '—',
+      value: investorMetrics ? displayDashboardCompactUsd(investorMetrics.total_deposited) : '$--',
       helper: '',
     },
     {
       label: 'Current position',
-      value: investorMetrics ? displayDashboardMetricString(investorMetrics.current_position_value) : '—',
+      value: investorMetrics ? displayDashboardCompactUsd(investorMetrics.current_position_value) : '$--',
       helper: shareHelper,
     },
     {
       label: 'Pool APY (est.)',
-      value: poolMetrics ? displayPoolApyPercent(poolMetrics.apy) : '—',
+      value: poolMetrics ? displayPoolApyPercent(poolMetrics.apy) : '--%',
       helper: poolMetrics ? `Pool utilization ${displayPoolUtilization(poolMetrics.utilization)}` : '',
     },
     {

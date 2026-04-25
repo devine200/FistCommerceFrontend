@@ -3,15 +3,15 @@ import { useEffect, type MouseEvent } from 'react'
 const overlayClass =
   'fixed inset-0 z-[80] flex items-center justify-center bg-black/25 backdrop-blur-[2px] p-5'
 
-function useModalEscape(onClose: () => void, open: boolean) {
+function useModalEscape(onClose: () => void, open: boolean, escapeEnabled: boolean) {
   useEffect(() => {
-    if (!open) return
+    if (!open || !escapeEnabled) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open, onClose, escapeEnabled])
 }
 
 export type DashboardErrorModalProps = {
@@ -21,6 +21,12 @@ export type DashboardErrorModalProps = {
   /** Label for the primary action button (when `onRetry` is provided). */
   retryLabel?: string
   primaryLabel?: string
+  /**
+   * When true: no backdrop dismiss, no Escape; omit the default dismiss row — use `onRetry` + `onSecondary` instead.
+   */
+  blocking?: boolean
+  secondaryLabel?: string
+  onSecondary?: () => void
   onClose: () => void
   onRetry?: () => void
 }
@@ -45,17 +51,22 @@ export default function DashboardErrorModal({
   message,
   retryLabel,
   primaryLabel,
+  blocking,
+  secondaryLabel,
+  onSecondary,
   onClose,
   onRetry,
 }: DashboardErrorModalProps) {
   const titleId = 'dashboard-error-title'
   const descId = 'dashboard-error-desc'
 
-  useModalEscape(onClose, open)
+  const isBlocking = Boolean(blocking)
+  useModalEscape(onClose, open, !isBlocking)
 
   if (!open) return null
 
   const handleOverlayMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+    if (isBlocking) return
     if (e.target !== e.currentTarget) return
     onClose()
   }
@@ -92,13 +103,24 @@ export default function DashboardErrorModal({
               {retryLabel?.trim() ? retryLabel : 'Retry'}
             </button>
           ) : null}
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-[48px] w-full rounded-xl text-[15px] font-semibold border border-[#E5E7EB] bg-white text-[#374151] hover:bg-[#F9FAFB] active:scale-[0.99]"
-          >
-            {primaryLabel?.trim() ? primaryLabel : 'Dismiss'}
-          </button>
+          {isBlocking && typeof onSecondary === 'function' ? (
+            <button
+              type="button"
+              onClick={onSecondary}
+              className="min-h-[48px] w-full rounded-xl text-[15px] font-semibold border border-[#E5E7EB] bg-white text-[#374151] hover:bg-[#F9FAFB] active:scale-[0.99]"
+            >
+              {secondaryLabel?.trim() ? secondaryLabel : 'Log out'}
+            </button>
+          ) : null}
+          {!isBlocking ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-[48px] w-full rounded-xl text-[15px] font-semibold border border-[#E5E7EB] bg-white text-[#374151] hover:bg-[#F9FAFB] active:scale-[0.99]"
+            >
+              {primaryLabel?.trim() ? primaryLabel : 'Dismiss'}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

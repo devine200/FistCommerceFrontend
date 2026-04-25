@@ -12,6 +12,7 @@
     "@fontsource/outfit": "^5.2.8",
     "@privy-io/react-auth": "^3.22.1",
     "@reduxjs/toolkit": "^2.11.2",
+    "@sumsub/websdk-react": "^2.6.2",
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-query": "latest",
     "@types/node": "^25.5.0",

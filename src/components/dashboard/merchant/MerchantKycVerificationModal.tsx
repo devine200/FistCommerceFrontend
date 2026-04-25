@@ -1,39 +1,54 @@
 import { useEffect, useState } from 'react'
 
+import { deriveKycStatusFromMerchantRecord, fetchMerchantKycRecord } from '@/api/kycMerchant'
 import KycVerificationCompleteModal from '@/components/dashboard/kyc/KycVerificationCompleteModal'
 import VerifyIdentityModal from '@/components/dashboard/kyc/VerifyIdentityModal'
-import MerchantConfirmDetailsModal from '@/components/dashboard/merchant/MerchantConfirmDetailsModal'
 import MerchantKycVerificationStepsModal from '@/components/dashboard/merchant/MerchantKycVerificationStepsModal'
-import UploadBusinessDocumentsModal from '@/components/dashboard/merchant/UploadBusinessDocumentsModal'
-import { setKycVerified } from '@/state/session'
+import { useActiveWallet } from '@/wallet/useActiveWallet'
+import { patchAuth } from '@/store/slices/authSlice'
+import { setKycStatus, setMerchantKycRecord } from '@/store/slices/kycSlice'
+import { refreshMerchantDashboard } from '@/store/slices/merchantDashboardSlice'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
 
 interface MerchantKycVerificationModalProps {
   onClose: () => void
-  totalSteps: number
 }
 
 enum MerchantKycModalView {
   VerificationSteps = 'verification_steps',
-  ConfirmDetails = 'confirm_details',
   VerifyIdentity = 'verify_identity',
-  UploadBusinessDocuments = 'upload_business_documents',
   Completed = 'completed',
 }
 
-/**
- * Merchant KYC: confirm → verify identity → upload business docs → success.
- * Success screen uses the same `KycVerificationCompleteModal` as the investor flow.
- */
-const MerchantKycVerificationModal = ({ onClose, totalSteps }: MerchantKycVerificationModalProps) => {
+const MerchantKycVerificationModal = ({ onClose }: MerchantKycVerificationModalProps) => {
+  const dispatch = useAppDispatch()
+  const accessToken = useAppSelector((s) => s.auth.accessToken)
+  const record = useAppSelector((s) => s.kyc.merchantKycRecord)
+  const kycStatus = useAppSelector((s) => s.kyc.status)
+  const { isConnected } = useActiveWallet()
+
   const [activeView, setActiveView] = useState<MerchantKycModalView>(MerchantKycModalView.VerificationSteps)
-  const [completedStepIds, setCompletedStepIds] = useState<string[]>([])
 
-  const markDone = (id: string) => {
-    setCompletedStepIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
-  }
-
-  const required = ['confirm-details', 'verify-identity', 'upload-business-documents']
-  const allDone = required.every((id) => completedStepIds.includes(id))
+  useEffect(() => {
+    const t = accessToken?.trim()
+    if (!t) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const r = await fetchMerchantKycRecord(t)
+        if (cancelled) return
+        dispatch(setMerchantKycRecord(r))
+        const next = deriveKycStatusFromMerchantRecord(r)
+        dispatch(setKycStatus(next))
+        dispatch(patchAuth({ kycVerified: next === 'verified' }))
+      } catch {
+        if (!cancelled) dispatch(setMerchantKycRecord(null))
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [accessToken, dispatch])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -44,65 +59,78 @@ const MerchantKycVerificationModal = ({ onClose, totalSteps }: MerchantKycVerifi
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose])
 
+  const hasKycToken = Boolean(record?.kyc_token && String(record.kyc_token).trim())
+  const kycVerified = Boolean(record?.kyc_verified)
+  const insuranceVerified = Boolean(record?.insurance_verified)
+  const kycRejected = kycStatus === 'rejected'
+
+  const token = accessToken?.trim() ?? ''
+
+  const refetchMerchantKyc = async () => {
+    if (!token) return
+    try {
+      const r = await fetchMerchantKycRecord(token)
+      dispatch(setMerchantKycRecord(r))
+      const next = deriveKycStatusFromMerchantRecord(r)
+      dispatch(setKycStatus(next))
+      dispatch(patchAuth({ kycVerified: next === 'verified' }))
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const handleIdentitySumsubFinished = async () => {
+    await refetchMerchantKyc()
+    await dispatch(refreshMerchantDashboard()).unwrap().catch(() => {})
+    setActiveView(MerchantKycModalView.VerificationSteps)
+  }
+
+  const handleBackToDashboard = async () => {
+    await dispatch(refreshMerchantDashboard()).unwrap().catch(() => {})
+    onClose()
+  }
+
   const renderModalContent = () => {
     switch (activeView) {
-      case MerchantKycModalView.ConfirmDetails:
-        return (
-          <MerchantConfirmDetailsModal
-            onBack={() => setActiveView(MerchantKycModalView.VerificationSteps)}
-            onContinue={() => {
-              markDone('confirm-details')
-              setActiveView(MerchantKycModalView.VerificationSteps)
-            }}
-          />
-        )
       case MerchantKycModalView.VerifyIdentity:
+        if (!token) {
+          return (
+            <div className="max-w-[620px] mx-auto text-center text-[#6B7488]">
+              <p>Your session is missing an access token. Reconnect your wallet and try again.</p>
+              <button type="button" className="mt-4 text-[#195EBC] font-semibold" onClick={onClose}>
+                Close
+              </button>
+            </div>
+          )
+        }
         return (
           <VerifyIdentityModal
+            flow="merchant_identity"
+            accessToken={token}
+            initialSumsubToken={record?.kyc_token ?? null}
+            reviewed={record?.reviewed ?? false}
+            kycRejected={kycRejected}
             onBack={() => setActiveView(MerchantKycModalView.VerificationSteps)}
-            onComplete={() => {
-              markDone('verify-identity')
-              setActiveView(MerchantKycModalView.VerificationSteps)
-            }}
-          />
-        )
-      case MerchantKycModalView.UploadBusinessDocuments:
-        return (
-          <UploadBusinessDocumentsModal
-            onBack={() => setActiveView(MerchantKycModalView.VerificationSteps)}
-            onComplete={() => {
-              markDone('upload-business-documents')
-              setActiveView(MerchantKycModalView.VerificationSteps)
-            }}
+            onCancel={onClose}
+            onSumsubFinished={handleIdentitySumsubFinished}
           />
         )
       case MerchantKycModalView.Completed:
-        return (
-          <KycVerificationCompleteModal
-            onBackToDashboard={() => {
-              setKycVerified(true)
-              onClose()
-            }}
-          />
-        )
+        return <KycVerificationCompleteModal onBackToDashboard={() => void handleBackToDashboard()} />
       case MerchantKycModalView.VerificationSteps:
       default:
         return (
           <MerchantKycVerificationStepsModal
-            totalSteps={totalSteps}
-            completedStepIds={completedStepIds}
-            onConfirmDetailsClick={() => setActiveView(MerchantKycModalView.ConfirmDetails)}
+            walletConnected={isConnected}
+            hasKycToken={hasKycToken}
+            kycVerified={kycVerified}
+            insuranceVerified={insuranceVerified}
+            kycRejected={kycRejected}
             onVerifyIdentityClick={() => setActiveView(MerchantKycModalView.VerifyIdentity)}
-            onUploadBusinessDocumentsClick={() => setActiveView(MerchantKycModalView.UploadBusinessDocuments)}
           />
         )
     }
   }
-
-  useEffect(() => {
-    if (!allDone) return
-    setActiveView(MerchantKycModalView.Completed)
-  }, [allDone])
 
   return (
     <div

@@ -1,7 +1,7 @@
 import walletTabIcon from '@/assets/Icon (1).png'
 import profileTabIcon from '@/assets/Icon.png'
 import historyTabIcon from '@/assets/Icon (2).png'
-import { displayDashboardMetricString } from '@/api/metrics'
+import { displayDashboardCompactUsd } from '@/api/metrics'
 import type { MerchantMetrics, PoolMetrics } from '@/api/metrics'
 import type {
   InvestorPortfolioMetric,
@@ -16,9 +16,9 @@ export const MERCHANT_PROFILE_TABS: InvestorProfileTab[] = [
 ]
 
 export function buildMerchantProfileStatsFromApi(merchantMetrics: MerchantMetrics | null): InvestorProfileStat[] {
-  const totalBorrowed = merchantMetrics ? displayDashboardMetricString(merchantMetrics.credit.totalBorrowed) : '—'
-  const totalRepaid = merchantMetrics ? displayDashboardMetricString(merchantMetrics.performance.totalRepaid) : '—'
-  const activeLoans = merchantMetrics ? String(merchantMetrics.credit.activeLoans) : '—'
+  const totalBorrowed = merchantMetrics ? displayDashboardCompactUsd(merchantMetrics.credit.totalBorrowed) : '$--'
+  const totalRepaid = merchantMetrics ? displayDashboardCompactUsd(merchantMetrics.performance.totalRepaid) : '$--'
+  const activeLoans = merchantMetrics ? String(merchantMetrics.credit.activeLoans) : '--'
 
   return [
     {
@@ -59,22 +59,22 @@ export function buildMerchantPortfolioMetricsFromApi(
   return [
     {
       label: 'Total Pool Size',
-      value: poolMetrics ? displayDashboardMetricString(poolMetrics.tvl) : '—',
+      value: poolMetrics ? displayDashboardCompactUsd(poolMetrics.tvl) : '$--',
       helper: '',
     },
     {
       label: 'Available Liquidity',
-      value: poolMetrics ? displayDashboardMetricString(poolMetrics.availableLiquidity) : '—',
+      value: poolMetrics ? displayDashboardCompactUsd(poolMetrics.availableLiquidity) : '$--',
       helper: '',
     },
     {
       label: 'Total Borrowed',
-      value: merchantMetrics ? displayDashboardMetricString(merchantMetrics.credit.totalBorrowed) : '—',
+      value: merchantMetrics ? displayDashboardCompactUsd(merchantMetrics.credit.totalBorrowed) : '$--',
       helper: '',
     },
     {
       label: 'Total Repaid',
-      value: merchantMetrics ? displayDashboardMetricString(merchantMetrics.performance.totalRepaid) : '—',
+      value: merchantMetrics ? displayDashboardCompactUsd(merchantMetrics.performance.totalRepaid) : '$--',
       helper: '',
     },
   ]

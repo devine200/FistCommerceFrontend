@@ -21,8 +21,12 @@ const initialState: MerchantTransactionsState = {
 export const refreshMerchantTransactions = createAsyncThunk(
   'merchantTransactions/refresh',
   async (_arg, thunkApi) => {
-    const state = thunkApi.getState() as { auth?: { accessToken?: string | null } }
+    const state = thunkApi.getState() as { auth?: { accessToken?: string | null }; kyc?: { status?: string } }
     const accessToken = state.auth?.accessToken
+    const isKycVerified = state.kyc?.status === 'verified'
+    if (!isKycVerified) {
+      return { fetchedAt: Date.now(), transactions: [] }
+    }
     const transactions = await fetchMerchantTransactions(accessToken)
     return { fetchedAt: Date.now(), transactions }
   },

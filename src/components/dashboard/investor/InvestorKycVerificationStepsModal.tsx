@@ -1,5 +1,4 @@
 import Frame0 from '@/assets/Frame.png'
-import Frame1 from '@/assets/Frame (1).png'
 import Frame2 from '@/assets/Frame (2).png'
 
 import { KycArrowRightIcon, KycCheckIcon } from '@/components/dashboard/kyc/VerificationStepIcons'
@@ -14,51 +13,54 @@ type VerificationStep = {
 }
 
 interface InvestorKycVerificationStepsModalProps {
-  totalSteps: number
-  completedStepIds: string[]
-  onConfirmDetailsClick: () => void
+  walletConnected: boolean
+  /** True when GET `kyc_token` is non-empty — in-progress list shows identity only. */
+  hasKycToken: boolean
+  kycVerified: boolean
+  kycRejected: boolean
   onVerifyIdentityClick: () => void
 }
 
 const InvestorKycVerificationStepsModal = ({
-  totalSteps,
-  completedStepIds,
-  onConfirmDetailsClick,
+  walletConnected,
+  hasKycToken,
+  kycVerified,
+  kycRejected,
   onVerifyIdentityClick,
 }: InvestorKycVerificationStepsModalProps) => {
-  const safeTotal = Math.max(1, totalSteps)
-
-  const base: VerificationStep[] = [
-    {
-      id: 'connect-wallet',
-      iconSrc: Frame0,
-      topic: 'Connect Your Wallet',
-      description:
-        'Connect your wallet to access your funds, manage investments, and interact with the platform.',
-      isDone: completedStepIds.includes('connect-wallet'),
-    },
-    {
-      id: 'confirm-details',
-      iconSrc: Frame1,
-      topic: 'Confirm Your Details',
-      description: 'Review and verify your personal information to ensure it is accurate before proceeding.',
-      isDone: completedStepIds.includes('confirm-details'),
-    },
-    {
-      id: 'verify-identity',
-      iconSrc: Frame2,
-      topic: 'Verify Your Identity',
-      description:
-        'Upload a valid government ID and complete a quick face verification to confirm your identity.',
-      isDone: completedStepIds.includes('verify-identity'),
-      isPendingVerification: false,
-    },
-  ]
-
-  const steps = base.slice(0, safeTotal)
+  const steps: VerificationStep[] = hasKycToken
+    ? [
+        {
+          id: 'verify-identity',
+          iconSrc: Frame2,
+          topic: 'Verify Your Identity',
+          description:
+            'Upload a valid government ID and complete Sumsub verification to confirm your identity.',
+          isDone: kycVerified || (Boolean(hasKycToken) && !kycVerified && !kycRejected),
+          isPendingVerification: Boolean(hasKycToken && !kycVerified && !kycRejected),
+        },
+      ]
+    : [
+        {
+          id: 'connect-wallet',
+          iconSrc: Frame0,
+          topic: 'Connect Your Wallet',
+          description:
+            'Connect your wallet to access your funds, manage investments, and interact with the platform.',
+          isDone: walletConnected,
+        },
+        {
+          id: 'verify-identity',
+          iconSrc: Frame2,
+          topic: 'Verify Your Identity',
+          description:
+            'Upload a valid government ID and complete Sumsub verification to confirm your identity.',
+          isDone: kycVerified,
+          isPendingVerification: false,
+        },
+      ]
 
   const handleStepClick = (step: VerificationStep) => {
-    if (step.id === 'confirm-details') onConfirmDetailsClick()
     if (step.id === 'verify-identity') onVerifyIdentityClick()
   }
 
@@ -73,9 +75,17 @@ const InvestorKycVerificationStepsModal = ({
         </div>
       </div>
 
+      {kycRejected ? (
+        <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] sm:text-[14px] text-red-900">
+          Your previous verification was not approved. Please submit updated documents when you retry identity
+          verification.
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-4">
         {steps.map((step) => {
-          const isCardDisabled = step.isDone
+          const isCardDisabled =
+            step.id === 'connect-wallet' ? walletConnected : step.id === 'verify-identity' ? kycVerified : false
 
           return (
             <button
@@ -88,6 +98,7 @@ const InvestorKycVerificationStepsModal = ({
               }`}
               onClick={() => {
                 if (isCardDisabled) return
+                if (step.id === 'connect-wallet') return
                 handleStepClick(step)
               }}
             >
@@ -102,9 +113,7 @@ const InvestorKycVerificationStepsModal = ({
                 {step.isDone && !step.isPendingVerification ? (
                   <KycCheckIcon />
                 ) : step.isPendingVerification && step.isDone ? (
-                  <span className="text-[#F59E0B] text-[20px] font-medium text-right leading-tight">
-                    Pending Verification
-                  </span>
+                  <span className="text-[#F59E0B] text-[20px] font-medium text-right leading-tight">Pending Verification</span>
                 ) : (
                   <KycArrowRightIcon />
                 )}

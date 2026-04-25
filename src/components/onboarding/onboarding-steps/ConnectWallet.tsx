@@ -28,12 +28,6 @@ function isWalletSignRejected(e: unknown): boolean {
   return /user rejected|denied transaction signature|request rejected/i.test(e.message)
 }
 
-/** EIP-1193: chain not added in the wallet — user must add Sepolia or approve add-network. */
-function isChainNotAddedError(e: unknown): boolean {
-  const code = (e as { code?: number }).code
-  return code === 4902
-}
-
 interface ConnectWalletProps {
   onContinue?: () => void
 }
@@ -133,10 +127,6 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
           setRowError('Switch to Sepolia was cancelled. Approve the network change to sign in.')
           return
         }
-        if (isChainNotAddedError(e)) {
-          setRowError('Sepolia is not set up in this wallet. Add the Sepolia network (chain ID 11155111), then try again.')
-          return
-        }
         throw e
       }
 
@@ -172,7 +162,8 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
           },
           { fallbackRole: role },
         )
-        navigate('/continue')
+        const effectiveRole = loginRes.roleFromApi ?? role
+        navigate(`/dashboard/${effectiveRole}/overview`, { replace: true })
         return
       }
 

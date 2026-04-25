@@ -1,8 +1,22 @@
 import type { RootState } from '@/store'
 
-/** True only when KYC slice reports verified (single source of truth). */
+/**
+ * Dashboard / financial access: investor when `kyc_verified`; merchant when both identity and insurance verified.
+ * Falls back to `kyc.status === 'verified'` when the GET snapshot is not yet hydrated.
+ */
 export function selectIsKycVerified(state: RootState): boolean {
-  return state.kyc.status === 'verified'
+  const st = state.kyc.status
+  if (st === 'rejected') return false
+  if (st === 'verified') return true
+  const role = state.auth.role
+  if (role === 'investor') {
+    return Boolean(state.kyc.investorKycRecord?.kyc_verified)
+  }
+  if (role === 'merchant') {
+    const m = state.kyc.merchantKycRecord
+    return Boolean(m?.kyc_verified && m?.insurance_verified)
+  }
+  return false
 }
 
 export function selectKycStatus(state: RootState) {
@@ -24,6 +38,5 @@ export function selectIsPersistReady(state: RootState): boolean {
   const onboardingReady = Boolean(
     (state.onboarding as unknown as { _persist?: { rehydrated?: boolean } })._persist?.rehydrated,
   )
-  const kycReady = Boolean((state.kyc as unknown as { _persist?: { rehydrated?: boolean } })._persist?.rehydrated)
-  return authReady && onboardingReady && kycReady
+  return authReady && onboardingReady
 }

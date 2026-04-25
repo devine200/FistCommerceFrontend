@@ -1,5 +1,5 @@
 import {
-  displayDashboardMetricString,
+  displayDashboardCompactUsd,
   formatDashboardCompactUsd,
   formatDashboardPercentMetric,
 } from '@/api/metrics'
@@ -18,7 +18,7 @@ interface LendingPoolDetailPageContentProps {
 
 function fmtUsd(v: unknown): string | null {
   if (typeof v === 'number' && Number.isFinite(v)) return formatDashboardCompactUsd(v)
-  if (typeof v === 'string' && v.trim()) return displayDashboardMetricString(v.trim())
+  if (typeof v === 'string' && v.trim()) return displayDashboardCompactUsd(v.trim())
   return null
 }
 
@@ -44,7 +44,7 @@ function loanApiToMerchantLoanRow(loan: MerchantLoanApi): MerchantLoanTableRowDa
     id: loan.id,
     merchantName: `Merchant ${loan.user ?? loan.id.slice(0, 6)}`,
     walletShort: '—',
-    loanAmount: displayDashboardMetricString(loan.loan_amount),
+    loanAmount: displayDashboardCompactUsd(loan.loan_amount),
     issueDate: fmtDdMmYyyy(loan.created_at),
     repaymentDue: '—',
     repaymentAmount: '—',

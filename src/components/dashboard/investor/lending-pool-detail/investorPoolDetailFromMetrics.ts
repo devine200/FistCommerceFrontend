@@ -4,11 +4,10 @@ import {
   type RecentPayoutBundle,
 } from '@/api/payout'
 import {
-  displayDashboardMetricString,
+  displayDashboardCompactUsd,
   displayDashboardPercentString,
   displayInvestorRoiPercent,
   displayPoolApyPercent,
-  displayPoolMinDeposit,
   displayPoolUtilization,
   type InvestorMetrics,
   type PoolMetrics,
@@ -40,19 +39,14 @@ function poolCardLikeFields(pool: PoolMetrics): {
   utilization: string
 } {
   const apy = displayPoolApyPercent(pool.apy)
-  const tvl = displayDashboardMetricString(pool.tvl)
-  const minDeposit = displayPoolMinDeposit(pool.minDeposit)
+  const tvl = displayDashboardCompactUsd(pool.tvl)
+  const minDeposit = displayDashboardCompactUsd(pool.minDeposit)
   const utilization = displayPoolUtilization(pool.utilization)
 
   return {
     apy: apy !== '—' ? (apy.includes('APY') ? apy : `${apy} APY`) : apy,
-    tvl: tvl !== '—' ? (tvl.includes('USDC') || tvl.includes('USDT') ? tvl : `${tvl} USDC`) : tvl,
-    minDeposit:
-      minDeposit !== '—'
-        ? minDeposit.includes('USDC') || minDeposit.includes('USDT')
-          ? minDeposit
-          : `${minDeposit} USDC`
-        : minDeposit,
+    tvl,
+    minDeposit,
     utilization:
       utilization !== '—'
         ? utilization.toLowerCase().includes('allocated')
@@ -67,9 +61,9 @@ export function poolMetricsToHeaderStats(pool: PoolMetrics): PoolStatItem[] {
   return [
     // Keep these aligned with the investor dashboard pool card formatting.
     { label: 'TVL', value: card.tvl },
-    { label: 'Liquid assets', value: displayDashboardMetricString(pool.liquidAssets) },
-    { label: 'Outstanding', value: displayDashboardMetricString(pool.outstanding) },
-    { label: 'Available liquidity', value: displayDashboardMetricString(pool.availableLiquidity) },
+    { label: 'Liquid assets', value: displayDashboardCompactUsd(pool.liquidAssets) },
+    { label: 'Outstanding', value: displayDashboardCompactUsd(pool.outstanding) },
+    { label: 'Available liquidity', value: displayDashboardCompactUsd(pool.availableLiquidity) },
     { label: 'Utilization', value: card.utilization },
     { label: 'APY', value: card.apy },
     { label: 'Min deposit', value: card.minDeposit },
@@ -78,12 +72,12 @@ export function poolMetricsToHeaderStats(pool: PoolMetrics): PoolStatItem[] {
 
 export function investorMetricsToMyStats(inv: InvestorMetrics): PoolStatItem[] {
   return [
-    { label: 'Total deposited', value: displayDashboardMetricString(inv.total_deposited) },
-    { label: 'Total withdrawn', value: displayDashboardMetricString(inv.total_withdrawn) },
-    { label: 'Current position value', value: displayDashboardMetricString(inv.current_position_value) },
-    { label: 'Total interest earned', value: displayDashboardMetricString(inv.total_interest_earned) },
+    { label: 'Total deposited', value: displayDashboardCompactUsd(inv.total_deposited) },
+    { label: 'Total withdrawn', value: displayDashboardCompactUsd(inv.total_withdrawn) },
+    { label: 'Current position value', value: displayDashboardCompactUsd(inv.current_position_value) },
+    { label: 'Total interest earned', value: displayDashboardCompactUsd(inv.total_interest_earned) },
     { label: 'Share of pool', value: displayDashboardPercentString(inv.share_of_pool) },
-    { label: 'Net deposited', value: displayDashboardMetricString(inv.netDeposited) },
+    { label: 'Net deposited', value: displayDashboardCompactUsd(inv.netDeposited) },
     { label: 'ROI', value: displayInvestorRoiPercent(inv.roi) },
   ]
 }

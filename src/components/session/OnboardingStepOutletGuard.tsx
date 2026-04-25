@@ -26,10 +26,21 @@ export default function OnboardingStepOutletGuard() {
     }
   }, [ctx, dispatch])
 
+  // Avoid redirects while redux-persist is still restoring state (prevents flicker).
+  if (!ctx.persistedReady) {
+    return <Outlet />
+  }
+
+  // Onboarding should only be skipped when we have a valid dashboard session.
+  // If the user disconnected (or reloaded without a token/wallet), keep them in onboarding.
   if (ctx.onboarded) {
-    if (!ctx.role) {
+    const hasDashboardSession =
+      Boolean(ctx.role) && Boolean(ctx.walletConnected && ctx.walletAddress) && Boolean(ctx.accessToken?.length)
+
+    if (!hasDashboardSession) {
       return <Navigate to="/onboarding/choose-role" replace />
     }
+
     return <Navigate to={`/dashboard/${ctx.role}/overview`} replace />
   }
 

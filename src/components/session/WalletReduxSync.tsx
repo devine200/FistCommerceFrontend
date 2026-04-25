@@ -6,21 +6,33 @@ import { store } from '@/store'
 import { useAppDispatch } from '@/store/hooks'
 import { patchAuth } from '@/store/slices/authSlice'
 import { setWalletFromProvider } from '@/store/slices/walletSlice'
+import { syncWalletChainIdFromProviderToRedux } from '@/wallet/syncWalletChainToRedux'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 
+// Opt-in only: avoids noisy console/network errors in dev when no ingest proxy is configured.
 const AGENT_DEBUG_INGEST =
-  import.meta.env.DEV ? '/ingest/fb9c849e-37ad-4a71-b70c-257ccd07e08d' : ''
+  import.meta.env.DEV && String(import.meta.env.VITE_AGENT_DEBUG_INGEST_ENABLED).toLowerCase() === 'true'
+    ? '/ingest/fb9c849e-37ad-4a71-b70c-257ccd07e08d'
+    : ''
 
 function agentDebugLog(payload: Record<string, unknown>) {
   if (!AGENT_DEBUG_INGEST) return
-  fetch(AGENT_DEBUG_INGEST, {
+  void fetch(AGENT_DEBUG_INGEST, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Debug-Session-Id': 'eda03a',
     },
     body: JSON.stringify({ sessionId: 'eda03a', ...payload }),
+  }).then((res) => {
+    // `fetch` doesn't reject on 4xx/5xx; swallow to keep console clean.
+    if (!res.ok) return
   }).catch(() => {})
+}
+
+type Eip1193Emitter = {
+  on?: (event: string, handler: (...args: unknown[]) => void) => void
+  removeListener?: (event: string, handler: (...args: unknown[]) => void) => void
 }
 
 /**
@@ -52,27 +64,60 @@ export default function WalletReduxSync() {
     })
     // #endregion agent log
     let cancelled = false
+    let detachProviderListeners: (() => void) | undefined
+    let clearPollInterval: (() => void) | undefined
+
     if (!wallet || !isConnected) {
       dispatch(setWalletFromProvider({ isConnected, address, chainId: undefined }))
-      return
+      return () => {
+        cancelled = true
+      }
     }
+
+    const pushChainIdFromProvider = async () => {
+      await syncWalletChainIdFromProviderToRedux(wallet, isConnected, address, {
+        isCancelled: () => cancelled,
+      })
+    }
+
     void (async () => {
+      await pushChainIdFromProvider()
+      if (cancelled) return
+      let listenersAttached = false
       try {
         const provider = await wallet.getEthereumProvider()
-        const raw = await provider.request({ method: 'eth_chainId' })
-        const n =
-          typeof raw === 'string' && raw.startsWith('0x') ? Number.parseInt(raw, 16) : Number(raw)
-        if (!cancelled) {
-          dispatch(setWalletFromProvider({ isConnected, address, chainId: Number.isFinite(n) ? n : undefined }))
+        if (cancelled) return
+        const emitter = provider as unknown as Eip1193Emitter
+        const onChainChanged = () => {
+          void pushChainIdFromProvider()
+        }
+        const onAccountsChanged = () => {
+          void pushChainIdFromProvider()
+        }
+        if (typeof emitter.on === 'function') {
+          emitter.on('chainChanged', onChainChanged)
+          emitter.on('accountsChanged', onAccountsChanged)
+          detachProviderListeners = () => {
+            emitter.removeListener?.('chainChanged', onChainChanged)
+            emitter.removeListener?.('accountsChanged', onAccountsChanged)
+          }
+          listenersAttached = true
         }
       } catch {
-        if (!cancelled) {
-          dispatch(setWalletFromProvider({ isConnected, address, chainId: undefined }))
-        }
+        /* ignore */
+      }
+      if (!listenersAttached && !cancelled) {
+        const pollId = window.setInterval(() => {
+          void pushChainIdFromProvider()
+        }, 2000)
+        clearPollInterval = () => window.clearInterval(pollId)
       }
     })()
+
     return () => {
       cancelled = true
+      detachProviderListeners?.()
+      clearPollInterval?.()
     }
   }, [dispatch, wallet, isConnected, address, authenticated, privyReady, walletsReady])
 

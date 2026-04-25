@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react'
 import { fetchInvestorTransactions, type InvestorTransactionApi } from '@/api/metrics'
 import { blockExplorerTxUrl, getDefaultSepoliaBlockExplorerBase } from '@/api/payout'
 import { useAppSelector } from '@/store/hooks'
+import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
 
 type ActivityItem = {
   id: string
@@ -76,10 +77,11 @@ const InvestorProfileHistoryTabContent = () => {
   const [filter, setFilter] = useState<ActivityFilter>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const accessToken = useAppSelector((s) => s.auth.accessToken)
+  const isKycVerified = useAppSelector(selectIsKycVerified)
 
   const txQuery = useQuery({
-    queryKey: ['investor-transactions', accessToken],
-    enabled: Boolean(accessToken?.trim()),
+    queryKey: ['investor-transactions', accessToken, isKycVerified],
+    enabled: Boolean(accessToken?.trim()) && isKycVerified,
     staleTime: 15_000,
     queryFn: async () => await fetchInvestorTransactions(accessToken),
   })

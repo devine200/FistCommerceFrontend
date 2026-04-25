@@ -51,6 +51,9 @@ const MerchantLendingPool = ({ totalDepositsDisplay: totalDepositsDisplayProp }:
             tagline={pool.tagline}
             apyDisplay={pool.apyDisplay}
             tvlDisplay={pool.tvlDisplay}
+            liquidAssetsDisplay={pool.liquidAssetsDisplay}
+            outstandingDisplay={pool.outstandingDisplay}
+            availableLiquidityDisplay={pool.availableLiquidityDisplay}
             minDepositDisplay={pool.minDepositDisplay}
             utilizationDisplay={pool.utilizationDisplay}
           />

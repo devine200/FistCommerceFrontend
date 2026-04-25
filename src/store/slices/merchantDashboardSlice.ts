@@ -1,9 +1,8 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 import {
-  displayDashboardMetricString,
+  displayDashboardCompactUsd,
   displayPoolApyPercent,
-  displayPoolMinDeposit,
   displayPoolUtilization,
   formatDashboardPlainAmount,
   fetchMerchantMetrics,
@@ -11,7 +10,10 @@ import {
   type MerchantMetrics,
   type PoolMetrics,
 } from '@/api/metrics'
+import { deriveKycStatusFromMerchantRecord, fetchMerchantKycRecord } from '@/api/kycMerchant'
 import type { LendingPoolCardState } from '@/store/slices/investorDashboardSlice'
+import { patchAuth } from '@/store/slices/authSlice'
+import { setKycStatus, setMerchantKycRecord } from '@/store/slices/kycSlice'
 
 export type MerchantDashboardSyncStatus = 'idle' | 'loading' | 'succeeded' | 'failed'
 
@@ -36,8 +38,8 @@ const initialState: MerchantDashboardState = {
     poolTitle: 'Fist Commerce Lending Pool',
     tagline: 'For short-duration loans with stable returns.',
     apyDisplay: '6-8% APY',
-    tvlDisplay: '538,500 USDC',
-    minDepositDisplay: '100 USDC',
+    tvlDisplay: '$538.50K',
+    minDepositDisplay: '$100.00',
     utilizationDisplay: '60% Allocated',
   },
   poolMetrics: null,
@@ -68,12 +70,32 @@ function extractTotalDepositedDisplay(payload: unknown): string | null {
 export const refreshMerchantDashboard = createAsyncThunk(
   'merchantDashboard/refresh',
   async (_arg, thunkApi) => {
-    const state = thunkApi.getState() as { auth?: { accessToken?: string | null } }
+    const state = thunkApi.getState() as { auth?: { accessToken?: string | null; role?: string | null } }
     const accessToken = state.auth?.accessToken
-    const [poolMetrics, merchantMetrics] = await Promise.all([
-      fetchPoolMetrics(accessToken),
-      fetchMerchantMetrics(accessToken),
-    ])
+    const role = state.auth?.role
+
+    let kycStatus: 'not_started' | 'pending' | 'verified' | 'rejected' | null = null
+    if (role === 'merchant' && accessToken?.trim()) {
+      try {
+        const kycRecord = await fetchMerchantKycRecord(accessToken)
+        kycStatus = deriveKycStatusFromMerchantRecord(kycRecord)
+        thunkApi.dispatch(setMerchantKycRecord(kycRecord))
+      } catch {
+        kycStatus = 'not_started'
+        thunkApi.dispatch(setMerchantKycRecord(null))
+      }
+      thunkApi.dispatch(setKycStatus(kycStatus))
+      thunkApi.dispatch(patchAuth({ kycVerified: kycStatus === 'verified' }))
+    }
+
+    const isKycVerified = kycStatus === 'verified'
+
+    // Hard gate: never fetch dashboard metrics unless KYC is verified.
+    if (!isKycVerified) {
+      return { refreshedAt: Date.now(), poolMetrics: null, merchantMetrics: null }
+    }
+
+    const [poolMetrics, merchantMetrics] = await Promise.all([fetchPoolMetrics(accessToken), fetchMerchantMetrics(accessToken)])
     return { refreshedAt: Date.now(), poolMetrics, merchantMetrics }
   },
 )
@@ -114,17 +136,23 @@ const merchantDashboardSlice = createSlice({
         state.merchantMetrics = action.payload.merchantMetrics
 
         const pool = action.payload.poolMetrics
-        const tvl = pool ? displayDashboardMetricString(pool.tvl) : null
+        const tvl = pool ? displayDashboardCompactUsd(pool.tvl) : null
+        const liquid = pool ? displayDashboardCompactUsd(pool.liquidAssets) : null
+        const outstanding = pool ? displayDashboardCompactUsd(pool.outstanding) : null
+        const available = pool ? displayDashboardCompactUsd(pool.availableLiquidity) : null
         const util = pool ? displayPoolUtilization(pool.utilization) : null
-        const minDep = pool ? displayPoolMinDeposit(pool.minDeposit) : null
+        const minDep = pool ? displayDashboardCompactUsd(pool.minDeposit) : null
         const apy = pool ? displayPoolApyPercent(pool.apy) : null
 
         state.lendingPools = {
           ...state.lendingPools,
           tvlDisplay: tvl && tvl !== '—' ? tvl : state.lendingPools.tvlDisplay,
+          liquidAssetsDisplay: liquid && liquid !== '—' ? liquid : state.lendingPools.liquidAssetsDisplay,
+          outstandingDisplay: outstanding && outstanding !== '—' ? outstanding : state.lendingPools.outstandingDisplay,
+          availableLiquidityDisplay: available && available !== '—' ? available : state.lendingPools.availableLiquidityDisplay,
           utilizationDisplay:
             util && util !== '—' ? (util.toLowerCase().includes('allocated') ? util : `${util} Allocated`) : state.lendingPools.utilizationDisplay,
-          minDepositDisplay: minDep && minDep !== '—' ? `$${minDep}` : state.lendingPools.minDepositDisplay,
+          minDepositDisplay: minDep && minDep !== '—' ? minDep : state.lendingPools.minDepositDisplay,
           apyDisplay: apy && apy !== '—' ? (apy.includes('APY') ? apy : `${apy} APY`) : state.lendingPools.apyDisplay,
         }
         const total = extractTotalDepositedDisplay(action.payload.merchantMetrics)

@@ -15,7 +15,6 @@ import { authPersistStorage } from '@/store/authPersistStorage'
 import {
   AUTH_PERSIST_KEY,
   AUTH_PERSIST_STORAGE_KEY,
-  KYC_PERSIST_KEY,
   LEGACY_AUTH_STORAGE_KEY,
   ONBOARDING_PERSIST_KEY,
 } from '@/store/persistConstants'
@@ -91,23 +90,13 @@ const onboardingPersistConfig = {
   },
 }
 
-/** Bump version to clear any persisted `verified` / `pending` KYC back to not_started. */
-const kycPersistConfig = {
-  key: KYC_PERSIST_KEY,
-  storage: authPersistStorage,
-  version: 1,
-  migrate: async (state: PersistedState): Promise<PersistedState> => {
-    if (!state || typeof state !== 'object') return undefined
-    return { ...state, status: 'verified' } as PersistedState
-  },
-}
-
 const rootReducer = combineReducers({
   auth: persistReducer(authPersistConfig, authReducer),
   wallet: walletReducer,
   onboarding: persistReducer(onboardingPersistConfig, onboardingReducer),
   onboardingProfileDraft: onboardingProfileDraftReducer,
-  kyc: persistReducer(kycPersistConfig, kycReducer),
+  // KYC must be derived from backend payloads; do not persist.
+  kyc: kycReducer,
   adminDashboard: adminDashboardReducer,
   adminInvestors: adminInvestorsReducer,
   adminMerchants: adminMerchantsReducer,
@@ -124,7 +113,7 @@ export const store = configureStore({
     getDefaultMiddleware({
       serializableCheck: {
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
-        ignoredPaths: ['auth._persist', 'onboarding._persist', 'kyc._persist'],
+        ignoredPaths: ['auth._persist', 'onboarding._persist'],
       },
     }),
 })

@@ -27,6 +27,8 @@ export type AccessContext = {
   walletConnected: boolean
   walletAddress: string | null
   kycStatus: KycStatus
+  /** Role-aware: investor `kyc_verified`; merchant both verifications (matches financial route gates). */
+  kycFinancialAccess: boolean
   /** For onboarding URL guard */
   onboardingMaxStep: { investor: number; merchant: number }
   /** Step indices with unsaved form edits (blocks jumping forward by URL). */

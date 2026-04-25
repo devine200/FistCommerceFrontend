@@ -41,7 +41,7 @@ const LendingPoolDetailHeroBanner = ({ title, subtitle, stats, onApplyToBorrow }
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-x-6 gap-y-5 pt-2 lg:pt-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-5 pt-2 lg:pt-3">
             {stats.map((s) => (
               <div key={s.label} className="flex flex-col gap-1 min-w-0">
                 <span className={POOL_METRIC_LABEL}>{s.label}</span>

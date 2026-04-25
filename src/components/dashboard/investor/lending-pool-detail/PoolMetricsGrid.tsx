@@ -8,7 +8,7 @@ interface PoolMetricsGridProps {
 /** Reusable 5-column (responsive) metrics row using shared pool detail typography */
 const PoolMetricsGrid = ({ stats }: PoolMetricsGridProps) => {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-x-6 gap-y-5">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-5">
       {stats.map((s) => (
         <div key={s.label} className="flex flex-col gap-1 min-w-0">
           <span className={POOL_METRIC_LABEL}>{s.label}</span>

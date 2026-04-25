@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 
 import type { AccessContext } from '@/access/types'
 import { useAppSelector } from '@/store/hooks'
-import { selectIsPersistReady } from '@/store/selectors/sessionSelectors'
+import { selectIsKycVerified, selectIsPersistReady } from '@/store/selectors/sessionSelectors'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 
 /** Snapshot of route + auth + wallet + KYC used by access evaluators */
@@ -14,6 +14,7 @@ export function useAccessContext(): AccessContext {
   const auth = useAppSelector((s) => s.auth)
   const onboarding = useAppSelector((s) => s.onboarding)
   const kycStatus = useAppSelector((s) => s.kyc.status)
+  const kycFinancialAccess = useAppSelector(selectIsKycVerified)
   const persistedReady = useAppSelector(selectIsPersistReady)
 
   return useMemo(
@@ -27,6 +28,7 @@ export function useAccessContext(): AccessContext {
       walletConnected: status === 'connected',
       walletAddress: address ?? null,
       kycStatus,
+      kycFinancialAccess,
       onboardingMaxStep: {
         investor: onboarding.investorMaxStep,
         merchant: onboarding.merchantMaxStep,
@@ -45,6 +47,7 @@ export function useAccessContext(): AccessContext {
       status,
       address,
       kycStatus,
+      kycFinancialAccess,
       onboarding.investorMaxStep,
       onboarding.merchantMaxStep,
       onboarding.investorStepDirty,

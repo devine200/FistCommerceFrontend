@@ -63,7 +63,9 @@ export type KycVerificationCardVariant = 'investor' | 'merchant'
 
 export type KycVerificationCardProps = {
   variant?: KycVerificationCardVariant
+  /** When omitted, derived from GET KYC snapshot in Redux (`kyc_token`, verified flags, wallet). */
   hasStartedKyc?: boolean
+  /** Default not-started flow: 2 steps (investor) or 3 (merchant); in-progress uses 1 or 2 from snapshot. */
   totalSteps?: number
   currentStepNumber?: number
   currentStepName?: string
@@ -91,6 +93,9 @@ export type LendingPoolOpportunityCardProps = {
   tagline?: string
   apyDisplay?: string
   tvlDisplay?: string
+  liquidAssetsDisplay?: string
+  outstandingDisplay?: string
+  availableLiquidityDisplay?: string
   minDepositDisplay?: string
   utilizationDisplay?: string
 }

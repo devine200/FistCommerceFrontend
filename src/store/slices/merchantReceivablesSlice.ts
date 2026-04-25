@@ -61,8 +61,12 @@ function loanToReceivableRow(loan: MerchantLoanApi): ReceivableTableRow {
 export const refreshMerchantReceivables = createAsyncThunk(
   'merchantReceivables/refresh',
   async (_arg, thunkApi) => {
-    const state = thunkApi.getState() as { auth?: { accessToken?: string | null } }
+    const state = thunkApi.getState() as { auth?: { accessToken?: string | null }; kyc?: { status?: string } }
     const accessToken = state.auth?.accessToken
+    const isKycVerified = state.kyc?.status === 'verified'
+    if (!isKycVerified) {
+      return { fetchedAt: Date.now(), loans: [] }
+    }
     const loans = await fetchMerchantLoans(accessToken)
     return { fetchedAt: Date.now(), loans }
   },

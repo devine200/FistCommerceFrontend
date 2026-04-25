@@ -5,6 +5,7 @@ import DashboardErrorModal from '@/components/dashboard/shared/DashboardErrorMod
 import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFullPageLoading'
 import DashboardSessionGuard from '@/components/session/DashboardSessionGuard'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
 import { refreshMerchantDashboard } from '@/store/slices/merchantDashboardSlice'
 import { refreshMerchantReceivables } from '@/store/slices/merchantReceivablesSlice'
 import { refreshMerchantTransactions } from '@/store/slices/merchantTransactionsSlice'
@@ -12,24 +13,33 @@ import { refreshMerchantTransactions } from '@/store/slices/merchantTransactions
 export default function MerchantDashboardSessionLayout() {
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
+  const role = useAppSelector((s) => s.auth.role)
   const status = useAppSelector((s) => s.merchantDashboard.status)
   const error = useAppSelector((s) => s.merchantDashboard.error)
+  const isKycVerified = useAppSelector(selectIsKycVerified)
   const [errorOpen, setErrorOpen] = useState(false)
   const didKickoffRef = useRef(false)
 
   useEffect(() => {
     didKickoffRef.current = false
-  }, [accessToken])
+  }, [accessToken, role])
 
   useEffect(() => {
     if (didKickoffRef.current) return
     if (status !== 'idle') return
     if (!accessToken?.trim()) return
+    if (role !== 'merchant') return
     didKickoffRef.current = true
     void dispatch(refreshMerchantDashboard())
+  }, [dispatch, status, accessToken, role])
+
+  useEffect(() => {
+    if (!didKickoffRef.current) return
+    if (!isKycVerified) return
+    // Once KYC becomes verified, hydrate dependent dashboard sections.
     void dispatch(refreshMerchantReceivables())
     void dispatch(refreshMerchantTransactions())
-  }, [dispatch, status, accessToken])
+  }, [dispatch, isKycVerified])
 
   useEffect(() => {
     if (status === 'failed') setErrorOpen(true)

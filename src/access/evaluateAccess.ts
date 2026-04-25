@@ -2,7 +2,7 @@ import type { AccessCapabilities, AccessContext, AccessDecision } from '@/access
 import type { UserRole } from '@/store/slices/authSlice'
 
 function isKycFullyVerified(ctx: AccessContext): boolean {
-  return ctx.kycStatus === 'verified'
+  return ctx.kycFinancialAccess
 }
 
 /**

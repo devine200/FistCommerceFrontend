@@ -154,6 +154,16 @@ export function formatDashboardCompactUsd(value: number): string {
   return `${sign}$${abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+/** Compact USD for API strings (or numbers): `$12.34K/M/B`, otherwise `$999.99`. */
+export function displayDashboardCompactUsd(value: string | number): string {
+  const n = parseMoneyLikeInput(value)
+  if (n === null) {
+    const t = typeof value === 'string' ? value.trim() : ''
+    return t.length ? t : '—'
+  }
+  return formatDashboardCompactUsd(n)
+}
+
 /** Plain amount with grouping and two decimals (no `$`), for summary lines that append units separately. */
 export function formatDashboardPlainAmount(value: number): string {
   if (!Number.isFinite(value)) return '—'

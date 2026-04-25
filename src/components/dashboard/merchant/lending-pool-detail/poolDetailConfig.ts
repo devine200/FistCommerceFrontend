@@ -8,8 +8,8 @@ const OVERVIEW_PARAGRAPHS = [
 ]
 
 const FINANCIAL_INFO_ROWS: { label: string; value: string }[] = [
-  { label: 'Available Liquidity', value: '$120,000 USDT' },
-  { label: 'Total Pool Size', value: '$340,000 USDT' },
+  { label: 'Available Liquidity', value: '$120,000' },
+  { label: 'Total Pool Size', value: '$340,000' },
   { label: 'Average APY to Investors', value: '6.2% APY' },
   { label: 'Utilization Rate', value: '62%' },
   { label: 'Merchant Repayment Amount', value: 'Allowed' },
@@ -45,8 +45,8 @@ const BASE_POOL: Omit<LendingPoolDetailConfig, 'title' | 'subtitle' | 'loans'> =
   financialInfoRows: FINANCIAL_INFO_ROWS,
   termsForLoanRows: TERMS_FOR_LOAN_ROWS,
   stats: [
-    { label: 'Total Deposited', value: '$340K', hint: '≈ $340K USDT' },
-    { label: 'Liquid Asset', value: '$120K', hint: '≈ $120K USDT' },
+    { label: 'Total Deposited', value: '$340K' },
+    { label: 'Liquid Asset', value: '$120K' },
     { label: 'Maximum loan', value: '$120K', hint: 'Per facility cap' },
     { label: 'Loan Interest', value: '6-8%', hint: 'To be repaid' },
     { label: 'Target Repayment Duration', value: '30-90 Days' },

@@ -70,8 +70,8 @@ const InvestorProfileWalletsTabContent = () => {
   const handleDisconnect = async () => {
     setDisconnectPending(true)
     try {
-      await disconnectPrivySession(wallet, logout)
       resetUserSession(dispatch)
+      await disconnectPrivySession(wallet, logout)
       window.location.replace('/onboarding/choose-role')
     } catch (e) {
       console.error(e)
