@@ -5,6 +5,7 @@ import type { AccessContext } from '@/access/types'
 import { useAppSelector } from '@/store/hooks'
 import { selectIsKycVerified, selectIsPersistReady } from '@/store/selectors/sessionSelectors'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
+import { parseUserRole } from '@/utils/userRole'
 
 /** Snapshot of route + auth + wallet + KYC used by access evaluators */
 export function useAccessContext(): AccessContext {
@@ -21,7 +22,7 @@ export function useAccessContext(): AccessContext {
     () => ({
       pathname: location.pathname,
       persistedReady,
-      role: auth.role,
+      role: parseUserRole(auth.role),
       onboarded: auth.onboarded,
       accessToken: auth.accessToken,
       walletStatus: status,

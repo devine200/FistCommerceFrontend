@@ -31,6 +31,8 @@ import { kycReducer } from '@/store/slices/kycSlice'
 import { onboardingReducer } from '@/store/slices/onboardingSlice'
 import { onboardingProfileDraftReducer } from '@/store/slices/onboardingProfileDraftSlice'
 import { walletReducer } from '@/store/slices/walletSlice'
+import { sanitizeAccessToken } from '@/auth/accessTokenPolicy'
+import { parseUserRole } from '@/utils/userRole'
 
 type LegacySessionBlob = {
   onboarded?: boolean
@@ -63,15 +65,25 @@ function seedLegacyAuthIntoPersist() {
 
 seedLegacyAuthIntoPersist()
 
-/** v1: clear legacy kycVerified. v2: add refreshToken for wallet session API. */
+/** v1: clear legacy kycVerified. v2: refreshToken. v3: coerce invalid persisted `role` to null. v4: reject oversize/corrupt accessToken. */
 const authPersistConfig = {
   key: AUTH_PERSIST_KEY,
   storage: authPersistStorage,
-  version: 2,
+  version: 4,
   migrate: async (state: PersistedState): Promise<PersistedState> => {
     if (!state || typeof state !== 'object') return undefined
     const next = { ...state, kycVerified: false } as Record<string, unknown>
     if (next.refreshToken === undefined) next.refreshToken = null
+    next.role = parseUserRole(next.role)
+    if (typeof next.accessToken === 'string') {
+      const s = sanitizeAccessToken(next.accessToken)
+      if (s === null) {
+        next.accessToken = null
+        next.refreshToken = null
+      } else {
+        next.accessToken = s
+      }
+    }
     return next as PersistedState
   },
 }

@@ -3,6 +3,7 @@ import { REHYDRATE } from 'redux-persist'
 
 import { useAppDispatch } from '@/store/hooks'
 import { AUTH_PERSIST_KEY, AUTH_PERSIST_STORAGE_KEY } from '@/store/persistConstants'
+import { parseUserRole } from '@/utils/userRole'
 
 /** Rehydrates auth from localStorage when another tab updates redux-persist. */
 export default function AuthStorageSync() {
@@ -12,7 +13,10 @@ export default function AuthStorageSync() {
     const onStorage = (e: StorageEvent) => {
       if (e.key !== AUTH_PERSIST_STORAGE_KEY || e.newValue == null) return
       try {
-        const payload = JSON.parse(e.newValue) as unknown
+        const payload = JSON.parse(e.newValue) as Record<string, unknown>
+        if (payload && typeof payload === 'object' && Object.prototype.hasOwnProperty.call(payload, 'role')) {
+          payload.role = parseUserRole(payload.role)
+        }
         dispatch({
           type: REHYDRATE,
           key: AUTH_PERSIST_KEY,

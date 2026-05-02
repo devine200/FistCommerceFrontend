@@ -12,6 +12,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { patchAuth } from '@/store/slices/authSlice'
 import { setInvestorWalletDisplay } from '@/store/slices/investorDashboardSlice'
 import { setMerchantWalletDisplay } from '@/store/slices/merchantDashboardSlice'
+import { dashboardOverviewPath, parseUserRole } from '@/utils/userRole'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 import { ensureWalletChain, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
 
@@ -34,7 +35,8 @@ interface ConnectWalletProps {
 
 export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
   const dispatch = useAppDispatch()
-  const role = useAppSelector((s) => s.auth.role)
+  const roleFromStore = useAppSelector((s) => s.auth.role)
+  const role = parseUserRole(roleFromStore)
   const { pathname } = useLocation()
   const navigate = useNavigate()
 
@@ -162,8 +164,8 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
           },
           { fallbackRole: role },
         )
-        const effectiveRole = loginRes.roleFromApi ?? role
-        navigate(`/dashboard/${effectiveRole}/overview`, { replace: true })
+        const effectiveRole = parseUserRole(loginRes.roleFromApi) ?? parseUserRole(role) ?? 'investor'
+        navigate(dashboardOverviewPath(effectiveRole), { replace: true })
         return
       }
 

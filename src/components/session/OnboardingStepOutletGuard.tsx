@@ -7,6 +7,7 @@ import { useAppDispatch } from '@/store/hooks'
 import { patchAuth } from '@/store/slices/authSlice'
 import { resetOnboardingProgress } from '@/store/slices/onboardingSlice'
 import { resetOnboardingProfileDrafts } from '@/store/slices/onboardingProfileDraftSlice'
+import { dashboardOverviewPath, parseUserRole } from '@/utils/userRole'
 
 /**
  * Skips onboarding when already complete; prevents deep-linking ahead in the stepper.
@@ -32,16 +33,24 @@ export default function OnboardingStepOutletGuard() {
   }
 
   // Onboarding should only be skipped when we have a valid dashboard session.
-  // If the user disconnected (or reloaded without a token/wallet), keep them in onboarding.
+  // If the user is logged out (no token) but still onboarded — e.g. Privy wallet connected —
+  // allow the full onboarding branch (choose-role → connect-wallet → …), not only choose-role.
   if (ctx.onboarded) {
+    const normalizedRole = parseUserRole(ctx.role)
     const hasDashboardSession =
-      Boolean(ctx.role) && Boolean(ctx.walletConnected && ctx.walletAddress) && Boolean(ctx.accessToken?.length)
+      normalizedRole !== null &&
+      Boolean(ctx.walletConnected && ctx.walletAddress) &&
+      Boolean(ctx.accessToken?.length)
 
     if (!hasDashboardSession) {
-      return <Navigate to="/onboarding/choose-role" replace />
+      const decision = evaluateOnboardingPath(ctx)
+      if (!decision.allowed && decision.redirectTo && decision.redirectTo !== location.pathname) {
+        return <Navigate to={decision.redirectTo} replace />
+      }
+      return <Outlet />
     }
 
-    return <Navigate to={`/dashboard/${ctx.role}/overview`} replace />
+    return <Navigate to={dashboardOverviewPath(normalizedRole)} replace />
   }
 
   const decision = evaluateOnboardingPath(ctx)

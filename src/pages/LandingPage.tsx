@@ -20,6 +20,7 @@ import {
   LANDING_STATS,
 } from '@/components/landing'
 import { useSession } from '@/state/useSession'
+import { dashboardOverviewPath, parseUserRole } from '@/utils/userRole'
 
 export default function LandingPage() {
   const navigate = useNavigate()
@@ -27,8 +28,9 @@ export default function LandingPage() {
   const [copied, setCopied] = useState(false)
 
   const goToApp = useCallback(() => {
-    if (onboarded) {
-      navigate(`/dashboard/${role}/overview`)
+    const normalizedRole = parseUserRole(role)
+    if (onboarded && normalizedRole) {
+      navigate(dashboardOverviewPath(normalizedRole))
       return
     }
     navigate('/onboarding')

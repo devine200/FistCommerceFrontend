@@ -3,6 +3,7 @@ import { patchAuth } from '@/store/slices/authSlice'
 import { setKycStatus, type KycStatus } from '@/store/slices/kycSlice'
 import { unlockAllOnboardingSteps } from '@/store/slices/onboardingSlice'
 import type { UserRole } from '@/store/slices/authSlice'
+import { parseUserRole } from '@/utils/userRole'
 
 /**
  * Session fields returned from `POST /auth/login` (and similar profile payloads).
@@ -33,7 +34,7 @@ export function applyWalletLoginResponse(
   res: WalletProfileLoginResponse,
   options?: ApplyWalletLoginOptions,
 ) {
-  const role = res.role ?? options?.fallbackRole ?? 'investor'
+  const role = parseUserRole(res.role) ?? parseUserRole(options?.fallbackRole) ?? 'investor'
   const onboarded = Boolean(res.onboarded || res.registered)
   dispatch(
     patchAuth({

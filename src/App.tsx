@@ -55,17 +55,19 @@ import AdminInvestorActivityDetailPage from '@/pages/AdminInvestorActivityDetail
 import AdminInvestorProfilePage from '@/pages/AdminInvestorProfilePage'
 import AdminLoginPage from '@/pages/AdminLoginPage'
 import LandingPage from '@/pages/LandingPage'
+import { parseUserRole } from '@/utils/userRole'
 
 const RootRedirect = () => {
   const { onboarded, role, accessToken } = useAppSelector((s) => s.auth)
   const { isConnected } = useActiveWallet()
+  const normalizedRole = parseUserRole(role)
   if (!onboarded) return <Navigate to="/onboarding" replace />
   if (!isConnected || !accessToken?.length) {
-    if (!role) return <Navigate to="/onboarding/choose-role" replace />
-    return <Navigate to={`/onboarding/${role}/connect-wallet`} replace />
+    if (!normalizedRole) return <Navigate to="/onboarding/choose-role" replace />
+    return <Navigate to={`/onboarding/${normalizedRole}/connect-wallet`} replace />
   }
-  if (!role) return <Navigate to="/onboarding/choose-role" replace />
-  return <Navigate to={`/dashboard/${role}/overview`} replace />
+  if (!normalizedRole) return <Navigate to="/onboarding/choose-role" replace />
+  return <Navigate to={`/dashboard/${normalizedRole}/overview`} replace />
 }
 
 const RequireOnboarded = ({ children }: { children: ReactNode }) => {
