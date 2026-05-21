@@ -57,7 +57,7 @@ const FIST_COMMERCE: InvestorPoolDetailConfig = {
       value: '0x7a3B...9F2e',
       copyValue: '0x7a3B1c4d9e2f8a0b5c6d7e8f9F2e1234567890abcd',
     },
-    { label: 'Blockchain Network', value: 'Ethereum Sepolia' },
+    { label: 'Blockchain Network', value: 'Arbitrum Sepolia' },
     { label: 'Audit Status', value: 'Audited by OpenZeppelin', badge: 'Certified' },
     { label: 'Protocol Version', value: 'Version 2.0' },
   ],

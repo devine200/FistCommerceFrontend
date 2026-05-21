@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
+import { clearMerchantLoanApplyDraft } from '@/session/merchantLoanApplyDraft'
 import { MERCHANT_RECEIVABLES_ROWS } from '@/components/dashboard/merchant/receivables/merchantReceivablesConfig'
 
 import completionIllustration from '@/assets/apply-loan-success.png'
@@ -17,6 +18,10 @@ const MerchantApplyLoanSuccessPage = () => {
   )
 
   const firstReceivableId = MERCHANT_RECEIVABLES_ROWS[0]?.id
+
+  useEffect(() => {
+    clearMerchantLoanApplyDraft()
+  }, [])
 
   if (!poolSlug) {
     return <Navigate to="/dashboard/merchant/overview" replace />

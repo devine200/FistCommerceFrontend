@@ -1,10 +1,10 @@
 import type { ConnectedWallet } from '@privy-io/react-auth'
 import { createPublicClient, createWalletClient, custom, http, type PublicClient, type WalletClient } from 'viem'
-import { sepolia } from 'viem/chains'
 
+import { APP_CHAIN } from '@/wallet/appChain'
 import { syncWalletChainIdFromProviderToRedux } from '@/wallet/syncWalletChainToRedux'
 
-export const DEFAULT_EVM_CHAIN = sepolia
+export const DEFAULT_EVM_CHAIN = APP_CHAIN
 
 export async function getWalletClientFromPrivyWallet(wallet: ConnectedWallet): Promise<WalletClient> {
   const provider = await wallet.getEthereumProvider()
@@ -30,20 +30,20 @@ function eip1193ErrorCode(e: unknown): number | undefined {
   return undefined
 }
 
-/** EIP-3085 params for `wallet_addEthereumChain` (Sepolia only — app testnet). */
-function sepoliaAddEthereumChainParams(): {
+/** EIP-3085 params for `wallet_addEthereumChain` (Arbitrum Sepolia — app testnet). */
+function appChainAddEthereumChainParams(): {
   chainId: string
   chainName: string
   nativeCurrency: { name: string; symbol: string; decimals: number }
   rpcUrls: string[]
   blockExplorerUrls?: string[]
 } {
-  const rpcUrl = sepolia.rpcUrls.default.http[0]
-  const explorer = sepolia.blockExplorers?.default?.url
+  const rpcUrl = APP_CHAIN.rpcUrls.default.http[0]
+  const explorer = APP_CHAIN.blockExplorers?.default?.url
   return {
-    chainId: `0x${sepolia.id.toString(16)}`,
-    chainName: sepolia.name,
-    nativeCurrency: sepolia.nativeCurrency,
+    chainId: `0x${APP_CHAIN.id.toString(16)}`,
+    chainName: APP_CHAIN.name,
+    nativeCurrency: APP_CHAIN.nativeCurrency,
     rpcUrls: [rpcUrl],
     ...(explorer ? { blockExplorerUrls: [explorer] } : {}),
   }
@@ -74,10 +74,10 @@ export async function ensureWalletChain(wallet: ConnectedWallet, chainId: number
   try {
     await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hex }] })
   } catch (e) {
-    if (eip1193ErrorCode(e) === 4902 && chainId === sepolia.id) {
+    if (eip1193ErrorCode(e) === 4902 && chainId === APP_CHAIN.id) {
       await provider.request({
         method: 'wallet_addEthereumChain',
-        params: [sepoliaAddEthereumChainParams()],
+        params: [appChainAddEthereumChainParams()],
       })
       await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hex }] })
     } else {
@@ -91,4 +91,3 @@ export async function ensureWalletChain(wallet: ConnectedWallet, chainId: number
     /* Redux mirror is best-effort; chain switch already succeeded. */
   }
 }
-

@@ -21,6 +21,9 @@ export function formatFlowFailureMessage(source: unknown): string {
   if (/insufficient funds|insufficient funds for gas/i.test(trimmed)) {
     return 'Your wallet does not have enough native token on this network to pay the transaction fee.'
   }
+  if (/max fee per gas less than block base fee/i.test(trimmed)) {
+    return 'Network gas price moved before your transaction was sent. Please try again.'
+  }
 
   const quoted = trimmed.match(/execution reverted:\s*"([^"]+)"/i)?.[1]?.trim()
   if (quoted) return clipped(humanizeRevertToken(quoted), 220)

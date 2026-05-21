@@ -2,12 +2,14 @@ import { useLayoutEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 
 import { evaluateOnboardingPath } from '@/access/evaluateAccess'
+import { hasDashboardSession, isSessionBootstrapping } from '@/access/sessionAccess'
 import { useAccessContext } from '@/hooks/useAccessContext'
 import { useAppDispatch } from '@/store/hooks'
 import { patchAuth } from '@/store/slices/authSlice'
 import { resetOnboardingProgress } from '@/store/slices/onboardingSlice'
 import { resetOnboardingProfileDrafts } from '@/store/slices/onboardingProfileDraftSlice'
-import { dashboardOverviewPath, parseUserRole } from '@/utils/userRole'
+import { resolveDashboardReturnTo } from '@/session/dashboardReturnTo'
+import { parseUserRole } from '@/utils/userRole'
 
 /**
  * Skips onboarding when already complete; prevents deep-linking ahead in the stepper.
@@ -27,30 +29,22 @@ export default function OnboardingStepOutletGuard() {
     }
   }, [ctx, dispatch])
 
-  // Avoid redirects while redux-persist is still restoring state (prevents flicker).
-  if (!ctx.persistedReady) {
+  if (!ctx.persistedReady || isSessionBootstrapping(ctx)) {
     return <Outlet />
   }
 
-  // Onboarding should only be skipped when we have a valid dashboard session.
-  // If the user is logged out (no token) but still onboarded — e.g. Privy wallet connected —
-  // allow the full onboarding branch (choose-role → connect-wallet → …), not only choose-role.
   if (ctx.onboarded) {
     const normalizedRole = parseUserRole(ctx.role)
-    const hasDashboardSession =
-      normalizedRole !== null &&
-      Boolean(ctx.walletConnected && ctx.walletAddress) &&
-      Boolean(ctx.accessToken?.length)
 
-    if (!hasDashboardSession) {
-      const decision = evaluateOnboardingPath(ctx)
-      if (!decision.allowed && decision.redirectTo && decision.redirectTo !== location.pathname) {
-        return <Navigate to={decision.redirectTo} replace />
-      }
-      return <Outlet />
+    if (hasDashboardSession(ctx) && normalizedRole) {
+      return <Navigate to={resolveDashboardReturnTo(normalizedRole)} replace />
     }
 
-    return <Navigate to={dashboardOverviewPath(normalizedRole)} replace />
+    const decision = evaluateOnboardingPath(ctx)
+    if (!decision.allowed && decision.redirectTo && decision.redirectTo !== location.pathname) {
+      return <Navigate to={decision.redirectTo} replace />
+    }
+    return <Outlet />
   }
 
   const decision = evaluateOnboardingPath(ctx)

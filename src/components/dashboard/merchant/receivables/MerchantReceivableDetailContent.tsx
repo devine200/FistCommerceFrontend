@@ -2,8 +2,12 @@ import { useNavigate } from 'react-router-dom'
 
 import moneyIcon from '@/assets/Money.png'
 import dollarIcon from '@/assets/CurrencyDollarSimple.png'
-import type { LifecycleStepVariant, ReceivableDetailView } from '@/components/dashboard/merchant/receivables/receivableDetailTypes'
-import { lifecycleCompletedCount } from '@/types/receivables'
+import {
+  LOAN_VERIFICATION_FILE_LABEL,
+  type LifecycleStepVariant,
+  type ReceivableDetailView,
+} from '@/components/dashboard/merchant/receivables/receivableDetailTypes'
+import { isReceivableStageEligibleForRepayment, lifecycleCompletedCount } from '@/types/receivables'
 
 const lifecycleBarClass = (variant: LifecycleStepVariant): string => {
   if (variant === 'purple') return 'bg-[#9333EA]'
@@ -18,9 +22,11 @@ interface MerchantReceivableDetailContentProps {
 }
 
 const MerchantReceivableDetailContent = ({ detail }: MerchantReceivableDetailContentProps) => {
-  const { row, subtitle, heroMetrics, lifecycle, repaymentRows, maturityBanner, basicInfo, documentName, stage } = detail
+  const { row, subtitle, heroMetrics, lifecycle, repaymentRows, maturityBanner, basicInfo, documentUrl, stage } = detail
   const navigate = useNavigate()
   const completedCount = lifecycleCompletedCount(stage)
+  const documentHref = documentUrl?.trim() || null
+  const canRepay = isReceivableStageEligibleForRepayment(stage)
 
   return (
     <div className="flex flex-col gap-6 pb-8">
@@ -33,13 +39,23 @@ const MerchantReceivableDetailContent = ({ detail }: MerchantReceivableDetailCon
               Report an issue
             </button>
           </div>
-          <button
-            type="button"
-            className="shrink-0 rounded-[8px] bg-[#195EBC] text-white text-[16px] font-semibold px-8 py-3 hover:bg-[#154a9a] transition-colors w-full lg:w-auto"
-            onClick={() => navigate(`/dashboard/merchant/receivables/${row.id}/repay`)}
-          >
-            Repay Loan
-          </button>
+          {canRepay ? (
+            <button
+              type="button"
+              className="shrink-0 rounded-[8px] bg-[#195EBC] text-white text-[16px] font-semibold px-8 py-3 hover:bg-[#154a9a] transition-colors w-full lg:w-auto"
+              onClick={() =>
+                navigate(`/dashboard/merchant/receivables/${row.id}/repay`, {
+                  state: { receivableName: row.receivableName },
+                })
+              }
+            >
+              Repay Loan
+            </button>
+          ) : (
+            <p className="shrink-0 text-[#6B7488] text-[14px] leading-snug max-w-[280px] lg:text-right">
+              Repayment is available after your loan has been funded.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
@@ -127,23 +143,29 @@ const MerchantReceivableDetailContent = ({ detail }: MerchantReceivableDetailCon
           <div className="sm:col-span-1">
             <p className="text-[#4D5D80] text-[14px] font-medium mb-2">Receivable Documents</p>
             <div className="rounded-[6px] border border-[#D0D7E3] bg-[#FAFBFC] px-4 py-3 min-h-[48px] flex items-center">
-              <button
-                type="button"
-                className="inline-flex items-center gap-3 text-left text-[#195EBC] text-[15px] font-medium hover:opacity-90"
-              >
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] border border-[#CFE0FF] bg-[#E8EFFB]">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-[#195EBC]" aria-hidden>
-                    <path
-                      d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
-                      stroke="currentColor"
-                      strokeWidth="1.75"
-                      strokeLinejoin="round"
-                    />
-                    <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
-                  </svg>
-                </span>
-                <span className="underline underline-offset-2 decoration-[#195EBC]">{documentName}</span>
-              </button>
+              {documentHref ? (
+                <a
+                  href={documentHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-3 text-left text-[#195EBC] text-[15px] font-medium hover:opacity-90"
+                >
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] border border-[#CFE0FF] bg-[#E8EFFB]">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-[#195EBC]" aria-hidden>
+                      <path
+                        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeLinejoin="round"
+                      />
+                      <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="underline underline-offset-2 decoration-[#195EBC]">{LOAN_VERIFICATION_FILE_LABEL}</span>
+                </a>
+              ) : (
+                <span className="text-[#6B7488] text-[15px] font-medium">—</span>
+              )}
             </div>
           </div>
         </div>

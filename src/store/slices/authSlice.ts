@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
-import { sanitizeAccessToken } from '@/auth/accessTokenPolicy'
+import { sanitizeAccessToken, sanitizeRefreshToken } from '@/auth/accessTokenPolicy'
 import { parseUserRole } from '@/utils/userRole'
 
 export type UserRole = 'investor' | 'merchant'
@@ -37,13 +37,16 @@ const authSlice = createSlice({
     hydrateAuth: (_state, action: PayloadAction<SessionState>) => ({
       ...action.payload,
       accessToken: sanitizeAccessToken(action.payload.accessToken),
+      refreshToken: sanitizeRefreshToken(action.payload.refreshToken),
       role: parseUserRole(action.payload.role),
     }),
     patchAuth: (state, action: PayloadAction<Partial<SessionState>>) => {
       if (action.payload.accessToken !== undefined) {
         state.accessToken = sanitizeAccessToken(action.payload.accessToken)
       }
-      if (action.payload.refreshToken !== undefined) state.refreshToken = action.payload.refreshToken
+      if (action.payload.refreshToken !== undefined) {
+        state.refreshToken = sanitizeRefreshToken(action.payload.refreshToken)
+      }
       if (action.payload.user !== undefined) state.user = action.payload.user
       if (action.payload.onboarded !== undefined) state.onboarded = action.payload.onboarded
       if (action.payload.role !== undefined) state.role = parseUserRole(action.payload.role)

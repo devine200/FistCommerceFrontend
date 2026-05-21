@@ -7,7 +7,7 @@ interface WithdrawAmountStepProps {
   destinationWallet: string
   /** Formatted position value from investor metrics (or fallback). */
   investmentBalanceDisplay: string
-  /** Optional on-chain pool / mock token context (Sepolia). */
+  /** Optional on-chain pool / mock token context (Arbitrum Sepolia). */
   walletTokenBalanceLabel?: string
   quickAmounts: readonly number[]
   onAmountSelect: (value: number) => void

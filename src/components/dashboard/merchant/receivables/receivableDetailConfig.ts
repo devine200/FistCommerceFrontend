@@ -107,5 +107,6 @@ export const getReceivableDetailById = (receivableId: string): ReceivableDetailV
     maturityBanner: 'Loan Maturing in 56 Days',
     basicInfo: DEMO_BASIC,
     documentName: 'Inv-daveenterprise-011',
+    documentUrl: null,
   }
 }

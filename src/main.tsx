@@ -2,12 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PrivyProvider, type PrivyClientConfig } from '@privy-io/react-auth'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { sepolia } from 'viem/chains'
 import { Provider } from 'react-redux'
 import { PersistGate } from 'redux-persist/integration/react'
 
 import App from './App.tsx'
-import SepoliaWalletEnforcer from '@/components/session/SepoliaWalletEnforcer'
+import ArbitrumSepoliaWalletEnforcer from '@/components/session/ArbitrumSepoliaWalletEnforcer'
+import { APP_CHAIN } from '@/wallet/appChain'
 import WalletReduxSync from '@/components/session/WalletReduxSync'
 import AuthStorageSync from '@/store/AuthStorageSync'
 import FullPageLoading from '@/components/app/FullPageLoading'
@@ -30,8 +30,8 @@ if (import.meta.env.DEV && !googleOauthClientIdForDocs) {
 
 const privyConfig: PrivyClientConfig = {
   /** Embedded wallets initialize here; must be listed in `supportedChains` (Privy docs). */
-  defaultChain: sepolia,
-  supportedChains: [sepolia],
+  defaultChain: APP_CHAIN,
+  supportedChains: [APP_CHAIN],
   loginMethods: ['email', 'google', 'wallet'],
   embeddedWallets: {
     ethereum: {
@@ -62,7 +62,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <PrivyProvider appId={privyAppId ?? ''} config={privyConfig}>
           <QueryClientProvider client={queryClient}>
             <WalletReduxSync />
-            <SepoliaWalletEnforcer />
+            <ArbitrumSepoliaWalletEnforcer />
             <App />
           </QueryClientProvider>
         </PrivyProvider>

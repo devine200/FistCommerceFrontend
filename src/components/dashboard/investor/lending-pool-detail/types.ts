@@ -45,6 +45,6 @@ export type InvestorPoolDetailConfig = {
   strategyFeatures: StrategyFeature[]
   contractRows: ContractField[]
   transactions: RecentTx[]
-  /** Pool contract on Sepolia (or API-provided explorer) — “View on Etherscan” target. */
+  /** Pool contract on Arbitrum Sepolia (or API-provided explorer) — “View on Arbiscan” target. */
   contractExplorerHref?: string | null
 }

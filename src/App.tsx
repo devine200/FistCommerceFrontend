@@ -33,11 +33,12 @@ import MerchantProfileOverviewPage from '@/pages/MerchantProfileOverviewPage'
 import MerchantProfileOverviewTabContent from '@/components/dashboard/merchant/profile/MerchantProfileOverviewTabContent'
 import MerchantApplyLoanPage from './pages/MerchantApplyLoanPage'
 import MerchantApplyLoanSuccessPage from './pages/MerchantApplyLoanSuccessPage'
+import MerchantApplyLoanFailurePage from './pages/MerchantApplyLoanFailurePage'
 import MerchantProfileActivitiesTabContent from '@/components/dashboard/merchant/profile/MerchantProfileActivitiesTabContent'
 import MerchantReceivableDetailPage from '@/pages/MerchantReceivableDetailPage'
 import MerchantRepayLoanPage from '@/pages/MerchantRepayLoanPage'
 import MerchantRepayLoanConfirmationPage from '@/pages/MerchantRepayLoanConfirmationPage'
-import MerchantRepayLoanSuccessPage from '@/pages/MerchantRepayLoanSuccessPage'
+import MerchantRepayLoanFailurePage from '@/pages/MerchantRepayLoanFailurePage'
 import AdminDashboardLayout from '@/layouts/AdminDashboardLayout'
 import AdminPlatformOverviewPage from '@/pages/AdminPlatformOverviewPage'
 import AdminReceivablesManagementPage from '@/pages/AdminReceivablesManagementPage'
@@ -55,6 +56,7 @@ import AdminInvestorActivityDetailPage from '@/pages/AdminInvestorActivityDetail
 import AdminInvestorProfilePage from '@/pages/AdminInvestorProfilePage'
 import AdminLoginPage from '@/pages/AdminLoginPage'
 import LandingPage from '@/pages/LandingPage'
+import { resolveDashboardReturnTo } from '@/session/dashboardReturnTo'
 import { parseUserRole } from '@/utils/userRole'
 
 const RootRedirect = () => {
@@ -67,7 +69,7 @@ const RootRedirect = () => {
     return <Navigate to={`/onboarding/${normalizedRole}/connect-wallet`} replace />
   }
   if (!normalizedRole) return <Navigate to="/onboarding/choose-role" replace />
-  return <Navigate to={`/dashboard/${normalizedRole}/overview`} replace />
+  return <Navigate to={resolveDashboardReturnTo(normalizedRole)} replace />
 }
 
 const RequireOnboarded = ({ children }: { children: ReactNode }) => {
@@ -375,10 +377,10 @@ const router = createBrowserRouter([
             ),
           },
           {
-            path: 'receivables/:receivableId/repay/success',
+            path: 'receivables/:receivableId/repay/failure',
             element: (
               <KycFinancialRoutesGuard>
-                <MerchantRepayLoanSuccessPage />
+                <MerchantRepayLoanFailurePage />
               </KycFinancialRoutesGuard>
             ),
           },
@@ -429,6 +431,14 @@ const router = createBrowserRouter([
             element: (
               <KycFinancialRoutesGuard>
                 <MerchantApplyLoanSuccessPage />
+              </KycFinancialRoutesGuard>
+            ),
+          },
+          {
+            path: 'lending-pool/:poolSlug/apply-loan/failure',
+            element: (
+              <KycFinancialRoutesGuard>
+                <MerchantApplyLoanFailurePage />
               </KycFinancialRoutesGuard>
             ),
           },

@@ -3,6 +3,7 @@ import { parseJsonResponse, requireApiBaseUrl } from '@/api/client'
 
 export type LoanRequestCreateResponse = {
   message: string
+  request_id: string
 }
 
 function tokenAuthHeaderValue(accessToken: string): string {

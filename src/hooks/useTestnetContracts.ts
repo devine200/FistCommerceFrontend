@@ -1,25 +1,29 @@
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 import { formatEther, formatUnits, parseUnits, type Hash } from 'viem'
-import { sepolia } from 'viem/chains'
-
 import {
   TESTNET_FUNDING_POOL_ABI,
   TESTNET_FUNDING_POOL_ADDRESS,
   TESTNET_MOCK_ERC20_ABI,
   TESTNET_MOCK_ERC20_ADDRESS,
+  TESTNET_PAYOUT_ROUTER_ABI,
+  TESTNET_PAYOUT_ROUTER_ADDRESS,
 } from '@/contract_config/testnetDeployment'
 import { useAppSelector } from '@/store/hooks'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
+import { APP_CHAIN } from '@/wallet/appChain'
+import { getBufferedEip1559Fees } from '@/wallet/bufferedEip1559Fees'
 import { ensureWalletChain, getPublicClient, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
 
 /** Chain where `testnet-deployment-config.json` contracts are deployed. */
-export const TESTNET_CONTRACTS_CHAIN = sepolia
+export const TESTNET_CONTRACTS_CHAIN = APP_CHAIN
 
 export type BalanceCheckResult = {
   ok: boolean
   message?: string
 }
+
+export type MerchantRepayOnChainPhase = 'approving' | 'repaying'
 
 function formatTokenHuman(balance: bigint | undefined, decimals: number | undefined): string {
   if (balance === undefined || decimals === undefined) return '—'
@@ -70,8 +74,8 @@ export type UseTestnetContractsOptions = {
 }
 
 /**
- * Smart-contract helpers for the Sepolia testnet deployment (`testnet-deployment-config.json`).
- * Use {@link TESTNET_CONTRACTS_CHAIN} — switch the wallet to Sepolia for reads/writes.
+ * Smart-contract helpers for the Arbitrum Sepolia testnet deployment (`testnet-deployment-config.json`).
+ * Use {@link TESTNET_CONTRACTS_CHAIN} — switch the wallet to Arbitrum Sepolia for reads/writes.
  */
 export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const { wallet, address, isConnected } = useActiveWallet()
@@ -80,7 +84,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const [isWritePending, setIsWritePending] = useState(false)
 
   const isCorrectNetwork = chainId === TESTNET_CONTRACTS_CHAIN.id
-  /** Reads use {@link getPublicClient} on Sepolia; they do not require the injected wallet’s chain. */
+  /** Reads use {@link getPublicClient} on Arbitrum Sepolia; they do not require the injected wallet’s chain. */
   const readsEnabled = Boolean(isConnected && address && publicClient)
   /** Writes / gas estimates still require the wallet to be on the deployment chain. */
   const writesEnabled = Boolean(readsEnabled && isCorrectNetwork)
@@ -129,6 +133,21 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     },
   })
 
+  const payoutRouterAllowanceQuery = useQuery({
+    queryKey: ['testnet-erc20-allowance-payout', TESTNET_CONTRACTS_CHAIN.id, address, TESTNET_PAYOUT_ROUTER_ADDRESS],
+    enabled: readsEnabled,
+    staleTime: 15_000,
+    queryFn: async () => {
+      if (!address) throw new Error('Wallet required')
+      return await publicClient.readContract({
+        address: TESTNET_MOCK_ERC20_ADDRESS,
+        abi: TESTNET_MOCK_ERC20_ABI,
+        functionName: 'allowance',
+        args: [address as `0x${string}`, TESTNET_PAYOUT_ROUTER_ADDRESS],
+      })
+    },
+  })
+
   const userSharesQuery = useQuery({
     queryKey: ['testnet-pool-shares', TESTNET_CONTRACTS_CHAIN.id, address],
     enabled: readsEnabled,
@@ -170,6 +189,8 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
 
   const balanceBn = typeof balanceQuery.data === 'bigint' ? balanceQuery.data : undefined
   const allowanceBn = typeof allowanceQuery.data === 'bigint' ? allowanceQuery.data : undefined
+  const payoutRouterAllowanceBn =
+    typeof payoutRouterAllowanceQuery.data === 'bigint' ? payoutRouterAllowanceQuery.data : undefined
   const userSharesBn = typeof userSharesQuery.data === 'bigint' ? userSharesQuery.data : undefined
   const totalSharesBn = typeof totalSharesQuery.data === 'bigint' ? totalSharesQuery.data : undefined
   const totalAssetsBn = typeof totalAssetsQuery.data === 'bigint' ? totalAssetsQuery.data : undefined
@@ -311,6 +332,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       decimalsQuery.refetch(),
       balanceQuery.refetch(),
       allowanceQuery.refetch(),
+      payoutRouterAllowanceQuery.refetch(),
       userSharesQuery.refetch(),
       totalSharesQuery.refetch(),
       totalAssetsQuery.refetch(),
@@ -319,18 +341,19 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     allowanceQuery,
     balanceQuery,
     decimalsQuery,
+    payoutRouterAllowanceQuery,
     totalAssetsQuery,
     totalSharesQuery,
     userSharesQuery,
   ])
 
-  const canDepositHuman = useCallback(
-    (humanAmount: number): BalanceCheckResult => {
-      if (!isConnected || !address) return { ok: false, message: 'Connect your wallet to invest.' }
+  const canPayTokenHuman = useCallback(
+    (humanAmount: number, actionLabel = 'continue'): BalanceCheckResult => {
+      if (!isConnected || !address) return { ok: false, message: 'Connect your wallet to continue.' }
       if (!isCorrectNetwork)
         return {
           ok: false,
-          message: `Switch your wallet to ${TESTNET_CONTRACTS_CHAIN.name} to use the testnet pool.`,
+          message: `Switch your wallet to ${TESTNET_CONTRACTS_CHAIN.name} to ${actionLabel}.`,
         }
       if (!Number.isFinite(humanAmount) || humanAmount <= 0)
         return { ok: false, message: 'Enter an amount greater than zero.' }
@@ -339,11 +362,41 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       if (balanceBn < need)
         return {
           ok: false,
-          message: `Insufficient mock ERC-20 balance. You have ${mockTokenBalanceFormatted} tokens but need at least ${humanAmount.toLocaleString('en-US', { maximumFractionDigits: 6 })}.`,
+          message: `Insufficient token balance. You have ${mockTokenBalanceFormatted} but need at least ${humanAmount.toLocaleString('en-US', { maximumFractionDigits: 6 })}.`,
         }
       return { ok: true }
     },
     [address, balanceBn, isConnected, isCorrectNetwork, mockTokenBalanceFormatted, tokenDecimals],
+  )
+
+  const canDepositHuman = useCallback(
+    (humanAmount: number): BalanceCheckResult => canPayTokenHuman(humanAmount, 'use the testnet pool'),
+    [canPayTokenHuman],
+  )
+
+  const canRepayReceivable = useCallback(
+    (
+      humanAmount: number,
+      receivableIdBytes32: `0x${string}` | null,
+      maxOwedHuman?: number | null,
+    ): BalanceCheckResult => {
+      const gate = canPayTokenHuman(humanAmount, 'repay')
+      if (!gate.ok) return gate
+      if (!receivableIdBytes32) {
+        return {
+          ok: false,
+          message: 'This loan is not linked to an on-chain receivable yet.',
+        }
+      }
+      if (maxOwedHuman != null && Number.isFinite(maxOwedHuman) && humanAmount > maxOwedHuman) {
+        return {
+          ok: false,
+          message: `Amount cannot exceed ${maxOwedHuman.toLocaleString('en-US', { maximumFractionDigits: 2 })} owed.`,
+        }
+      }
+      return { ok: true }
+    },
+    [canPayTokenHuman],
   )
 
   const canWithdrawHuman = useCallback(
@@ -388,6 +441,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
         const walletClient = await getWalletClientFromPrivyWallet(wallet)
 
         if (currentAllowance < amount) {
+          const approveGasFees = await getBufferedEip1559Fees(publicClient)
           const approveHash = await walletClient.writeContract({
             address: TESTNET_MOCK_ERC20_ADDRESS,
             abi: TESTNET_MOCK_ERC20_ABI,
@@ -395,11 +449,13 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
             args: [TESTNET_FUNDING_POOL_ADDRESS, amount],
             chain: TESTNET_CONTRACTS_CHAIN,
             account: address as `0x${string}`,
+            ...approveGasFees,
           })
           await publicClient.waitForTransactionReceipt({ hash: approveHash })
           await allowanceQuery.refetch()
         }
 
+        const depositGasFees = await getBufferedEip1559Fees(publicClient)
         const depositHash = await walletClient.writeContract({
           address: TESTNET_FUNDING_POOL_ADDRESS,
           abi: TESTNET_FUNDING_POOL_ABI,
@@ -407,6 +463,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
           args: [amount],
           chain: TESTNET_CONTRACTS_CHAIN,
           account: address as `0x${string}`,
+          ...depositGasFees,
         })
         await publicClient.waitForTransactionReceipt({ hash: depositHash })
         await refetchBalances()
@@ -427,6 +484,165 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     ],
   )
 
+  const readPayoutRouterAllowance = useCallback(async (): Promise<bigint> => {
+    if (!address || !publicClient) return 0n
+    const result = await publicClient.readContract({
+      address: TESTNET_MOCK_ERC20_ADDRESS,
+      abi: TESTNET_MOCK_ERC20_ABI,
+      functionName: 'allowance',
+      args: [address as `0x${string}`, TESTNET_PAYOUT_ROUTER_ADDRESS],
+    })
+    return typeof result === 'bigint' ? result : 0n
+  }, [address, publicClient])
+
+  const needsRepaymentApproval = useCallback(
+    (humanAmount: number): boolean => {
+      const amount = humanAmountToUnits(humanAmount, tokenDecimals)
+      if (amount <= 0n) return false
+      const cached = payoutRouterAllowanceBn ?? 0n
+      return cached < amount
+    },
+    [payoutRouterAllowanceBn, tokenDecimals],
+  )
+
+  const approveTokenForRepayment = useCallback(
+    async (humanAmount: number): Promise<Hash> => {
+      if (!isConnected || !address) throw new Error('Connect your wallet to continue.')
+      if (!wallet) throw new Error('Wallet required')
+      if (!isCorrectNetwork)
+        throw new Error(`Switch your wallet to ${TESTNET_CONTRACTS_CHAIN.name} to approve tokens.`)
+
+      const amount = humanAmountToUnits(humanAmount, tokenDecimals)
+      if (amount <= 0n) throw new Error('Invalid amount')
+
+      const allowanceBefore = await readPayoutRouterAllowance()
+      if (allowanceBefore >= amount) {
+        throw new Error('Token approval is already sufficient for this amount.')
+      }
+
+      setIsWritePending(true)
+      try {
+        await ensureWalletChain(wallet, TESTNET_CONTRACTS_CHAIN.id)
+        const walletClient = await getWalletClientFromPrivyWallet(wallet)
+        const gasFees = await getBufferedEip1559Fees(publicClient)
+
+        const approveHash = await walletClient.writeContract({
+          address: TESTNET_MOCK_ERC20_ADDRESS,
+          abi: TESTNET_MOCK_ERC20_ABI,
+          functionName: 'approve',
+          args: [TESTNET_PAYOUT_ROUTER_ADDRESS, amount],
+          chain: TESTNET_CONTRACTS_CHAIN,
+          account: address as `0x${string}`,
+          ...gasFees,
+        })
+
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: approveHash })
+        if (receipt.status !== 'success') {
+          throw new Error('Token approval was not confirmed. Please try again.')
+        }
+
+        const allowanceAfter = await readPayoutRouterAllowance()
+        if (allowanceAfter < amount) {
+          throw new Error('Token approval did not complete. Please try again.')
+        }
+
+        await payoutRouterAllowanceQuery.refetch()
+        return approveHash
+      } finally {
+        setIsWritePending(false)
+      }
+    },
+    [
+      address,
+      isConnected,
+      isCorrectNetwork,
+      payoutRouterAllowanceQuery,
+      publicClient,
+      readPayoutRouterAllowance,
+      tokenDecimals,
+      wallet,
+    ],
+  )
+
+  const submitRepayReceivable = useCallback(
+    async (humanAmount: number, receivableIdBytes32: `0x${string}`): Promise<Hash> => {
+      const gate = canRepayReceivable(humanAmount, receivableIdBytes32)
+      if (!gate.ok) throw new Error(gate.message ?? 'Cannot repay')
+      if (!address) throw new Error('Wallet required')
+      if (!wallet) throw new Error('Wallet required')
+
+      const amount = humanAmountToUnits(humanAmount, tokenDecimals)
+      if (amount <= 0n) throw new Error('Invalid amount')
+
+      const allowance = await readPayoutRouterAllowance()
+      if (allowance < amount) {
+        throw new Error('Approve tokens for this repayment amount before submitting repayment.')
+      }
+
+      setIsWritePending(true)
+      try {
+        await ensureWalletChain(wallet, TESTNET_CONTRACTS_CHAIN.id)
+        const walletClient = await getWalletClientFromPrivyWallet(wallet)
+        const gasFees = await getBufferedEip1559Fees(publicClient)
+
+        const repayHash = await walletClient.writeContract({
+          address: TESTNET_PAYOUT_ROUTER_ADDRESS,
+          abi: TESTNET_PAYOUT_ROUTER_ABI,
+          functionName: 'repayReceivable',
+          args: [receivableIdBytes32, amount],
+          chain: TESTNET_CONTRACTS_CHAIN,
+          account: address as `0x${string}`,
+          ...gasFees,
+        })
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: repayHash })
+        if (receipt.status !== 'success') {
+          throw new Error('Repayment transaction failed.')
+        }
+        await refetchBalances()
+        return repayHash
+      } finally {
+        setIsWritePending(false)
+      }
+    },
+    [
+      address,
+      canRepayReceivable,
+      publicClient,
+      readPayoutRouterAllowance,
+      refetchBalances,
+      tokenDecimals,
+      wallet,
+    ],
+  )
+
+  const executeMerchantRepayment = useCallback(
+    async (
+      humanAmount: number,
+      receivableIdBytes32: `0x${string}`,
+      onPhase?: (phase: MerchantRepayOnChainPhase) => void,
+    ): Promise<Hash> => {
+      const amount = humanAmountToUnits(humanAmount, tokenDecimals)
+      if (amount <= 0n) throw new Error('Invalid amount')
+
+      const allowance = await readPayoutRouterAllowance()
+      if (allowance < amount) {
+        onPhase?.('approving')
+        await approveTokenForRepayment(humanAmount)
+      }
+
+      onPhase?.('repaying')
+      return await submitRepayReceivable(humanAmount, receivableIdBytes32)
+    },
+    [approveTokenForRepayment, readPayoutRouterAllowance, submitRepayReceivable, tokenDecimals],
+  )
+
+  /** Approve token spending (if needed), wait for confirmation, then call `repayReceivable`. */
+  const repayReceivable = useCallback(
+    async (humanAmount: number, receivableIdBytes32: `0x${string}`): Promise<Hash> =>
+      executeMerchantRepayment(humanAmount, receivableIdBytes32),
+    [executeMerchantRepayment],
+  )
+
   const requestFundingPoolWithdraw = useCallback(
     async (humanAmount: number): Promise<Hash> => {
       const gate = canWithdrawHuman(humanAmount)
@@ -445,6 +661,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       try {
         await ensureWalletChain(wallet, TESTNET_CONTRACTS_CHAIN.id)
         const walletClient = await getWalletClientFromPrivyWallet(wallet)
+        const gasFees = await getBufferedEip1559Fees(publicClient)
         const hash = await walletClient.writeContract({
           address: TESTNET_FUNDING_POOL_ADDRESS,
           abi: TESTNET_FUNDING_POOL_ABI,
@@ -452,6 +669,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
           args: [sharesNeeded],
           chain: TESTNET_CONTRACTS_CHAIN,
           account: (address as `0x${string}`) ?? null,
+          ...gasFees,
         })
         await publicClient.waitForTransactionReceipt({ hash })
         await refetchBalances()
@@ -480,19 +698,28 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     testnetChain: TESTNET_CONTRACTS_CHAIN,
     mockTokenAddress: TESTNET_MOCK_ERC20_ADDRESS,
     fundingPoolAddress: TESTNET_FUNDING_POOL_ADDRESS,
+    payoutRouterAddress: TESTNET_PAYOUT_ROUTER_ADDRESS,
     tokenDecimals,
     mockTokenBalance: balanceBn,
     mockTokenBalanceFormatted,
     allowanceToFundingPool: allowanceBn,
+    allowanceToPayoutRouter: payoutRouterAllowanceBn,
     userPoolShares: userSharesBn,
     totalPoolShares: totalSharesBn,
     totalPoolAssets: totalAssetsBn,
     isContractsLoading: readsEnabled && (balanceQuery.isPending || decimalsQuery.isPending),
     isWritePending,
     refetchBalances,
+    canPayTokenHuman,
     canDepositHuman,
     canWithdrawHuman,
+    canRepayReceivable,
+    needsRepaymentApproval,
+    approveTokenForRepayment,
+    submitRepayReceivable,
+    executeMerchantRepayment,
     depositFundingPool,
+    repayReceivable,
     requestFundingPoolWithdraw,
     depositGasFeeLabel,
     withdrawGasFeeLabel,

@@ -22,4 +22,8 @@ export type ReceivableDetailView = {
   maturityBanner: string
   basicInfo: { label: string; value: string }[]
   documentName: string
+  /** When set, `documentName` links to this URL (e.g. IPFS gateway). */
+  documentUrl: string | null
 }
+
+export const LOAN_VERIFICATION_FILE_LABEL = 'Loan Verification File'

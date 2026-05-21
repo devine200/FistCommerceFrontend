@@ -2,7 +2,7 @@ import type { AppDispatch } from '@/store'
 import { patchAuth } from '@/store/slices/authSlice'
 import { setKycStatus, type KycStatus } from '@/store/slices/kycSlice'
 import { unlockAllOnboardingSteps } from '@/store/slices/onboardingSlice'
-import type { UserRole } from '@/store/slices/authSlice'
+import type { SessionState, UserRole } from '@/store/slices/authSlice'
 import { parseUserRole } from '@/utils/userRole'
 
 /**
@@ -36,16 +36,17 @@ export function applyWalletLoginResponse(
 ) {
   const role = parseUserRole(res.role) ?? parseUserRole(options?.fallbackRole) ?? 'investor'
   const onboarded = Boolean(res.onboarded || res.registered)
-  dispatch(
-    patchAuth({
-      accessToken: res.access_token,
-      ...(res.refresh_token !== undefined ? { refreshToken: res.refresh_token } : {}),
-      user: res.user ?? null,
-      onboarded,
-      role,
-      kycVerified: res.kycStatus === 'verified',
-    }),
-  )
+  const authPatch: Partial<SessionState> = {
+    accessToken: res.access_token,
+    user: res.user ?? null,
+    onboarded,
+    role,
+    kycVerified: res.kycStatus === 'verified',
+  }
+  if ('refresh_token' in res) {
+    authPatch.refreshToken = res.refresh_token ?? null
+  }
+  dispatch(patchAuth(authPatch))
   dispatch(setKycStatus(res.kycStatus))
   if (onboarded) {
     dispatch(unlockAllOnboardingSteps(role))

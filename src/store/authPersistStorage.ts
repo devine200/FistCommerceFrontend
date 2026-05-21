@@ -59,8 +59,10 @@ function createLocalStorageAdapter(ls: Storage): AsyncWebStorage {
       Promise.resolve().then(() => {
         try {
           ls.setItem(key, item)
-        } catch {
-          /* quota / privacy mode */
+        } catch (e) {
+          if (import.meta.env.DEV) {
+            console.warn('[redux-persist] localStorage.setItem failed; session may not survive reload:', key, e)
+          }
         }
       }),
     removeItem: (key) =>

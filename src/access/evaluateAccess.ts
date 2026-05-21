@@ -1,3 +1,4 @@
+import { isSessionBootstrapping } from '@/access/sessionAccess'
 import type { AccessCapabilities, AccessContext, AccessDecision } from '@/access/types'
 import type { UserRole } from '@/store/slices/authSlice'
 
@@ -143,11 +144,17 @@ export function evaluateDashboardSession(ctx: AccessContext): AccessDecision {
     return { allowed: true, redirectTo: null, reason: 'ok' }
   }
 
-  // Pause redirects while persisted auth is loading.
   if (!ctx.persistedReady) {
     return { allowed: true, redirectTo: null, reason: 'ok' }
   }
-  if (ctx.walletStatus === 'connecting' || ctx.walletStatus === 'reconnecting') {
+
+  // Wait for Privy before treating a persisted token as a missing wallet.
+  if (
+    isSessionBootstrapping(ctx) &&
+    ctx.onboarded &&
+    ctx.role &&
+    Boolean(ctx.accessToken?.length)
+  ) {
     return { allowed: true, redirectTo: null, reason: 'ok' }
   }
 
@@ -206,9 +213,10 @@ export function evaluateInvestorFinancialRoute(pathname: string, ctx: AccessCont
 export function evaluateMerchantFinancialRoute(pathname: string, ctx: AccessContext): AccessDecision {
   const applyLoan = /\/dashboard\/merchant\/lending-pool\/[^/]+\/apply-loan\/?$/.test(pathname)
   const applySuccess = /\/dashboard\/merchant\/lending-pool\/[^/]+\/apply-loan\/success\/?$/.test(pathname)
+  const applyFailure = /\/dashboard\/merchant\/lending-pool\/[^/]+\/apply-loan\/failure\/?$/.test(pathname)
   const repay = /\/dashboard\/merchant\/receivables\/[^/]+\/repay/.test(pathname)
 
-  if (!applyLoan && !applySuccess && !repay) {
+  if (!applyLoan && !applySuccess && !applyFailure && !repay) {
     return { allowed: true, redirectTo: null, reason: 'ok' }
   }
 

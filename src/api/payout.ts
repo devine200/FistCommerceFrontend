@@ -17,6 +17,7 @@ const CONTRACT_KEYS = [
 const EXPLORER_BASE_KEYS = [
   'block_explorer_base_url',
   'explorer_base_url',
+  'arbitrum_sepolia_block_explorer_url',
   'sepolia_block_explorer_url',
   'eth_sepolia_block_explorer_url',
 ] as const
@@ -36,19 +37,34 @@ export type RecentTxResponse = {
   transactions: RecentTxApi[]
 }
 
-/** Vite: Sepolia explorer origin (no trailing slash), e.g. `https://sepolia.etherscan.io` */
-export function getDefaultSepoliaBlockExplorerBase(): string | null {
-  const raw = import.meta.env.VITE_ETH_SEPOLIA_BLOCK_EXPLORER_URL?.trim()
+function readEnvTrim(key: string): string {
+  const raw = (import.meta.env as Record<string, string | undefined>)[key]?.trim()
+  return raw ?? ''
+}
+
+/** Vite: Arbitrum Sepolia explorer origin (no trailing slash), e.g. `https://sepolia.arbiscan.io` */
+export function getDefaultArbitrumSepoliaBlockExplorerBase(): string | null {
+  const raw =
+    readEnvTrim('VITE_ARBITRUM_SEPOLIA_BLOCK_EXPLORER_URL') ||
+    readEnvTrim('VITE_ETH_SEPOLIA_BLOCK_EXPLORER_URL')
   if (!raw) return null
   return raw.replace(/\/+$/, '')
 }
 
-/** Optional pool contract on Sepolia when the payout API does not return one on the envelope. */
-export function getDefaultSepoliaPoolContractAddress(): string | null {
-  const raw = import.meta.env.VITE_ETH_SEPOLIA_POOL_CONTRACT_ADDRESS?.trim()
+/** Optional pool contract on Arbitrum Sepolia when the payout API does not return one on the envelope. */
+export function getDefaultArbitrumSepoliaPoolContractAddress(): string | null {
+  const raw =
+    readEnvTrim('VITE_ARBITRUM_SEPOLIA_POOL_CONTRACT_ADDRESS') ||
+    readEnvTrim('VITE_ETH_SEPOLIA_POOL_CONTRACT_ADDRESS')
   if (!raw || !/^0x[a-fA-F0-9]{40}$/i.test(raw)) return null
   return raw
 }
+
+/** @deprecated Use {@link getDefaultArbitrumSepoliaBlockExplorerBase} */
+export const getDefaultSepoliaBlockExplorerBase = getDefaultArbitrumSepoliaBlockExplorerBase
+
+/** @deprecated Use {@link getDefaultArbitrumSepoliaPoolContractAddress} */
+export const getDefaultSepoliaPoolContractAddress = getDefaultArbitrumSepoliaPoolContractAddress
 
 export function blockExplorerAddressUrl(base: string, address: string): string | null {
   const b = base.trim().replace(/\/+$/, '')
@@ -65,7 +81,7 @@ function normalizeEthereumTxHash(raw: string): string | null {
   return null
 }
 
-/** Etherscan-style `/tx/{hash}` (32-byte hash, with or without `0x`). */
+/** Block-explorer-style `/tx/{hash}` (32-byte hash, with or without `0x`). */
 export function blockExplorerTxUrl(base: string, txHash: string): string | null {
   const b = base.trim().replace(/\/+$/, '')
   const h = normalizeEthereumTxHash(txHash)
@@ -183,12 +199,12 @@ function mapStrictApiRow(tx: RecentTxApi, index: number, explorerBase: string | 
 
 function parseStrictRecentTxResponse(json: RecentTxResponse): RecentPayoutBundle {
   const envelope = extractContractAndExplorer(json)
-  const explorerBase = envelope.explorerBaseUrl || getDefaultSepoliaBlockExplorerBase()
+  const explorerBase = envelope.explorerBaseUrl || getDefaultArbitrumSepoliaBlockExplorerBase()
 
   const firstRowContract = json.transactions.find((t) => isHexAddress(t.contract_address))?.contract_address.trim()
   const contractAddress =
     envelope.contractAddress ?? (firstRowContract && isHexAddress(firstRowContract) ? firstRowContract : null) ??
-    getDefaultSepoliaPoolContractAddress()
+    getDefaultArbitrumSepoliaPoolContractAddress()
 
   const transactions = json.transactions.map((row, i) => mapStrictApiRow(row, i, explorerBase))
 
@@ -289,8 +305,8 @@ export function parseRecentPayoutResponse(json: unknown): RecentPayoutBundle {
 
   const rows = extractTransactionRows(json)
   const meta = extractContractAndExplorer(json)
-  const explorerBase = meta.explorerBaseUrl || getDefaultSepoliaBlockExplorerBase()
-  const contractAddress = meta.contractAddress || getDefaultSepoliaPoolContractAddress()
+  const explorerBase = meta.explorerBaseUrl || getDefaultArbitrumSepoliaBlockExplorerBase()
+  const contractAddress = meta.contractAddress || getDefaultArbitrumSepoliaPoolContractAddress()
 
   const transactions: RecentTx[] = []
   rows.forEach((row, i) => {

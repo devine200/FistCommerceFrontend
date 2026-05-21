@@ -2,10 +2,23 @@ import moneyIcon from '@/assets/Money.png'
 import dollarIcon from '@/assets/CurrencyDollarSimple.png'
 import primeChevronRight from '@/assets/prime_chevron-right.png'
 import magnifyingGlassIcon from '@/assets/MagnifyingGlass.png'
+import { canNavigateToLoanDetail } from '@/api/loanDetails'
+import {
+  AsyncTableBodyMessage,
+  resolveAsyncTableBodyState,
+} from '@/components/dashboard/shared/asyncDataTableBody'
 import type { ReceivableSummaryCard, ReceivableTableRow } from '@/components/dashboard/merchant/receivables/types'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAppSelector } from '@/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { refreshMerchantReceivables } from '@/store/slices/merchantReceivablesSlice'
+import {
+  selectMerchantReceivablesError,
+  selectMerchantReceivablesStatus,
+  selectReceivableTableRows,
+} from '@/store/selectors/merchantReceivablesSelectors'
+
+const RECEIVABLES_DESKTOP_COLUMNS = 7
 
 const summaryIconSrc = (card: ReceivableSummaryCard) => (card.icon === 'dollar' ? dollarIcon : moneyIcon)
 
@@ -52,12 +65,21 @@ const matchesSearch = (haystack: string, query: string) => {
 }
 
 const MerchantAllReceivablesContent = () => {
+  const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
   const mobileSearchInputRef = useRef<HTMLInputElement | null>(null)
-  const { rows, status, error } = useAppSelector((s) => s.merchantReceivables)
+  const accessToken = useAppSelector((s) => s.auth.accessToken)
+  const rows = useAppSelector(selectReceivableTableRows)
+  const status = useAppSelector(selectMerchantReceivablesStatus)
+  const error = useAppSelector(selectMerchantReceivablesError)
   const totalCount = rows.length
+
+  useEffect(() => {
+    if (!accessToken?.trim()) return
+    void dispatch(refreshMerchantReceivables())
+  }, [dispatch, accessToken])
 
   const summaryCards = useMemo((): ReceivableSummaryCard[] => {
     // Minimal summary from what we have on `/loan/request` today.
@@ -99,7 +121,9 @@ const MerchantAllReceivablesContent = () => {
   }, [rows])
 
   const goToReceivable = (id: string) => {
-    navigate(`/dashboard/merchant/receivables/${id}`)
+    const loanRequestId = id.trim()
+    if (!canNavigateToLoanDetail(loanRequestId)) return
+    navigate(`/dashboard/merchant/receivables/${encodeURIComponent(loanRequestId)}`)
   }
 
   const filteredRows = useMemo(() => {
@@ -107,6 +131,18 @@ const MerchantAllReceivablesContent = () => {
     if (!q) return rows
     return rows.filter((row) => matchesSearch(rowHaystack(row), q))
   }, [searchTerm, rows])
+
+  const tableBody = useMemo(
+    () =>
+      resolveAsyncTableBodyState(status, error, {
+        hasRows: filteredRows.length > 0,
+        loadingMessage: 'Loading receivables…',
+        emptyMessage: searchTerm.trim()
+          ? 'No receivables match your search.'
+          : 'No receivables yet.',
+      }),
+    [status, error, filteredRows.length, searchTerm],
+  )
 
   useEffect(() => {
     if (!isMobileSearchOpen) return
@@ -182,16 +218,6 @@ const MerchantAllReceivablesContent = () => {
         </div>
 
         <div className="p-3">
-          {status === 'loading' ? (
-            <div className="px-2 py-8 text-center text-[#8B92A3] text-[13px]" role="status">
-              Loading receivables…
-            </div>
-          ) : null}
-          {status === 'failed' && error ? (
-            <div className="px-2 py-8 text-center text-[#B91C1C] text-[13px]" role="alert">
-              {error}
-            </div>
-          ) : null}
           {isMobileSearchOpen ? (
             <div className="mb-3">
               <div className="h-[42px] w-full rounded-[6px] border border-[#D5DAE2] px-3 flex items-center gap-2">
@@ -225,28 +251,34 @@ const MerchantAllReceivablesContent = () => {
           ) : null}
 
           <div className="flex flex-col gap-2">
-            {filteredRows.map((row) => (
-              <button
-                key={row.id}
-                type="button"
-                onClick={() => goToReceivable(row.id)}
-                className={[
-                  'w-full rounded-[6px] px-4 py-4 flex items-center justify-between gap-4 text-left',
-                  row.rowEmphasis ? 'bg-[#EEF2F6]' : 'bg-white',
-                ].join(' ')}
-              >
-                <div className="min-w-0">
-                  <p className="text-[#0B1220] text-[13px] font-medium truncate">{row.receivableName}</p>
-                  <p className="text-[#195EBC] text-[13px] font-semibold mt-1">{row.loanAmount}</p>
-                </div>
-                <img src={primeChevronRight} alt="" className="h-4 w-4 object-contain opacity-80 shrink-0" />
-              </button>
-            ))}
+            {tableBody.kind === 'message' ? (
+              <AsyncTableBodyMessage
+                message={tableBody.message}
+                variant={tableBody.variant}
+                layout="mobile-block"
+                colSpan={RECEIVABLES_DESKTOP_COLUMNS}
+                mobileClassName="px-2 py-8"
+              />
+            ) : (
+              filteredRows.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => goToReceivable(row.id)}
+                  className={[
+                    'w-full rounded-[6px] px-4 py-4 flex items-center justify-between gap-4 text-left transition-colors hover:bg-[#FAFBFD]',
+                    row.rowEmphasis ? 'bg-[#EEF2F6]' : 'bg-white',
+                  ].join(' ')}
+                >
+                  <div className="min-w-0">
+                    <p className="text-[#0B1220] text-[13px] font-medium truncate">{row.receivableName}</p>
+                    <p className="text-[#195EBC] text-[13px] font-semibold mt-1">{row.loanAmount}</p>
+                  </div>
+                  <img src={primeChevronRight} alt="" className="h-4 w-4 object-contain opacity-80 shrink-0" />
+                </button>
+              ))
+            )}
           </div>
-
-          {filteredRows.length === 0 ? (
-            <div className="px-2 py-10 text-center text-[#8B92A3] text-[13px]">No receivables match your search.</div>
-          ) : null}
         </div>
       </section>
 
@@ -276,16 +308,6 @@ const MerchantAllReceivablesContent = () => {
         </div>
 
         <div className="overflow-x-auto px-8 pb-8 pt-4">
-          {status === 'loading' ? (
-            <div className="py-10 text-center text-[#8B92A3] text-[14px]" role="status">
-              Loading receivables…
-            </div>
-          ) : null}
-          {status === 'failed' && error ? (
-            <div className="py-10 text-center text-[#B91C1C] text-[14px]" role="alert">
-              {error}
-            </div>
-          ) : null}
           <table className="w-full min-w-[1000px] text-left text-[14px] border-collapse">
             <thead>
               <tr className="bg-[#F8FAFC] text-[#4D5D80] border-b border-[#E6E8EC]">
@@ -299,7 +321,16 @@ const MerchantAllReceivablesContent = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((row) => (
+              {tableBody.kind === 'message' ? (
+                <AsyncTableBodyMessage
+                  message={tableBody.message}
+                  variant={tableBody.variant}
+                  layout="desktop"
+                  colSpan={RECEIVABLES_DESKTOP_COLUMNS}
+                  desktopCellClassName="px-8 py-12"
+                />
+              ) : (
+                filteredRows.map((row) => (
                 <tr
                   key={row.id}
                   role="link"
@@ -339,16 +370,11 @@ const MerchantAllReceivablesContent = () => {
                     </span>
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>
-
-        {status !== 'loading' && status !== 'failed' && filteredRows.length === 0 ? (
-          <div className="px-8 py-12 text-center text-[#8B92A3] text-[14px] border-t border-[#EDF0F4]">
-            No receivables match your search.
-          </div>
-        ) : null}
       </section>
     </div>
   )

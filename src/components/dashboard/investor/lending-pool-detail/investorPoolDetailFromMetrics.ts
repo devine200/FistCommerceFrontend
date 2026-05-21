@@ -1,6 +1,6 @@
 import {
   blockExplorerAddressUrl,
-  getDefaultSepoliaBlockExplorerBase,
+  getDefaultArbitrumSepoliaBlockExplorerBase,
   type RecentPayoutBundle,
 } from '@/api/payout'
 import {
@@ -127,8 +127,8 @@ function patchSmartContractAddressRow(rows: ContractField[], fullAddress: string
 }
 
 /**
- * Applies `GET /api/payout/recent-transactions/` data: list rows, contract address row, and Sepolia explorer link.
- * Explorer base: API `block_explorer_base_url` (or similar) first, else `VITE_ETH_SEPOLIA_BLOCK_EXPLORER_URL`.
+ * Applies `GET /api/payout/recent-transactions/` data: list rows, contract address row, and Arbiscan link.
+ * Explorer base: API `block_explorer_base_url` (or similar) first, else `VITE_ARBITRUM_SEPOLIA_BLOCK_EXPLORER_URL`.
  */
 export function mergeInvestorPoolPayoutIntoConfig(
   config: InvestorPoolDetailConfig,
@@ -139,7 +139,7 @@ export function mergeInvestorPoolPayoutIntoConfig(
   }
 
   const explorerBase =
-    payout.explorerBaseUrl?.trim().replace(/\/+$/, '') || getDefaultSepoliaBlockExplorerBase()
+    payout.explorerBaseUrl?.trim().replace(/\/+$/, '') || getDefaultArbitrumSepoliaBlockExplorerBase()
   const contract = payout.contractAddress?.trim() ?? null
   const contractOk = Boolean(contract && /^0x[a-fA-F0-9]{40}$/i.test(contract))
   const contractExplorerHref =

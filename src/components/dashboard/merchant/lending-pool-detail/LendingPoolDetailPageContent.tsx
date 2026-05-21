@@ -2,14 +2,20 @@ import {
   displayDashboardCompactUsd,
   formatDashboardCompactUsd,
   formatDashboardPercentMetric,
+  type PoolMetrics,
 } from '@/api/metrics'
-import type { MerchantLoanApi } from '@/api/loans'
 import LendingPoolDetailHeroBanner from '@/components/dashboard/merchant/lending-pool-detail/LendingPoolDetailHeroBanner'
 import LendingPoolDetailOverview from '@/components/dashboard/merchant/lending-pool-detail/LendingPoolDetailOverview'
 import MerchantLoansTable from '@/components/dashboard/merchant/lending-pool-detail/MerchantLoansTable'
-import type { LendingPoolDetailConfig, MerchantLoanTableRowData } from '@/components/dashboard/merchant/lending-pool-detail/types'
+import type { LendingPoolDetailConfig } from '@/components/dashboard/merchant/lending-pool-detail/types'
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppSelector } from '@/store/hooks'
+import {
+  selectMerchantLoanTableRows,
+  selectMerchantReceivablesError,
+  selectMerchantReceivablesStatus,
+} from '@/store/selectors/merchantReceivablesSelectors'
 
 interface LendingPoolDetailPageContentProps {
   config: LendingPoolDetailConfig
@@ -22,81 +28,52 @@ function fmtUsd(v: unknown): string | null {
   return null
 }
 
-function fmtDdMmYyyy(isoLike: string): string {
-  const d = new Date(isoLike)
-  if (!Number.isFinite(d.getTime())) return '—'
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yyyy = String(d.getFullYear())
-  return `${dd}-${mm}-${yyyy}`
+type PoolMetricRowResolver = Record<string, (m: PoolMetrics) => string | null>
+
+const HERO_STATS_FROM_POOL_METRICS: PoolMetricRowResolver = {
+  'Total Deposited': (m) => fmtUsd(m.tvl),
+  'Liquid Asset': (m) => fmtUsd(m.liquidAssets),
 }
 
-function loanStatusLabel(statusRaw: string): string {
-  const s = (statusRaw ?? '').trim().toLowerCase()
-  if (!s) return 'Unpaid'
-  if (s.includes('repaid') || s.includes('paid') || s === 'completed') return 'Repaid'
-  if (s.includes('default')) return 'Defaulted'
-  return 'Unpaid'
+const FINANCIAL_INFO_FROM_POOL_METRICS: PoolMetricRowResolver = {
+  'Available Liquidity': (m) => fmtUsd(m.availableLiquidity),
+  'Total Pool Size': (m) => fmtUsd(m.tvl),
+  'Average APY to Investors': (m) =>
+    Number.isFinite(m.apy) ? `${formatDashboardPercentMetric(m.apy)} APY` : null,
+  'Utilization Rate': (m) =>
+    Number.isFinite(m.utilization) ? formatDashboardPercentMetric(m.utilization) : null,
 }
 
-function loanApiToMerchantLoanRow(loan: MerchantLoanApi): MerchantLoanTableRowData {
-  return {
-    id: loan.id,
-    merchantName: `Merchant ${loan.user ?? loan.id.slice(0, 6)}`,
-    walletShort: '—',
-    loanAmount: displayDashboardCompactUsd(loan.loan_amount),
-    issueDate: fmtDdMmYyyy(loan.created_at),
-    repaymentDue: '—',
-    repaymentAmount: '—',
-    debtStatus: loanStatusLabel(loan.status),
-  }
+function mergeRowsFromPoolMetrics<Row extends { label: string; value: string }>(
+  rows: Row[],
+  metrics: PoolMetrics | null,
+  resolvers: PoolMetricRowResolver,
+): Row[] {
+  if (!metrics) return rows
+  return rows.map((row) => {
+    const resolver = resolvers[row.label]
+    if (!resolver) return row
+    const next = resolver(metrics)
+    return next ? { ...row, value: next } : row
+  })
 }
 
 const LendingPoolDetailPageContent = ({ config, onApplyToBorrow }: LendingPoolDetailPageContentProps) => {
   const navigate = useNavigate()
   const poolMetrics = useAppSelector((s) => s.merchantDashboard.poolMetrics)
-  const { loans: merchantLoansApi, status: merchantLoansStatus, error: merchantLoansError } = useAppSelector(
-    (s) => s.merchantReceivables,
+  const loans = useAppSelector(selectMerchantLoanTableRows)
+  const status = useAppSelector(selectMerchantReceivablesStatus)
+  const error = useAppSelector(selectMerchantReceivablesError)
+
+  const stats = useMemo(
+    () => mergeRowsFromPoolMetrics(config.stats, poolMetrics, HERO_STATS_FROM_POOL_METRICS),
+    [config.stats, poolMetrics],
   )
 
-  const stats = poolMetrics
-    ? config.stats.map((s) => {
-        const nextValue =
-          s.label === 'Total Deposited'
-            ? fmtUsd(poolMetrics.tvl)
-            : s.label === 'Liquid Asset'
-              ? fmtUsd(poolMetrics.liquidAssets)
-              : s.label === 'Maximum loan'
-                ? null
-                : s.label === 'Loan Interest'
-                  ? null
-                  : s.label === 'Target Repayment Duration'
-                    ? null
-                    : null
-        return nextValue ? { ...s, value: nextValue } : s
-      })
-    : config.stats
-
-  const financialInfoRows = poolMetrics
-    ? config.financialInfoRows.map((row) => {
-        const nextValue =
-          row.label === 'Available Liquidity'
-            ? fmtUsd(poolMetrics.availableLiquidity)
-            : row.label === 'Total Pool Size'
-              ? fmtUsd(poolMetrics.tvl)
-              : row.label === 'Average APY to Investors'
-                ? (Number.isFinite(poolMetrics.apy) ? `${formatDashboardPercentMetric(poolMetrics.apy)} APY` : null)
-                : row.label === 'Utilization Rate'
-                  ? (Number.isFinite(poolMetrics.utilization)
-                      ? formatDashboardPercentMetric(poolMetrics.utilization)
-                      : null)
-                  : null
-        return nextValue ? { ...row, value: nextValue } : row
-      })
-    : config.financialInfoRows
-
-  const merchantLoanRows =
-    merchantLoansApi.length > 0 ? merchantLoansApi.map(loanApiToMerchantLoanRow) : config.loans
+  const financialInfoRows = useMemo(
+    () => mergeRowsFromPoolMetrics(config.financialInfoRows, poolMetrics, FINANCIAL_INFO_FROM_POOL_METRICS),
+    [config.financialInfoRows, poolMetrics],
+  )
 
   return (
     <div className="flex flex-col gap-6 pb-8">
@@ -121,17 +98,7 @@ const LendingPoolDetailPageContent = ({ config, onApplyToBorrow }: LendingPoolDe
         financialInfoRows={financialInfoRows}
         termsForLoanRows={config.termsForLoanRows}
       />
-      {merchantLoansStatus === 'loading' ? (
-        <div className="text-[#8B92A3] text-[13px] px-1" role="status">
-          Loading merchant loans…
-        </div>
-      ) : null}
-      {merchantLoansStatus === 'failed' && merchantLoansError?.trim() ? (
-        <div className="text-[#B91C1C] text-[13px] px-1" role="alert">
-          {merchantLoansError.trim()}
-        </div>
-      ) : null}
-      <MerchantLoansTable loans={merchantLoanRows} />
+      <MerchantLoansTable loans={loans} status={status} error={error} />
     </div>
   )
 }

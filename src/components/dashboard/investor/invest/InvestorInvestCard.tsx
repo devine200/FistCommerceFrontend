@@ -71,12 +71,12 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
   }
 
   const walletMockTokenLabel = useMemo(() => {
-    if (!contracts.isConnected) return 'Connect your wallet to view wallet balance (Sepolia).'
+    if (!contracts.isConnected) return 'Connect your wallet to view token balance (Arbitrum Sepolia).'
     if (contracts.isContractsLoading) return 'Loading balance…'
     const formatted = contracts.mockTokenBalanceFormatted
     const amountLine = formatted === '—' ? 'Wallet Balance: —' : `Wallet Balance: $${formatted}`
     if (!contracts.isCorrectNetwork) {
-      return `${amountLine} (Sepolia contract view; switch to ${contracts.testnetChain.name} to deposit.)`
+      return `${amountLine} (off-chain view; switch to ${contracts.testnetChain.name} to deposit.)`
     }
     return amountLine
   }, [

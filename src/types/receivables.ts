@@ -27,3 +27,8 @@ export function lifecycleCompletedCount(stage: ReceivableStage) {
   }
 }
 
+/** Repayment is allowed after capital has been disbursed (funded or later, but not if already repaid). */
+export function isReceivableStageEligibleForRepayment(stage: ReceivableStage): boolean {
+  return stage === ReceivableStage.Funded || stage === ReceivableStage.Matured
+}
+

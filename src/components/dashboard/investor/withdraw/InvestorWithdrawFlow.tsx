@@ -19,6 +19,7 @@ import FlowFailureStep from '@/components/dashboard/shared/FlowFailureStep'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useAppSelector } from '@/store/hooks'
 import { formatFlowFailureMessage } from '@/utils/formatFlowFailureMessage'
+import { shortWalletDisplay } from '@/utils/shortWalletDisplay'
 
 interface InvestorWithdrawFlowProps {
   walletDisplay?: string
@@ -30,13 +31,6 @@ type WithdrawFlowFailure = {
   message: string
   returnStep: WithdrawalStep
   showChangeAmount: boolean
-}
-
-function shortWalletDisplay(full: string | null | undefined, fallback: string): string {
-  const a = full?.trim() ?? ''
-  if (!a) return fallback
-  if (a.length <= 12) return a
-  return `${a.slice(0, 6)}…${a.slice(-4)}`
 }
 
 const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWithdrawFlowProps) => {
@@ -84,7 +78,7 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
   }
 
   const withdrawOnChainHint = useMemo(() => {
-    if (!contracts.isConnected) return 'Connect your wallet to check on-chain pool position (Sepolia).'
+    if (!contracts.isConnected) return 'Connect your wallet to check on-chain pool position (Arbitrum Sepolia).'
     const { userPoolShares, totalPoolShares, totalPoolAssets, tokenDecimals } = contracts
     if (userPoolShares === undefined || totalPoolShares === undefined || totalPoolAssets === undefined) {
       return 'Reading your pool position…'
@@ -99,7 +93,7 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
       contracts.mockTokenBalanceFormatted === '—'
         ? 'Wallet Balance: —'
         : `Wallet Balance: $${contracts.mockTokenBalanceFormatted}`
-    const base = `On-chain pool position (approx.): ${position} mock token units. ${wallet}.`
+    const base = `On-chain pool position (approx.): ${position} token units. ${wallet}.`
     if (!contracts.isCorrectNetwork) {
       return `${base} Switch your wallet to ${contracts.testnetChain.name} to submit withdrawals.`
     }

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { sepolia } from 'viem/chains'
 
 import DashboardErrorModal from '@/components/dashboard/shared/DashboardErrorModal'
 import { disconnectPrivySession } from '@/session/disconnectPrivySession'
 import { resetUserSession } from '@/session/resetUserSession'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { store } from '@/store'
+import { APP_CHAIN } from '@/wallet/appChain'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 import { ensureWalletChain } from '@/wallet/viemClients'
 
@@ -16,7 +16,7 @@ function logEnsureWalletChainFailure(
   extra: Record<string, unknown>,
 ) {
   const e = err as { message?: unknown; code?: unknown; name?: unknown; data?: unknown }
-  console.error(`[SepoliaWalletEnforcer] ensureWalletChain failed (${context})`, {
+  console.error(`[ArbitrumSepoliaWalletEnforcer] ensureWalletChain failed (${context})`, {
     message: e?.message,
     code: e?.code,
     name: e?.name,
@@ -28,10 +28,10 @@ function logEnsureWalletChainFailure(
 }
 
 /**
- * After any wallet becomes active, prefer Sepolia. If the user leaves Sepolia, block the app until
- * they switch back or fully log out (Privy + app session).
+ * After any wallet becomes active, prefer Arbitrum Sepolia. If the user leaves the app chain,
+ * block the app until they switch back or fully log out (Privy + app session).
  */
-export default function SepoliaWalletEnforcer() {
+export default function ArbitrumSepoliaWalletEnforcer() {
   const dispatch = useAppDispatch()
   const { ready: privyReady, logout } = usePrivy()
   const { wallet, isConnected, address, ready: walletsReady } = useActiveWallet()
@@ -55,19 +55,19 @@ export default function SepoliaWalletEnforcer() {
       if (cancelled) return
       timeoutFired = true
       void (async () => {
-        console.log('[SepoliaWalletEnforcer] ensureWalletChain (initial debounced) starting…', {
+        console.log('[ArbitrumSepoliaWalletEnforcer] ensureWalletChain (initial debounced) starting…', {
           walletClientType: wallet.walletClientType,
           reduxChainId: store.getState().wallet.chainId,
-          targetChainId: sepolia.id,
+          targetChainId: APP_CHAIN.id,
         })
         try {
-          await ensureWalletChain(wallet, sepolia.id)
-          console.log('[SepoliaWalletEnforcer] ensureWalletChain (initial debounced) resolved OK', {
+          await ensureWalletChain(wallet, APP_CHAIN.id)
+          console.log('[ArbitrumSepoliaWalletEnforcer] ensureWalletChain (initial debounced) resolved OK', {
             reduxChainIdAfter: store.getState().wallet.chainId,
           })
         } catch (err) {
           logEnsureWalletChainFailure('initialDebouncedSwitch', err, {
-            targetChainId: sepolia.id,
+            targetChainId: APP_CHAIN.id,
             walletClientType: wallet.walletClientType,
             addressPreview: address ? `${address.slice(0, 8)}…` : null,
           })
@@ -89,7 +89,7 @@ export default function SepoliaWalletEnforcer() {
     isConnected &&
     Boolean(address) &&
     chainId != null &&
-    chainId !== sepolia.id
+    chainId !== APP_CHAIN.id
 
   const handleLogoutWrongNetwork = useCallback(async () => {
     await disconnectPrivySession(wallet, logout)
@@ -97,28 +97,28 @@ export default function SepoliaWalletEnforcer() {
     window.location.replace('/onboarding/choose-role')
   }, [wallet, logout, dispatch])
 
-  const handleSwitchToSepolia = useCallback(() => {
+  const handleSwitchToAppChain = useCallback(() => {
     const reduxBefore = store.getState().wallet.chainId
-    console.log('[SepoliaWalletEnforcer] "Switch to Sepolia" clicked', {
+    console.log('[ArbitrumSepoliaWalletEnforcer] "Switch network" clicked', {
       hasWallet: Boolean(wallet),
       walletClientType: wallet?.walletClientType,
       reduxChainIdBefore: reduxBefore,
-      targetChainId: sepolia.id,
+      targetChainId: APP_CHAIN.id,
     })
     if (!wallet) {
-      console.warn('[SepoliaWalletEnforcer] "Switch to Sepolia" ignored — no active wallet object')
+      console.warn('[ArbitrumSepoliaWalletEnforcer] switch ignored — no active wallet object')
       return
     }
     void (async () => {
-      console.log('[SepoliaWalletEnforcer] ensureWalletChain (modal) starting…')
+      console.log('[ArbitrumSepoliaWalletEnforcer] ensureWalletChain (modal) starting…')
       try {
-        await ensureWalletChain(wallet, sepolia.id)
-        console.log('[SepoliaWalletEnforcer] ensureWalletChain (modal) resolved OK', {
+        await ensureWalletChain(wallet, APP_CHAIN.id)
+        console.log('[ArbitrumSepoliaWalletEnforcer] ensureWalletChain (modal) resolved OK', {
           reduxChainIdAfter: store.getState().wallet.chainId,
         })
       } catch (err) {
-        logEnsureWalletChainFailure('modalRetrySwitchToSepolia', err, {
-          targetChainId: sepolia.id,
+        logEnsureWalletChainFailure('modalRetrySwitchToAppChain', err, {
+          targetChainId: APP_CHAIN.id,
           walletClientType: wallet.walletClientType,
           addressPreview: wallet.address ? `${wallet.address.slice(0, 8)}…` : null,
         })
@@ -131,9 +131,9 @@ export default function SepoliaWalletEnforcer() {
       blocking
       open={wrongNetwork}
       title="Wrong network"
-      message="This app runs on Ethereum Sepolia testnet only. Switch your wallet back to Sepolia, or log out."
-      retryLabel="Switch to Sepolia"
-      onRetry={handleSwitchToSepolia}
+      message={`This app runs on ${APP_CHAIN.name} only. Switch your wallet back to ${APP_CHAIN.name}, or log out.`}
+      retryLabel={`Switch to ${APP_CHAIN.name}`}
+      onRetry={handleSwitchToAppChain}
       secondaryLabel="Log out"
       onSecondary={() => void handleLogoutWrongNetwork()}
       onClose={() => {}}

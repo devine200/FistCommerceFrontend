@@ -35,9 +35,14 @@ export default function MerchantDashboardSessionLayout() {
 
   useEffect(() => {
     if (!didKickoffRef.current) return
-    if (!isKycVerified) return
-    // Once KYC becomes verified, hydrate dependent dashboard sections.
+    if (!accessToken?.trim()) return
+    if (role !== 'merchant') return
     void dispatch(refreshMerchantReceivables())
+  }, [dispatch, accessToken, role])
+
+  useEffect(() => {
+    if (!didKickoffRef.current) return
+    if (!isKycVerified) return
     void dispatch(refreshMerchantTransactions())
   }, [dispatch, isKycVerified])
 

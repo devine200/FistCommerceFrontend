@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
 import { fetchInvestorTransactions, type InvestorTransactionApi } from '@/api/metrics'
-import { blockExplorerTxUrl, getDefaultSepoliaBlockExplorerBase } from '@/api/payout'
+import { blockExplorerTxUrl, getDefaultArbitrumSepoliaBlockExplorerBase } from '@/api/payout'
 import { useAppSelector } from '@/store/hooks'
 import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
 
@@ -88,7 +88,7 @@ const InvestorProfileHistoryTabContent = () => {
 
   const items = useMemo((): ActivityItem[] => {
     const poolName = 'Fist Commerce Pool'
-    const explorerBase = getDefaultSepoliaBlockExplorerBase()
+    const explorerBase = getDefaultArbitrumSepoliaBlockExplorerBase()
     const txs = (txQuery.data ?? []) as InvestorTransactionApi[]
 
     return txs

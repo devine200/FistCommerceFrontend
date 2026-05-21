@@ -1,19 +1,21 @@
 import React from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { sepolia } from 'viem/chains'
 import { usePrivy } from '@privy-io/react-auth'
 
 import { ApiRequestError, formatApiRequestErrorPlain, getApiBaseUrl } from '@/api/client'
 import { createWalletLoginSignable, postWalletLogin } from '@/api/walletSession'
 import privyIcon from '@/assets/Icon (1).png'
+import { isSafeDashboardReturnPath, resolveDashboardReturnTo, saveDashboardReturnTo } from '@/session/dashboardReturnTo'
 import { applyWalletLoginResponse } from '@/session/loginBridge'
 import { unlockAfterConnectWallet } from '@/state/session'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { persistor } from '@/store'
 import { patchAuth } from '@/store/slices/authSlice'
 import { setInvestorWalletDisplay } from '@/store/slices/investorDashboardSlice'
 import { setMerchantWalletDisplay } from '@/store/slices/merchantDashboardSlice'
-import { dashboardOverviewPath, parseUserRole } from '@/utils/userRole'
+import { parseUserRole } from '@/utils/userRole'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
+import { APP_CHAIN } from '@/wallet/appChain'
 import { ensureWalletChain, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
 
 function truncateAddress(address: string) {
@@ -37,7 +39,7 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
   const dispatch = useAppDispatch()
   const roleFromStore = useAppSelector((s) => s.auth.role)
   const role = parseUserRole(roleFromStore)
-  const { pathname } = useLocation()
+  const location = useLocation()
   const navigate = useNavigate()
 
   const { ready: privyReady, login, connectWallet } = usePrivy()
@@ -46,6 +48,13 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
   const [rowError, setRowError] = React.useState<string | null>(null)
   const [authInFlight, setAuthInFlight] = React.useState(false)
   const [connecting, setConnecting] = React.useState(false)
+
+  React.useLayoutEffect(() => {
+    const from = (location.state as { from?: string } | null)?.from
+    if (typeof from === 'string' && isSafeDashboardReturnPath(from)) {
+      saveDashboardReturnTo(from)
+    }
+  }, [location.state])
 
   React.useEffect(() => {
     if (!isConnected || !address) return
@@ -123,16 +132,18 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
     setAuthInFlight(true)
     try {
       try {
-        await ensureWalletChain(wallet, sepolia.id)
+        await ensureWalletChain(wallet, APP_CHAIN.id)
       } catch (e) {
         if (isWalletSignRejected(e)) {
-          setRowError('Switch to Sepolia was cancelled. Approve the network change to sign in.')
+          setRowError(
+            `Switch to ${APP_CHAIN.name} was cancelled. Approve the network change to sign in.`,
+          )
           return
         }
         throw e
       }
 
-      const signable = createWalletLoginSignable(sepolia.id, address as `0x${string}`)
+      const signable = createWalletLoginSignable(APP_CHAIN.id, address as `0x${string}`)
       const walletClient = await getWalletClientFromPrivyWallet(wallet)
       const signature = await walletClient.signTypedData({
         domain: signable.domain,
@@ -155,7 +166,7 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
           dispatch,
           {
             access_token: loginRes.accessToken,
-            refresh_token: loginRes.refreshToken ?? undefined,
+            refresh_token: loginRes.refreshToken ?? null,
             registered: loginRes.registered,
             onboarded: loginRes.onboarded,
             kycStatus: loginRes.kycStatus,
@@ -164,20 +175,22 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
           },
           { fallbackRole: role },
         )
+        await persistor.flush()
         const effectiveRole = parseUserRole(loginRes.roleFromApi) ?? parseUserRole(role) ?? 'investor'
-        navigate(dashboardOverviewPath(effectiveRole), { replace: true })
+        navigate(resolveDashboardReturnTo(effectiveRole), { replace: true })
         return
       }
 
       dispatch(patchAuth({ accessToken: loginRes.accessToken, refreshToken: loginRes.refreshToken ?? null }))
       unlockAfterConnectWallet(role)
+      await persistor.flush()
 
-      if (pathname.startsWith('/onboarding/investor')) {
+      if (location.pathname.startsWith('/onboarding/investor')) {
         navigate('/onboarding/investor/verify-identity')
         return
       }
 
-      if (pathname.startsWith('/onboarding/merchant')) {
+      if (location.pathname.startsWith('/onboarding/merchant')) {
         navigate('/onboarding/merchant/verify-identity')
         return
       }

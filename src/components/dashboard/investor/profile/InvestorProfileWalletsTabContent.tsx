@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useLogout } from '@privy-io/react-auth'
-import { arbitrum, mainnet, sepolia } from 'viem/chains'
+import { arbitrum, arbitrumSepolia, mainnet } from 'viem/chains'
 
 import walletIcon from '@/assets/Icon (1).png'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
@@ -12,7 +12,7 @@ import { useActiveWallet } from '@/wallet/useActiveWallet'
 const CHAIN_LABEL: Record<number, string> = {
   [arbitrum.id]: arbitrum.name,
   [mainnet.id]: mainnet.name,
-  [sepolia.id]: sepolia.name,
+  [arbitrumSepolia.id]: arbitrumSepolia.name,
 }
 
 function walletClientTypeLabel(walletClientType: string | null | undefined): string {
@@ -37,12 +37,12 @@ const InvestorProfileWalletsTabContent = () => {
   const contracts = useTestnetContracts()
 
   const walletTokenBalanceLabel = useMemo(() => {
-    if (!contracts.isConnected) return 'Connect your wallet to view on-chain mock token balance (Sepolia).'
+    if (!contracts.isConnected) return 'Connect your wallet to view on-chain token balance (Arbitrum Sepolia).'
     if (contracts.isContractsLoading) return 'Loading balance…'
     const formatted = contracts.mockTokenBalanceFormatted
     const amountLine = formatted === '—' ? 'Wallet Balance: —' : `Wallet Balance: $${formatted}`
     if (!contracts.isCorrectNetwork) {
-      return `${amountLine} (Sepolia contract view; switch your wallet to ${contracts.testnetChain.name} for deposits and withdrawals.)`
+      return `${amountLine} (off-chain view; switch your wallet to ${contracts.testnetChain.name} for deposits and withdrawals.)`
     }
     return amountLine
   }, [

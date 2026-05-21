@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 
@@ -9,29 +10,106 @@ import documentDownloadIcon from '@/assets/doc-download.png'
 import documentBinIcon from '@/assets/doc-bin.png'
 import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
 import { postMerchantLoanRequest } from '@/api/loanRequest'
+import { fetchRiskTiers, type RiskTier } from '@/api/riskTiers'
 import { useAppSelector } from '@/store/hooks'
+import {
+  clearMerchantLoanApplyDraft,
+  getMerchantLoanApplyDraft,
+  saveMerchantLoanApplyDraft,
+} from '@/session/merchantLoanApplyDraft'
+import {
+  calculateLoanTierFigures,
+  formatLoanCurrency,
+  riskTierSelectLabel,
+} from '@/utils/loanTierCalculations'
+
+type ApplyLoanLocationState = {
+  restoreDraft?: boolean
+}
 
 type RiskAcknowledgementKey = 'repaymentTerms' | 'latePaymentPenalties' | 'smartContractEnforcement'
 
 type UploadedDoc = {
   name: string
   size: string
+  uploadedAtLabel: string
+}
+
+const ACCEPTED_DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx'] as const
+const ACCEPTED_DOCUMENT_EXTENSION_SET = new Set<string>(ACCEPTED_DOCUMENT_EXTENSIONS)
+const ACCEPTED_DOCUMENT_ACCEPT = ACCEPTED_DOCUMENT_EXTENSIONS.join(',')
+
+/** Maximum upload size per loan document (10 MB). */
+const MAX_LOAN_DOCUMENT_BYTES = 10 * 1024 * 1024
+
+function fileExtension(name: string): string {
+  const i = name.lastIndexOf('.')
+  if (i <= 0) return ''
+  return name.slice(i).toLowerCase()
+}
+
+function isAcceptedLoanDocument(file: File): boolean {
+  return ACCEPTED_DOCUMENT_EXTENSION_SET.has(fileExtension(file.name))
+}
+
+/** Returns an error message when the file cannot be uploaded, or `null` if valid. */
+function validateLoanDocument(file: File): string | null {
+  if (!isAcceptedLoanDocument(file)) {
+    return 'Only PDF, DOC, and DOCX files are allowed.'
+  }
+  if (file.size > MAX_LOAN_DOCUMENT_BYTES) {
+    return 'File size must be 10 MB or less.'
+  }
+  return null
+}
+
+function parseLoanAmountInput(raw: string): number | null {
+  const trimmed = raw.trim().replace(/,/g, '')
+  if (!trimmed) return null
+  const n = Number(trimmed)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatUploadedAt(date: Date): string {
+  return date.toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+function uploadedDocFromFile(file: File): UploadedDoc {
+  return {
+    name: file.name,
+    size: formatFileSize(file.size),
+    uploadedAtLabel: formatUploadedAt(new Date()),
+  }
 }
 
 const MerchantApplyLoanPage = () => {
   const { poolSlug } = useParams<{ poolSlug: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
 
   const [amount, setAmount] = useState('')
-  const [loanDuration, setLoanDuration] = useState('')
-  const [repaymentType, setRepaymentType] = useState('')
   const [receiveableName, setReceiveableName] = useState('')
   const [loanInterest, setLoanInterest] = useState('')
   const [repaymentAmount, setRepaymentAmount] = useState('')
-  const [riskTierId, setRiskTierId] = useState('1')
+  const [riskTierId, setRiskTierId] = useState('')
   const [selectedDocument, setSelectedDocument] = useState<File | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [fileUploadError, setFileUploadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   const [riskAcknowledgements, setRiskAcknowledgements] = useState<Record<RiskAcknowledgementKey, boolean>>({
@@ -40,7 +118,29 @@ const MerchantApplyLoanPage = () => {
     smartContractEnforcement: false,
   })
 
-  const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([{ name: 'document.pdf', size: '12mb' }])
+  const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  /** One request per visit to this page — no refetch on focus, reconnect, or remount while cached. */
+  const tiersQuery = useQuery({
+    queryKey: ['loan-risk-tiers'],
+    queryFn: fetchRiskTiers,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: 0,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+
+  const riskTiers = useMemo(
+    () => [...(tiersQuery.data ?? [])].sort((a, b) => a.duration_days - b.duration_days),
+    [tiersQuery.data],
+  )
+
+  const selectedTier = useMemo(
+    () => riskTiers.find((t) => String(t.id) === riskTierId) ?? null,
+    [riskTiers, riskTierId],
+  )
 
   const topBarBreadcrumbs: DashboardBreadcrumbItem[] = useMemo(
     () => [
@@ -48,8 +148,53 @@ const MerchantApplyLoanPage = () => {
       { label: 'Lending Pool' },
       { label: 'Apply for Loan' },
     ],
-    []
+    [],
   )
+
+  useEffect(() => {
+    if (!poolSlug) return
+
+    const restore = Boolean((location.state as ApplyLoanLocationState | null)?.restoreDraft)
+    if (restore) {
+      const saved = getMerchantLoanApplyDraft()
+      if (saved && saved.poolSlug === poolSlug) {
+        setAmount(saved.amount)
+        setReceiveableName(saved.receiveableName)
+        setRiskTierId(saved.riskTierId)
+        setRiskAcknowledgements(saved.riskAcknowledgements)
+        setSelectedDocument(saved.selectedDocument)
+        setUploadedDocs(saved.uploadedDocs)
+        setFileUploadError(null)
+        setSubmitError(null)
+      }
+      return
+    }
+
+    clearMerchantLoanApplyDraft()
+  }, [poolSlug, location.state])
+
+  useEffect(() => {
+    if (riskTierId || riskTiers.length === 0) return
+    const firstActive = riskTiers.find((t) => t.active)
+    if (firstActive) setRiskTierId(String(firstActive.id))
+  }, [riskTiers, riskTierId])
+
+  useEffect(() => {
+    const principal = parseLoanAmountInput(amount)
+    if (!principal || !selectedTier) {
+      setLoanInterest('')
+      setRepaymentAmount('')
+      return
+    }
+    const figures = calculateLoanTierFigures(principal, selectedTier)
+    if (!figures) {
+      setLoanInterest('')
+      setRepaymentAmount('')
+      return
+    }
+    setLoanInterest(formatLoanCurrency(figures.interest))
+    setRepaymentAmount(formatLoanCurrency(figures.repayment))
+  }, [amount, selectedTier])
 
   if (!poolSlug) {
     return <Navigate to="/dashboard/merchant/overview" replace />
@@ -58,14 +203,56 @@ const MerchantApplyLoanPage = () => {
   const allChecked = Object.values(riskAcknowledgements).every(Boolean)
   const token = accessToken?.trim() ?? ''
   const hasSession = Boolean(token)
+  const tiersLoading = tiersQuery.isLoading
+  const tiersError = tiersQuery.isError
+  const hasActiveTier = riskTiers.some((t) => t.active)
+  const hasDocument = Boolean(selectedDocument)
 
-  const downloadDocument = (doc: UploadedDoc) => {
-    // Demo download (no real uploaded file yet).
-    const blob = new Blob([''], { type: 'application/pdf' })
-    const url = URL.createObjectURL(blob)
+  const resetFileInput = () => {
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const applySelectedFile = (file: File) => {
+    setFileUploadError(null)
+    setSelectedDocument(file)
+    setUploadedDocs([uploadedDocFromFile(file)])
+  }
+
+  const handleFileInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    resetFileInput()
+
+    if (!file) return
+
+    const fileError = validateLoanDocument(file)
+    if (fileError) {
+      setFileUploadError(fileError)
+      return
+    }
+
+    if (selectedDocument) {
+      const replace = window.confirm(
+        `You already uploaded "${selectedDocument.name}". Replace it with "${file.name}"?`,
+      )
+      if (!replace) return
+    }
+
+    applySelectedFile(file)
+  }
+
+  const removeUploadedDocument = () => {
+    setSelectedDocument(null)
+    setUploadedDocs([])
+    setFileUploadError(null)
+    resetFileInput()
+  }
+
+  const downloadDocument = () => {
+    if (!selectedDocument) return
+    const url = URL.createObjectURL(selectedDocument)
     const link = document.createElement('a')
     link.href = url
-    link.download = doc.name
+    link.download = selectedDocument.name
     link.click()
     URL.revokeObjectURL(url)
   }
@@ -79,20 +266,40 @@ const MerchantApplyLoanPage = () => {
       return
     }
 
-    const amountNum = Number(amount.trim().replace(/,/g, ''))
-    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+    if (tiersLoading) {
+      setSubmitError('Risk tiers are still loading. Please wait a moment.')
+      return
+    }
+
+    if (tiersError || riskTiers.length === 0) {
+      setSubmitError('Could not load risk tiers. Refresh the page and try again.')
+      return
+    }
+
+    const amountNum = parseLoanAmountInput(amount)
+    if (amountNum == null) {
       setSubmitError('Enter a valid loan amount greater than 0.')
       return
     }
 
-    const tierNum = Number(riskTierId.trim())
-    if (!Number.isInteger(tierNum) || tierNum <= 0) {
-      setSubmitError('Risk tier ID must be a positive integer.')
+    if (!selectedTier) {
+      setSubmitError('Select a risk tier duration.')
+      return
+    }
+
+    if (!selectedTier.active) {
+      setSubmitError('The selected risk tier is not available. Choose an active tier.')
       return
     }
 
     if (!selectedDocument) {
-      setSubmitError('Please upload your KYC document (PDF, DOC, or DOCX).')
+      setSubmitError('Please upload your document (PDF, DOC, or DOCX only).')
+      return
+    }
+
+    const documentError = validateLoanDocument(selectedDocument)
+    if (documentError) {
+      setSubmitError(documentError)
       return
     }
 
@@ -103,22 +310,93 @@ const MerchantApplyLoanPage = () => {
 
     const form = new FormData()
     form.append('loan_amount', String(amountNum))
-    form.append('risk_tier_id', String(tierNum))
+    form.append('risk_tier_id', String(selectedTier.id))
     form.append('document', selectedDocument)
 
     setSubmitting(true)
     try {
-      await postMerchantLoanRequest(token, form)
-      navigate(`/dashboard/merchant/lending-pool/${poolSlug}/apply-loan/success`)
-    } catch (e) {
-      if (e instanceof ApiRequestError) {
-        setSubmitError(formatApiRequestErrorPlain(e))
-      } else {
-        setSubmitError(e instanceof Error ? e.message : 'Could not submit loan request.')
+      const res = await postMerchantLoanRequest(token, form)
+      const requestId = res.request_id?.trim()
+      if (!requestId) {
+        throw new Error('Loan was submitted but no request id was returned. Please check your receivables list.')
       }
+      clearMerchantLoanApplyDraft()
+      navigate(`/dashboard/merchant/receivables/${encodeURIComponent(requestId)}`, {
+        replace: true,
+        state: { poolSlug },
+      })
+    } catch (e) {
+      const message =
+        e instanceof ApiRequestError
+          ? formatApiRequestErrorPlain(e)
+          : e instanceof Error
+            ? e.message
+            : 'We could not submit your loan request. Please try again.'
+
+      saveMerchantLoanApplyDraft({
+        poolSlug,
+        amount,
+        receiveableName,
+        riskTierId,
+        riskAcknowledgements,
+        selectedDocument,
+        uploadedDocs,
+      })
+
+      navigate(`/dashboard/merchant/lending-pool/${poolSlug}/apply-loan/failure`, {
+        replace: true,
+        state: {
+          message: message.trim() || 'We could not submit your loan request. Please try again.',
+        },
+      })
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const renderRiskTierSelect = () => {
+    if (tiersLoading) {
+      return (
+        <select
+          disabled
+          className="mt-2 w-full border border-[#E6E8EC] rounded-[6px] px-4 py-2.5 text-[14px] bg-[#F9FAFB] text-[#8B92A3] cursor-wait"
+        >
+          <option>Loading risk tiers…</option>
+        </select>
+      )
+    }
+
+    if (tiersError || riskTiers.length === 0) {
+      return (
+        <select
+          disabled
+          className="mt-2 w-full border border-[#FECACA] rounded-[6px] px-4 py-2.5 text-[14px] bg-[#FEF2F2] text-[#B91C1C] cursor-not-allowed"
+        >
+          <option>Risk tiers unavailable</option>
+        </select>
+      )
+    }
+
+    return (
+      <select
+        value={riskTierId}
+        onChange={(e) => setRiskTierId(e.target.value)}
+        className="mt-2 w-full border border-[#E6E8EC] rounded-[6px] px-4 py-2.5 text-[14px] outline-none focus:border-[#195EBC] disabled:bg-[#F9FAFB] disabled:text-[#8B92A3] disabled:cursor-not-allowed"
+        disabled={!hasActiveTier}
+      >
+        {!riskTierId ? <option value="">Select duration</option> : null}
+        {riskTiers.map((tier: RiskTier) => (
+          <option
+            key={tier.id}
+            value={String(tier.id)}
+            disabled={!tier.active}
+            className={tier.active ? '' : 'text-[#8B92A3]'}
+          >
+            {riskTierSelectLabel(tier)}
+          </option>
+        ))}
+      </select>
+    )
   }
 
   return (
@@ -157,38 +435,12 @@ const MerchantApplyLoanPage = () => {
 
             <label className="block">
               <span className="text-[#6B7488] text-[12px]">Risk Tier Duration</span>
-              <select
-                value={riskTierId}
-                onChange={(e) => setRiskTierId(e.target.value)}
-                className="mt-2 w-full border border-[#E6E8EC] rounded-[6px] px-4 py-2.5 text-[14px] outline-none focus:border-[#195EBC]"
-              >
-                <option value="1">30 days</option>
-                <option value="2">60 days</option>
-                <option value="3">90 days</option>
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="text-[#6B7488] text-[12px]">Loan Duration</span>
-              <select
-                value={loanDuration}
-                onChange={(e) => setLoanDuration(e.target.value)}
-                className="mt-2 w-full border border-[#E6E8EC] rounded-[6px] px-4 py-2.5 text-[14px] outline-none focus:border-[#195EBC]"
-              >
-                <option value="">Select the duration of your loan</option>
-                <option value="30-60">30-90 days</option>
-                <option value="60-90">60-90 days</option>
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="text-[#6B7488] text-[12px]">Repayment Type</span>
-              <input
-                value={repaymentType}
-                onChange={(e) => setRepaymentType(e.target.value)}
-                placeholder="How would you like to pay back?"
-                className="mt-2 w-full border border-[#E6E8EC] rounded-[6px] px-4 py-2.5 text-[14px] outline-none focus:border-[#195EBC]"
-              />
+              {renderRiskTierSelect()}
+              {selectedTier && !selectedTier.active ? (
+                <p className="mt-1.5 text-[#B45309] text-[12px]" role="status">
+                  This tier is inactive and cannot be used for new loans.
+                </p>
+              ) : null}
             </label>
 
             <label className="block">
@@ -201,32 +453,44 @@ const MerchantApplyLoanPage = () => {
               />
             </label>
 
+            <div className="hidden md:block" aria-hidden />
+
             <label className="block">
               <span className="text-[#6B7488] text-[12px]">Loan Interest</span>
               <input
                 value={loanInterest}
-                onChange={(e) => setLoanInterest(e.target.value)}
-                placeholder="Calculating..."
-                className="mt-2 w-full border border-[#E6E8EC] rounded-[6px] px-4 py-2.5 text-[14px] outline-none focus:border-[#195EBC]"
+                readOnly
+                placeholder={amount.trim() && selectedTier ? 'Calculating…' : 'Enter amount and tier'}
+                className="mt-2 w-full border border-[#E6E8EC] rounded-[6px] px-4 py-2.5 text-[14px] bg-[#FAFBFD] text-[#0B1220] cursor-default"
+                aria-readonly="true"
               />
+              {selectedTier ? (
+                <p className="mt-1 text-[#8B92A3] text-[11px]">
+                  {selectedTier.interest_percent}% APR over {selectedTier.duration_days} days (pro-rated)
+                </p>
+              ) : null}
             </label>
 
             <label className="block">
               <span className="text-[#6B7488] text-[12px]">Repayment Amount</span>
               <input
                 value={repaymentAmount}
-                onChange={(e) => setRepaymentAmount(e.target.value)}
-                placeholder="Calculating..."
-                className="mt-2 w-full border border-[#E6E8EC] rounded-[6px] px-4 py-2.5 text-[14px] outline-none focus:border-[#195EBC]"
+                readOnly
+                placeholder={amount.trim() && selectedTier ? 'Calculating…' : 'Enter amount and tier'}
+                className="mt-2 w-full border border-[#E6E8EC] rounded-[6px] px-4 py-2.5 text-[14px] bg-[#FAFBFD] text-[#0B1220] cursor-default"
+                aria-readonly="true"
               />
             </label>
           </div>
         </section>
 
         <section className="rounded-[10px] border border-[#DFE2E8] bg-white p-4 sm:p-6">
-          <h2 className="text-[#6B7488] text-[14px] font-semibold">Files Upload</h2>
+          <h2 className="text-[#6B7488] text-[14px] font-semibold">
+            Files Upload <span className="text-[#B91C1C]">*</span>
+          </h2>
           <p className="text-[#8B92A3] text-[12px] mt-2">
-            Upload Invoice/Receivable Proof, Supporting Contract &amp; Agreement, Purchase Order, Monthly Revenue.
+            Upload one document (required): Invoice/Receivable Proof, Supporting Contract &amp; Agreement, Purchase
+            Order, or Monthly Revenue.
           </p>
 
           <div className="mt-4 rounded-[8px] border border-dashed border-[#D5DAE2] bg-[#FAFBFD] p-5 sm:p-8 text-center">
@@ -235,7 +499,7 @@ const MerchantApplyLoanPage = () => {
             </div>
 
             <div className="mt-3 text-[#6B7488] text-[14px] font-medium">Click to upload or drag and drop</div>
-            <div className="mt-2 text-[#8B92A3] text-[11px]">PDF, DOC, or DOCX</div>
+            <div className="mt-2 text-[#8B92A3] text-[11px]">PDF, DOC, or DOCX only — max 10 MB</div>
 
             <div className="mt-4 flex items-center gap-3">
               <div className="h-px flex-1 bg-[#EDF0F4]" />
@@ -244,18 +508,26 @@ const MerchantApplyLoanPage = () => {
             </div>
 
             <label className="mt-4 inline-flex items-center justify-center px-6 py-2.5 bg-[#195EBC] text-white text-[14px] rounded-[6px] font-medium cursor-pointer">
-              Browse Files
+              {hasDocument ? 'Replace file' : 'Browse Files'}
               <input
+                ref={fileInputRef}
                 type="file"
-                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                accept={ACCEPTED_DOCUMENT_ACCEPT}
                 className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0] ?? null
-                  setSelectedDocument(f)
-                }}
+                onChange={handleFileInputChange}
               />
             </label>
           </div>
+
+          {fileUploadError ? (
+            <p className="mt-3 text-[#B91C1C] text-[12px] text-center" role="alert">
+              {fileUploadError}
+            </p>
+          ) : !hasDocument ? (
+            <p className="mt-3 text-[#8B92A3] text-[12px] text-center" role="status">
+              No file uploaded yet. A document is required to submit your application.
+            </p>
+          ) : null}
 
           <div className="mt-5 flex flex-col gap-3">
             {uploadedDocs.map((doc) => (
@@ -266,7 +538,9 @@ const MerchantApplyLoanPage = () => {
                   </div>
                   <div className="min-w-0">
                     <p className="text-[#0B1220] text-[12px] font-semibold truncate">{doc.name}</p>
-                    <p className="text-[#8B92A3] text-[11px] mt-0.5">Last updated: 11 Sep 2023 • 12:24pm • {doc.size}</p>
+                    <p className="text-[#8B92A3] text-[11px] mt-0.5">
+                      Uploaded: {doc.uploadedAtLabel} • {doc.size}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4 shrink-0">
@@ -274,7 +548,7 @@ const MerchantApplyLoanPage = () => {
                     type="button"
                     className="h-5 w-5 flex items-center justify-center"
                     aria-label={`Download ${doc.name}`}
-                    onClick={() => downloadDocument(doc)}
+                    onClick={() => downloadDocument()}
                   >
                     <img src={documentDownloadIcon} alt="" className="h-5 w-5 object-contain" />
                   </button>
@@ -282,7 +556,7 @@ const MerchantApplyLoanPage = () => {
                     type="button"
                     className="h-5 w-5 flex items-center justify-center"
                     aria-label={`Remove ${doc.name}`}
-                    onClick={() => setUploadedDocs((prev) => prev.filter((d) => d.name !== doc.name))}
+                    onClick={removeUploadedDocument}
                   >
                     <img src={documentBinIcon} alt="" className="h-5 w-5 object-contain" />
                   </button>
@@ -327,7 +601,9 @@ const MerchantApplyLoanPage = () => {
                 <input
                   type="checkbox"
                   checked={riskAcknowledgements.smartContractEnforcement}
-                  onChange={(e) => setRiskAcknowledgements((prev) => ({ ...prev, smartContractEnforcement: e.target.checked }))}
+                  onChange={(e) =>
+                    setRiskAcknowledgements((prev) => ({ ...prev, smartContractEnforcement: e.target.checked }))
+                  }
                 />
                 <span className="text-[#0B1220] text-[13px]">
                   I agree to <span className="text-[#195EBC] font-semibold">smart contract enforcement</span> ↗
@@ -344,9 +620,27 @@ const MerchantApplyLoanPage = () => {
             ) : null}
             <button
               type="button"
-              disabled={!allChecked || !hasSession || submitting}
+              disabled={
+                !allChecked ||
+                !hasSession ||
+                !hasDocument ||
+                submitting ||
+                tiersLoading ||
+                tiersError ||
+                !hasActiveTier ||
+                !selectedTier?.active
+              }
               className={`w-full rounded-[6px] bg-[#1B66CF] text-white text-[15px] sm:text-[16px] font-semibold py-3 transition-colors ${
-                allChecked && hasSession && !submitting ? 'opacity-100 hover:bg-[#154a9a]' : 'opacity-60 cursor-not-allowed'
+                allChecked &&
+                hasSession &&
+                hasDocument &&
+                !submitting &&
+                !tiersLoading &&
+                !tiersError &&
+                hasActiveTier &&
+                selectedTier?.active
+                  ? 'opacity-100 hover:bg-[#154a9a]'
+                  : 'opacity-60 cursor-not-allowed'
               }`}
               onClick={() => void submitLoanRequest()}
             >
@@ -360,4 +654,3 @@ const MerchantApplyLoanPage = () => {
 }
 
 export default MerchantApplyLoanPage
-

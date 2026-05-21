@@ -5,7 +5,7 @@ interface InvestmentPoolSelectionStepProps {
   amountDisplay: string
   pool: InvestmentPoolInfo
   detailsLabel: string
-  /** Optional on-chain wallet balance hint (Sepolia), e.g. `Wallet Balance: $1,234.56`. */
+  /** Optional on-chain wallet balance hint (Arbitrum Sepolia), e.g. `Wallet Balance: $1,234.56`. */
   walletTokenBalanceLabel?: string
   onContinue: () => void
 }

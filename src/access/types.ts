@@ -19,6 +19,8 @@ export type AccessContext = {
   pathname: string
   /** True once redux-persist finished rehydrating slices used by guards. */
   persistedReady: boolean
+  privyReady: boolean
+  walletsReady: boolean
   role: UserRole | null
   onboarded: boolean
   accessToken: string | null

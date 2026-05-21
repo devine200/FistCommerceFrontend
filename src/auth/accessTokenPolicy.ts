@@ -15,3 +15,15 @@ export function sanitizeAccessToken(value: string | null | undefined): string | 
   if (/[\r\n]/.test(t)) return null
   return t
 }
+
+/** Refresh tokens may be longer than access keys; still cap to avoid corrupt persisted blobs. */
+export const MAX_REFRESH_TOKEN_CHARS = 4096
+
+export function sanitizeRefreshToken(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null
+  const t = typeof value === 'string' ? value.trim() : ''
+  if (!t) return null
+  if (t.length > MAX_REFRESH_TOKEN_CHARS) return null
+  if (/[\r\n]/.test(t)) return null
+  return t
+}

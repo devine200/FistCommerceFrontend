@@ -9,6 +9,13 @@ import { setWalletFromProvider } from '@/store/slices/walletSlice'
 import { syncWalletChainIdFromProviderToRedux } from '@/wallet/syncWalletChainToRedux'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 
+/**
+ * After idle, Privy/the wallet provider can briefly report an empty wallet list while `ready` is
+ * true. Resetting immediately clears Redux and forces choose-role; wait before treating disconnect
+ * as real when the user is still Privy-authenticated.
+ */
+const DISCONNECT_SESSION_RESET_MS = 2500
+
 // Opt-in only: avoids noisy console/network errors in dev when no ingest proxy is configured.
 const AGENT_DEBUG_INGEST =
   import.meta.env.DEV && String(import.meta.env.VITE_AGENT_DEBUG_INGEST_ENABLED).toLowerCase() === 'true'
@@ -130,32 +137,75 @@ export default function WalletReduxSync() {
 
   const wasConnected = useRef(false)
   const lastAddress = useRef<string | null>(null)
+  /** Timer id (`number` in DOM; Node typings may use `Timeout`). */
+  const disconnectResetTimerRef = useRef<number | null>(null)
+  const isConnectedRef = useRef(isConnected)
+  const authenticatedRef = useRef(authenticated)
+  isConnectedRef.current = isConnected
+  authenticatedRef.current = authenticated
+
+  useEffect(() => {
+    return () => {
+      if (disconnectResetTimerRef.current) {
+        clearTimeout(disconnectResetTimerRef.current)
+        disconnectResetTimerRef.current = null
+      }
+    }
+  }, [])
+
   useEffect(() => {
     // Privy can briefly report no linked wallets while `ready` is false; treating that as a
     // disconnect resets onboarding and sends users back to choose-role.
     if (!privyReady || !walletsReady) return
 
+    const clearPendingDisconnectReset = () => {
+      if (disconnectResetTimerRef.current) {
+        clearTimeout(disconnectResetTimerRef.current)
+        disconnectResetTimerRef.current = null
+      }
+    }
+
+    if (isConnected) {
+      clearPendingDisconnectReset()
+    }
+
     if (wasConnected.current && !isConnected) {
-      // #region agent log
-      agentDebugLog({
-        runId: 'post-fix',
-        hypothesisId: 'H2',
-        location: 'src/components/session/WalletReduxSync.tsx:disconnect-branch',
-        message: 'Redirecting choose-role due to disconnect',
-        data: {
-          wasConnected: true,
-          isConnected,
-          prevAddress: lastAddress.current,
-          nextAddress: address,
-          authenticated,
-          privyReady,
-          walletsReady,
-        },
-        timestamp: Date.now(),
-      })
-      // #endregion agent log
-      resetUserSession(dispatch)
-      window.location.replace('/onboarding/choose-role')
+      const runDisconnectReset = () => {
+        clearPendingDisconnectReset()
+        // #region agent log
+        agentDebugLog({
+          runId: 'post-fix',
+          hypothesisId: 'H2',
+          location: 'src/components/session/WalletReduxSync.tsx:disconnect-branch',
+          message: 'Redirecting choose-role due to disconnect',
+          data: {
+            wasConnected: true,
+            isConnected,
+            prevAddress: lastAddress.current,
+            nextAddress: address,
+            authenticated,
+            privyReady,
+            walletsReady,
+          },
+          timestamp: Date.now(),
+        })
+        // #endregion agent log
+        resetUserSession(dispatch)
+        window.location.replace('/onboarding/choose-role')
+      }
+
+      // Still Privy-authenticated: only reset after a sustained disconnect (avoids idle flicker).
+      if (authenticated) {
+        clearPendingDisconnectReset()
+        disconnectResetTimerRef.current = window.setTimeout(() => {
+          disconnectResetTimerRef.current = null
+          if (isConnectedRef.current) return
+          if (!authenticatedRef.current) return
+          runDisconnectReset()
+        }, DISCONNECT_SESSION_RESET_MS)
+      } else {
+        runDisconnectReset()
+      }
     }
     // If user swaps wallet/address while “connected”, force re-auth (signature is wallet-bound).
     if (wasConnected.current && isConnected && lastAddress.current && lastAddress.current !== address) {
@@ -188,6 +238,10 @@ export default function WalletReduxSync() {
   useEffect(() => {
     if (!privyReady) return
     if (wasAuthenticated.current && !authenticated) {
+      if (disconnectResetTimerRef.current) {
+        clearTimeout(disconnectResetTimerRef.current)
+        disconnectResetTimerRef.current = null
+      }
       // #region agent log
       agentDebugLog({
         runId: 'post-fix',

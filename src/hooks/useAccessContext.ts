@@ -1,3 +1,4 @@
+import { usePrivy } from '@privy-io/react-auth'
 import { useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 
@@ -10,7 +11,8 @@ import { parseUserRole } from '@/utils/userRole'
 /** Snapshot of route + auth + wallet + KYC used by access evaluators */
 export function useAccessContext(): AccessContext {
   const location = useLocation()
-  const { isConnected, address } = useActiveWallet()
+  const { ready: privyReady } = usePrivy()
+  const { isConnected, address, ready: walletsReady } = useActiveWallet()
   const status = isConnected ? 'connected' : 'disconnected'
   const auth = useAppSelector((s) => s.auth)
   const onboarding = useAppSelector((s) => s.onboarding)
@@ -22,6 +24,8 @@ export function useAccessContext(): AccessContext {
     () => ({
       pathname: location.pathname,
       persistedReady,
+      privyReady,
+      walletsReady,
       role: parseUserRole(auth.role),
       onboarded: auth.onboarded,
       accessToken: auth.accessToken,
@@ -42,6 +46,8 @@ export function useAccessContext(): AccessContext {
     [
       location.pathname,
       persistedReady,
+      privyReady,
+      walletsReady,
       auth.role,
       auth.onboarded,
       auth.accessToken,

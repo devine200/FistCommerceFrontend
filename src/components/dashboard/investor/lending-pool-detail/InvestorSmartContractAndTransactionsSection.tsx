@@ -6,7 +6,7 @@ import { POOL_SECTION_TITLE } from '@/components/dashboard/shared/poolDetailTypo
 interface InvestorSmartContractAndTransactionsSectionProps {
   contractRows: ContractField[]
   transactions: RecentTx[]
-  /** Full URL to the pool contract on Sepolia (or API-provided explorer). */
+  /** Full URL to the pool contract on Arbitrum Sepolia (or API-provided explorer). */
   contractExplorerHref?: string | null
 }
 
@@ -99,7 +99,7 @@ const InvestorSmartContractAndTransactionsSection = ({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-[#195EBC] text-[15px] font-semibold hover:underline shrink-0"
             >
-              View on Etherscan
+              View on Arbiscan
               <ExternalLinkGlyph className="opacity-90" />
             </a>
           ) : null}
