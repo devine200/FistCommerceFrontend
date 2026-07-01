@@ -22,6 +22,22 @@ interface ImportMetaEnv {
   readonly VITE_AUTH_EIP712_DOMAIN_NAME?: string
   readonly VITE_AUTH_EIP712_DOMAIN_VERSION?: string
   readonly VITE_AUTH_EIP712_VERIFYING_CONTRACT?: `0x${string}`
+  /**
+   * Smart contract network: `testnet` (default, Arbitrum Sepolia) or `local` (Anvil + local-deployment-config.json).
+   */
+  readonly VITE_CONTRACT_NETWORK?: 'local' | 'testnet'
+  /** Local Anvil RPC URL when `VITE_CONTRACT_NETWORK=local`. Default: http://127.0.0.1:8545 */
+  readonly VITE_LOCAL_RPC_URL?: string
+  /** Local chain id when `VITE_CONTRACT_NETWORK=local`. Overrides `local-deployment-config.json`. */
+  readonly VITE_LOCAL_CHAIN_ID?: string
+  /** Optional block explorer for local mode (usually empty). */
+  readonly VITE_LOCAL_BLOCK_EXPLORER_URL?: string
+  readonly VITE_ARBITRUM_SEPOLIA_BLOCK_EXPLORER_URL?: string
+  readonly VITE_ARBITRUM_SEPOLIA_POOL_CONTRACT_ADDRESS?: string
+  /** @deprecated Use `VITE_ARBITRUM_SEPOLIA_BLOCK_EXPLORER_URL` */
+  readonly VITE_ETH_SEPOLIA_BLOCK_EXPLORER_URL?: string
+  /** @deprecated Use `VITE_ARBITRUM_SEPOLIA_POOL_CONTRACT_ADDRESS` */
+  readonly VITE_ETH_SEPOLIA_POOL_CONTRACT_ADDRESS?: string
 }
 
 interface ImportMeta {

@@ -5,6 +5,9 @@ import { parseUserRole } from '@/utils/userRole'
 
 export type UserRole = 'investor' | 'merchant'
 
+/** `admin` = staff dashboard; `app` = investor/merchant wallet session. */
+export type SessionKind = 'admin' | 'app' | null
+
 export type AuthUser = {
   id?: string
   email?: string
@@ -17,6 +20,7 @@ export type SessionState = {
   onboarded: boolean
   /** `null` until the user picks a role on choose-role (also cleared on onboarding URL / role mismatch). */
   role: UserRole | null
+  sessionKind: SessionKind
   /** @deprecated Prefer kyc slice + selectIsKycVerified; kept for redux-persist migration */
   kycVerified: boolean
 }
@@ -27,6 +31,7 @@ const DEFAULT_SESSION: SessionState = {
   user: null,
   onboarded: false,
   role: null,
+  sessionKind: null,
   kycVerified: false,
 }
 
@@ -39,6 +44,7 @@ const authSlice = createSlice({
       accessToken: sanitizeAccessToken(action.payload.accessToken),
       refreshToken: sanitizeRefreshToken(action.payload.refreshToken),
       role: parseUserRole(action.payload.role),
+      sessionKind: action.payload.sessionKind ?? null,
     }),
     patchAuth: (state, action: PayloadAction<Partial<SessionState>>) => {
       if (action.payload.accessToken !== undefined) {
@@ -50,6 +56,7 @@ const authSlice = createSlice({
       if (action.payload.user !== undefined) state.user = action.payload.user
       if (action.payload.onboarded !== undefined) state.onboarded = action.payload.onboarded
       if (action.payload.role !== undefined) state.role = parseUserRole(action.payload.role)
+      if (action.payload.sessionKind !== undefined) state.sessionKind = action.payload.sessionKind
       if (action.payload.kycVerified !== undefined) state.kycVerified = action.payload.kycVerified
     },
     resetAuth: () => DEFAULT_SESSION,

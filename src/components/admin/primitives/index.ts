@@ -11,6 +11,7 @@ export { adminZebraRowClass } from './adminTableRow'
 export { default as AdminStatusPill } from './AdminStatusPill'
 export { default as AdminPartyStack } from './AdminPartyStack'
 export { default as AdminTableTextLink } from './AdminTableTextLink'
+export { AdminListPagination } from './AdminListPagination'
 
 export type {
   AdminPageFrameProps,

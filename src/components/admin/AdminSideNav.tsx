@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 
 import logo from '@/assets/logo.png'
@@ -9,8 +10,10 @@ import coinIcon from '@/assets/Coin.svg'
 import adminSidebarMoney from '@/assets/admin-sidebar-money.png'
 import adminIconTransactions from '@/assets/admin-icon-transactions.png'
 import adminIconSupport from '@/assets/admin-icon-support.png'
-import adminIconAlerts from '@/assets/admin-icon-alerts.png'
 import adminIconSettings from '@/assets/admin-icon-settings.png'
+
+import { useAppDispatch } from '@/store/hooks'
+import { logoutAdminSession } from '@/session/logoutAdminSession'
 
 import type { AdminNavItem, AdminSideNavProps } from './types'
 
@@ -29,21 +32,52 @@ const LOGO_HEADER = 'w-[45px] h-[40px] max-w-[45px] max-h-[40px] object-contain 
 const ICON_ACTIVE_FILTER_CSS =
   'brightness(0) saturate(100%) invert(31%) sepia(98%) saturate(2618%) hue-rotate(200deg) brightness(97%) contrast(96%)'
 
+function AdminLogoutIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  )
+}
+
 const NAV_ITEMS: AdminNavItem[] = [
   { to: `${basePath}/overview`, label: 'Dashboard', iconSrc: squaresFourIcon, iconAlwaysBrandBlue: true },
-  { to: `${basePath}/receivables`, label: 'Receivables', iconSrc: adminSidebarDocument },
+  { to: `${basePath}/governance`, label: 'Governance', iconSrc: adminIconTransactions },
+  { to: `${basePath}/payout-withdrawals`, label: 'Payout & Withdrawals', iconSrc: adminSidebarDocument },
   { to: `${basePath}/merchants`, label: 'Merchants', iconSrc: userIcon },
   { to: `${basePath}/investors`, label: 'Investors', iconSrc: coinIcon },
   { to: `${basePath}/loan-monitoring`, label: 'Loan Monitoring', iconSrc: adminSidebarMoney },
+  { to: `${basePath}/receivables`, label: 'Receivables', iconSrc: adminSidebarDocument },
   { to: `${basePath}/transactions`, label: 'Transactions', iconSrc: adminIconTransactions },
-  { to: `${basePath}/support`, label: 'Support & Disputes', iconSrc: adminIconSupport },
-  { to: `${basePath}/alerts`, label: 'Alerts', iconSrc: adminIconAlerts },
+  { to: `${basePath}/support`, label: 'Support and Dispute Info', iconSrc: adminIconSupport },
   { to: `${basePath}/settings`, label: 'Settings', iconSrc: adminIconSettings },
 ]
 
 const AdminSideNav = ({ expanded, onToggleExpanded, onRequestClose }: AdminSideNavProps) => {
+  const dispatch = useAppDispatch()
+  const [loggingOut, setLoggingOut] = useState(false)
   const showLabels = expanded
   const asideWidthClass = expanded ? 'w-[248px]' : 'w-[72px]'
+
+  const handleLogout = () => {
+    if (loggingOut) return
+    onRequestClose?.()
+    setLoggingOut(true)
+    void logoutAdminSession(dispatch).catch(() => {
+      setLoggingOut(false)
+    })
+  }
 
   return (
     <aside
@@ -105,7 +139,30 @@ const AdminSideNav = ({ expanded, onToggleExpanded, onRequestClose }: AdminSideN
         ))}
       </nav>
 
-      <div className="p-3 border-t border-[#EDF0F4] flex justify-center">
+      <div className="p-3 border-t border-[#EDF0F4] flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className={[
+            'flex items-center gap-3 rounded-[6px] px-3 py-3 text-left transition-colors w-full',
+            'text-[#6B7488] hover:bg-[#FEF2F2] hover:text-[#DC2626] disabled:opacity-60',
+          ].join(' ')}
+          aria-label="Log out"
+        >
+          <span className="h-[24px] w-[24px] shrink-0 flex items-center justify-center text-[#6B7488]">
+            <AdminLogoutIcon className="w-[24px] h-[24px]" />
+          </span>
+          <span
+            className={[
+              'text-[14px] font-medium truncate transition-opacity duration-200',
+              showLabels ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0 overflow-hidden',
+            ].join(' ')}
+          >
+            {loggingOut ? 'Logging out…' : 'Log out'}
+          </span>
+        </button>
+        <div className="flex justify-center">
         <button
           type="button"
           onClick={onToggleExpanded}
@@ -118,6 +175,7 @@ const AdminSideNav = ({ expanded, onToggleExpanded, onRequestClose }: AdminSideN
             className={[ICON_24, 'transition-transform duration-200', expanded ? 'rotate-180' : ''].join(' ')}
           />
         </button>
+        </div>
       </div>
     </aside>
   )

@@ -1,6 +1,6 @@
 import { formatDrfValidationDetails } from '@/utils/formatApiValidationDetails'
 
-/** Backend origin from Vite env (no trailing slash). */
+/** Backend base from Vite env (no trailing slash). May be origin (`http://host:8000`) or API root (`…/api`). */
 export function getApiBaseUrl(): string | null {
   const raw = import.meta.env.VITE_API_BASE_URL?.trim()
   if (!raw) return null
@@ -15,6 +15,18 @@ export function requireApiBaseUrl(): string {
     )
   }
   return base
+}
+
+/** Normalized Django API root, always ending with `/api`. */
+export function getApiRoot(): string {
+  const base = requireApiBaseUrl()
+  return base.endsWith('/api') ? base : `${base}/api`
+}
+
+/** Build a full URL from an OpenAPI path (e.g. `/kyc/admin/merchants/` → `…/api/kyc/admin/merchants/`). */
+export function apiUrl(path: string): string {
+  const segment = path.startsWith('/') ? path : `/${path}`
+  return `${getApiRoot()}${segment}`
 }
 
 export class ApiRequestError extends Error {

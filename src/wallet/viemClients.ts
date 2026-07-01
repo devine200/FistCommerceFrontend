@@ -16,9 +16,10 @@ export async function getWalletClientFromPrivyWallet(wallet: ConnectedWallet): P
 }
 
 export function getPublicClient(): PublicClient {
+  const rpcUrl = APP_CHAIN.rpcUrls.default.http[0]
   return createPublicClient({
     chain: DEFAULT_EVM_CHAIN,
-    transport: http(),
+    transport: http(rpcUrl),
   })
 }
 

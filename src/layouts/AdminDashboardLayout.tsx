@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 
+import AdminFetchErrorModal from '@/components/admin/AdminFetchErrorModal'
 import AdminSideNav from '@/components/admin/AdminSideNav'
 import AdminTopBar from '@/components/admin/AdminTopBar'
+import { useConnectWalletAction } from '@/hooks/useConnectWalletAction'
 import { useWallet } from '@/hooks/useWallet'
 import { AdminMerchantProfileBreadcrumb } from '@/components/admin/merchants'
 import {
@@ -14,20 +16,23 @@ const ADMIN_INVESTORS_LIST_PATH = '/dashboard/admin/investors'
 const ADMIN_MERCHANTS_LIST_PATH = '/dashboard/admin/merchants'
 const isAdminInvestorProfilePath = (path: string) => /^\/dashboard\/admin\/investors\/[^/]+$/.test(path)
 const isAdminMerchantProfilePath = (path: string) => /^\/dashboard\/admin\/merchants\/[^/]+$/.test(path)
+const isAdminLoanMonitoringDetailPath = (path: string) =>
+  /^\/dashboard\/admin\/loan-monitoring\/[^/]+$/.test(path)
 
 const adminInvestorActivityDetailMatch = (path: string) =>
   path.match(/^\/dashboard\/admin\/investors\/([^/]+)\/activity\/([^/]+)$/)
 
 const TITLE_BY_SEGMENT: Record<string, string> = {
   overview: 'Platform Overview',
+  governance: 'Governance Queue',
+  'payout-withdrawals': 'Payout & Withdrawal Management',
   receivables: 'Receivables Management',
   merchants: 'Merchants Management',
   investors: 'Investors Management',
   'loan-monitoring': 'Loan Monitoring',
   transactions: 'Transactions',
   settlements: 'Settlements',
-  support: 'Support & Disputes',
-  alerts: 'Notifications',
+  support: 'Support and Dispute Info',
   settings: 'Settings',
 }
 
@@ -41,9 +46,17 @@ const AdminDashboardLayout = () => {
   }, [pathname])
 
   const pageTitle = useMemo(() => {
-    if (pathname.includes('/dashboard/admin/receivables/')) return TITLE_BY_SEGMENT.receivables
+    if (pathname.includes('/dashboard/admin/governance/') && pathname !== '/dashboard/admin/governance') {
+      return 'Governance Proposal'
+    }
+    if (pathname === '/dashboard/admin/governance') return TITLE_BY_SEGMENT.governance
+    if (pathname.includes('/dashboard/admin/receivables/') && !pathname.endsWith('/receivables')) {
+      return 'Receivable Details'
+    }
+    if (pathname === '/dashboard/admin/receivables') return TITLE_BY_SEGMENT.receivables
     if (adminInvestorActivityDetailMatch(pathname)) return 'Investment Details'
     if (isAdminMerchantProfilePath(pathname)) return 'Merchant Profile'
+    if (isAdminLoanMonitoringDetailPath(pathname)) return 'Loan Details'
     const parts = pathname.split('/').filter(Boolean)
     if (parts[2] === 'investors' && parts[3]) return 'Investor Profile'
     const seg = parts[parts.length - 1] ?? 'overview'
@@ -72,9 +85,11 @@ const AdminDashboardLayout = () => {
 
   const menuButtonLabel = mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'
   const { shortAddress } = useWallet()
+  const { connect: connectWallet, pending: connectWalletPending } = useConnectWalletAction()
 
   return (
     <main className="h-dvh w-full bg-[#EEF0F4] flex overflow-hidden">
+      <AdminFetchErrorModal />
       <div className="hidden lg:flex shrink-0">
         <AdminSideNav
           expanded={sidebarExpanded}
@@ -101,6 +116,8 @@ const AdminDashboardLayout = () => {
           leading={topBarLeading}
           notificationUnread
           walletDisplay={shortAddress ?? undefined}
+          onConnectWallet={() => void connectWallet()}
+          connectWalletPending={connectWalletPending}
           onMenuClick={() => setMobileNavOpen((v) => !v)}
           menuButtonAriaLabel={menuButtonLabel}
         />

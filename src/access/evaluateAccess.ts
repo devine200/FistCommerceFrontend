@@ -1,5 +1,12 @@
 import { isSessionBootstrapping } from '@/access/sessionAccess'
 import type { AccessCapabilities, AccessContext, AccessDecision } from '@/access/types'
+import {
+  ADMIN_DASHBOARD_OVERVIEW_PATH,
+  ADMIN_LOGIN_PATH,
+  isAdminSession,
+  isAdminDashboardPath,
+  isAdminLoginPath,
+} from '@/auth/adminSession'
 import type { UserRole } from '@/store/slices/authSlice'
 
 function isKycFullyVerified(ctx: AccessContext): boolean {
@@ -134,18 +141,78 @@ function pathnameIsOnboarding(pathname: string) {
 }
 
 /**
+ * Admin dashboard: only users with an admin session token (not investor/merchant API tokens).
+ */
+export function evaluateAdminDashboardSession(ctx: AccessContext): AccessDecision {
+  if (!isAdminDashboardPath(ctx.pathname)) {
+    return { allowed: true, redirectTo: null, reason: 'ok' }
+  }
+
+  if (!ctx.persistedReady) {
+    return { allowed: true, redirectTo: null, reason: 'ok' }
+  }
+
+  if (!isAdminSession(ctx.accessToken, ctx.sessionKind)) {
+    return {
+      allowed: false,
+      redirectTo: ADMIN_LOGIN_PATH,
+      reason: 'admin_required',
+    }
+  }
+
+  return { allowed: true, redirectTo: null, reason: 'ok' }
+}
+
+/** Admin login page: already signed in as admin → overview. */
+export function evaluateAdminLoginPath(ctx: AccessContext): AccessDecision {
+  if (!isAdminLoginPath(ctx.pathname)) {
+    return { allowed: true, redirectTo: null, reason: 'ok' }
+  }
+
+  if (!ctx.persistedReady) {
+    return { allowed: true, redirectTo: null, reason: 'ok' }
+  }
+
+  if (isAdminSession(ctx.accessToken, ctx.sessionKind)) {
+    return {
+      allowed: false,
+      redirectTo: ADMIN_DASHBOARD_OVERVIEW_PATH,
+      reason: 'ok',
+    }
+  }
+
+  return { allowed: true, redirectTo: null, reason: 'ok' }
+}
+
+/**
  * Dashboard shell: onboarded users need wallet + token for investor/merchant areas.
  */
 export function evaluateDashboardSession(ctx: AccessContext): AccessDecision {
   if (!ctx.pathname.startsWith('/dashboard/')) {
     return { allowed: true, redirectTo: null, reason: 'ok' }
   }
-  if (ctx.pathname.startsWith('/dashboard/admin')) {
-    return { allowed: true, redirectTo: null, reason: 'ok' }
-  }
 
   if (!ctx.persistedReady) {
     return { allowed: true, redirectTo: null, reason: 'ok' }
+  }
+
+  if (isAdminDashboardPath(ctx.pathname)) {
+    if (!isAdminSession(ctx.accessToken, ctx.sessionKind)) {
+      return {
+        allowed: false,
+        redirectTo: ADMIN_LOGIN_PATH,
+        reason: 'admin_required',
+      }
+    }
+    return { allowed: true, redirectTo: null, reason: 'ok' }
+  }
+
+  if (isAdminSession(ctx.accessToken, ctx.sessionKind)) {
+    return {
+      allowed: false,
+      redirectTo: ADMIN_DASHBOARD_OVERVIEW_PATH,
+      reason: 'admin_session_only',
+    }
   }
 
   // Wait for Privy before treating a persisted token as a missing wallet.

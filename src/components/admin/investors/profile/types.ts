@@ -26,10 +26,12 @@ export type AdminInvestorInvestmentListPanelProps = {
   investorId: string
   title: string
   items: InvestmentLineItem[]
+  titleCountOverride?: number
   searchValue: string
   onSearchChange: (value: string) => void
   searchPlaceholder?: string
   searchAriaLabel?: string
+  loading?: boolean
 }
 
 export type ActivityFilterValue = 'all' | 'deposits' | 'withdrawals'
@@ -42,6 +44,7 @@ export type ActivityFilterTab = {
 export type AdminInvestorActivityPanelProps = {
   investorId: string
   items: ActivityLineItem[]
+  titleCountOverride?: number
   searchValue: string
   onSearchChange: (value: string) => void
   activityFilter: ActivityFilterValue
@@ -49,4 +52,5 @@ export type AdminInvestorActivityPanelProps = {
   filterTabs: ActivityFilterTab[]
   searchPlaceholder?: string
   searchAriaLabel?: string
+  loading?: boolean
 }

@@ -1,4 +1,4 @@
-export type KycStatus = 'Approved' | 'Rejected' | 'Under Review'
+export type KycStatus = 'Approved' | 'Rejected' | 'Under Review' | 'Pending'
 
 export type InvestorTableRow = {
   id: string
@@ -99,17 +99,23 @@ const ACTIVITY_INVESTMENT_DETAIL: Record<string, InvestmentDetailFields> = {
 
 export type InvestorProfileDetail = {
   id: string
+  kycId: string | null
   displayName: string
+  wallet: string
   walletLabel: string
   email: string
   accountStatus: 'Active' | 'Inactive'
   kycLabel: string
+  pendingMultisigProposalId: string | null
   dateJoined: string
   totalInvested: string
   activeInvestmentsTotal: string
   totalReturnsEarned: string
   availableBalance: string
   amountWithdrawn: string
+  activeInvestmentsCount: number
+  investmentHistoryCount: number
+  activityCount: number
   activeInvestments: InvestmentLineItem[]
   investmentHistory: InvestmentLineItem[]
   activity: ActivityLineItem[]
@@ -214,17 +220,23 @@ function profileFromRow(row: InvestorTableRow): InvestorProfileDetail {
   const kycLabel = row.kycStatus === 'Approved' ? 'Verified' : row.kycStatus
   return {
     id: row.id,
+    kycId: null,
     displayName: row.investorName,
+    wallet: row.investorWallet,
     walletLabel: row.investorWallet,
     email: 'user1234@gmail.com',
     accountStatus: 'Active',
     kycLabel,
+    pendingMultisigProposalId: null,
     dateJoined: '24th March 2026',
     totalInvested: '$60,000',
     activeInvestmentsTotal: '$40,000',
     totalReturnsEarned: '$0.00',
     availableBalance: '$48,000',
     amountWithdrawn: '$20,000',
+    activeInvestmentsCount: demoActive.length,
+    investmentHistoryCount: demoHistory.length,
+    activityCount: demoActivity.length,
     activeInvestments: demoActive,
     investmentHistory: demoHistory,
     activity: demoActivity,

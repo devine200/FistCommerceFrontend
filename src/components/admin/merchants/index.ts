@@ -17,6 +17,7 @@ export {
   MERCHANT_TABLE_ROWS,
   getAdminMerchantsInitialState,
   type AdminMerchantsDataState,
+  type MerchantKycLabel,
   type MerchantProfileDetail,
   type MerchantTableRow,
 } from './merchantsMockData'

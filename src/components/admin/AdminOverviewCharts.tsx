@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   Area,
   AreaChart,
@@ -10,37 +11,71 @@ import {
   YAxis,
 } from 'recharts'
 
-const TVL_DATA = [
-  { month: 'Sep', value: 38 },
-  { month: 'Oct', value: 42 },
-  { month: 'Nov', value: 45 },
-  { month: 'Dec', value: 44 },
-  { month: 'Jan', value: 47 },
-  { month: 'Feb', value: 49 },
-  { month: 'Mar', value: 48 },
-]
-
-const LOAN_VOLUME_DATA = [
-  { month: 'Sep', value: 12 },
-  { month: 'Oct', value: 18 },
-  { month: 'Nov', value: 22 },
-  { month: 'Dec', value: 19 },
-  { month: 'Jan', value: 28 },
-  { month: 'Feb', value: 31 },
-  { month: 'Mar', value: 29 },
-]
+import { displayDashboardCompactUsd, displayDashboardMetricString, type AdminMetrics } from '@/api/metrics'
+import {
+  chartYAxisMaxMillions,
+  type AdminChartRechartsPoint,
+} from '@/utils/mapAdminMetricsOverview'
 
 const CHART_H = 280
 
-const AdminOverviewCharts = () => {
+type AdminOverviewChartsProps = {
+  adminMetrics: AdminMetrics | null
+  tvlSeries: AdminChartRechartsPoint[]
+  originatedSeries: AdminChartRechartsPoint[]
+}
+
+function formatTooltipAmount(rawAmount: string | null, valueMillions: number): string {
+  if (rawAmount?.trim()) {
+    return displayDashboardMetricString(rawAmount)
+  }
+  const n = typeof valueMillions === 'number' ? valueMillions : Number(valueMillions)
+  if (!Number.isFinite(n)) return '—'
+  return `$${n.toFixed(2)}M`
+}
+
+function yAxisTicks(max: number): number[] {
+  if (max <= 1) return [0, 0.25, 0.5, 0.75, 1]
+  const step = max <= 5 ? 1 : max / 4
+  const ticks: number[] = [0]
+  for (let v = step; v <= max; v += step) {
+    ticks.push(Math.round(v * 100) / 100)
+  }
+  if (ticks[ticks.length - 1] !== max) ticks.push(max)
+  return ticks
+}
+
+const AdminOverviewCharts = ({
+  adminMetrics,
+  tvlSeries,
+  originatedSeries,
+}: AdminOverviewChartsProps) => {
+  const tvlSnapshot = adminMetrics
+    ? displayDashboardCompactUsd(adminMetrics.capital.tvl)
+    : null
+  const originatedSnapshot = adminMetrics
+    ? displayDashboardCompactUsd(adminMetrics.credit.originatedPrincipal)
+    : null
+
+  const tvlYMax = useMemo(() => chartYAxisMaxMillions(tvlSeries), [tvlSeries])
+  const originatedYMax = useMemo(() => chartYAxisMaxMillions(originatedSeries), [originatedSeries])
+
+  const tvlChartData = tvlSeries.length > 0 ? tvlSeries : [{ month: '—', value: 0, rawAmount: null }]
+  const originatedChartData =
+    originatedSeries.length > 0 ? originatedSeries : [{ month: '—', value: 0, rawAmount: null }]
+
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
       <section className="rounded-[10px] border border-[#E6E8EC] bg-white p-5 shadow-sm">
-        <h2 className="text-[#0B1220] font-bold text-[16px]">Total Value Locked</h2>
-        <p className="text-[#6B7488] text-[12px] mt-0.5">Rolling platform TVL (USDT, millions)</p>
+        <h2 className="text-[#0B1220] font-bold text-[16px]">TVL</h2>
+        <p className="text-[#6B7488] text-[12px] mt-0.5">
+          {tvlSnapshot
+            ? `Current protocol TVL: ${tvlSnapshot} · monthly history (USDT, millions)`
+            : 'Monthly TVL history — sync dashboard data to load'}
+        </p>
         <div className="mt-4 w-full min-w-0" style={{ height: CHART_H }}>
           <ResponsiveContainer width="100%" height={CHART_H} minWidth={0}>
-            <AreaChart data={TVL_DATA} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <AreaChart data={tvlChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="adminTvlFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#195EBC" stopOpacity={0.35} />
@@ -55,8 +90,8 @@ const AdminOverviewCharts = () => {
                 tickLine={false}
               />
               <YAxis
-                domain={[0, 60]}
-                ticks={[0, 15, 30, 45, 60]}
+                domain={[0, tvlYMax]}
+                ticks={yAxisTicks(tvlYMax)}
                 tickFormatter={(v) => `$${v}M`}
                 tick={{ fill: '#6B7488', fontSize: 12 }}
                 axisLine={{ stroke: '#E6E8EC' }}
@@ -64,9 +99,12 @@ const AdminOverviewCharts = () => {
                 width={44}
               />
               <Tooltip
-                formatter={(value) => {
-                  const n = typeof value === 'number' ? value : Number(value)
-                  return [`$${Number.isFinite(n) ? n : '—'}M`, 'TVL']
+                formatter={(value, _name, item) => {
+                  const payload = item?.payload as AdminChartRechartsPoint | undefined
+                  return [
+                    formatTooltipAmount(payload?.rawAmount ?? null, Number(value)),
+                    'TVL',
+                  ]
                 }}
                 labelFormatter={(label) => String(label)}
                 contentStyle={{ borderRadius: 8, border: '1px solid #E6E8EC' }}
@@ -86,11 +124,15 @@ const AdminOverviewCharts = () => {
       </section>
 
       <section className="rounded-[10px] border border-[#E6E8EC] bg-white p-5 shadow-sm">
-        <h2 className="text-[#0B1220] font-bold text-[16px]">Loan Volume</h2>
-        <p className="text-[#6B7488] text-[12px] mt-0.5">Disbursements by month (USDT, millions)</p>
+        <h2 className="text-[#0B1220] font-bold text-[16px]">Originated principal</h2>
+        <p className="text-[#6B7488] text-[12px] mt-0.5">
+          {originatedSnapshot
+            ? `Total originated principal: ${originatedSnapshot} · monthly fundings (millions)`
+            : 'Monthly originated principal — sync dashboard data to load'}
+        </p>
         <div className="mt-4 w-full min-w-0" style={{ height: CHART_H }}>
           <ResponsiveContainer width="100%" height={CHART_H} minWidth={0}>
-            <BarChart data={LOAN_VOLUME_DATA} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <BarChart data={originatedChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="adminBarFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#2A6CC8" />
@@ -105,8 +147,8 @@ const AdminOverviewCharts = () => {
                 tickLine={false}
               />
               <YAxis
-                domain={[0, 60]}
-                ticks={[0, 15, 30, 45, 60]}
+                domain={[0, originatedYMax]}
+                ticks={yAxisTicks(originatedYMax)}
                 tickFormatter={(v) => `$${v}M`}
                 tick={{ fill: '#6B7488', fontSize: 12 }}
                 axisLine={{ stroke: '#E6E8EC' }}
@@ -114,9 +156,12 @@ const AdminOverviewCharts = () => {
                 width={44}
               />
               <Tooltip
-                formatter={(value) => {
-                  const n = typeof value === 'number' ? value : Number(value)
-                  return [`$${Number.isFinite(n) ? n : '—'}M`, 'Volume']
+                formatter={(value, _name, item) => {
+                  const payload = item?.payload as AdminChartRechartsPoint | undefined
+                  return [
+                    formatTooltipAmount(payload?.rawAmount ?? null, Number(value)),
+                    'Principal',
+                  ]
                 }}
                 contentStyle={{ borderRadius: 8, border: '1px solid #E6E8EC' }}
               />

@@ -1,7 +1,6 @@
 import { ApiRequestError, parseJsonResponse, requireApiBaseUrl } from '@/api/client'
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
-
-const DEFAULT_IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs'
+import { pinataGatewayUrl } from '@/lib/pinataGateway'
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
@@ -47,9 +46,7 @@ export function resolveVerificationDocumentUrl(
   }
   const hash = docHash?.trim()
   if (!hash) return null
-  if (/^https?:\/\//i.test(hash)) return hash
-  const cid = hash.replace(/^ipfs:\/\//i, '')
-  return cid ? `${DEFAULT_IPFS_GATEWAY}/${cid}` : null
+  return pinataGatewayUrl(hash)
 }
 
 export type LoanDetailsSummary = {
@@ -68,6 +65,7 @@ export type LoanDetailsLifecycle = {
   createdAt: string | null
   verifiedAt: string | null
   maturedAt: string | null
+  defaultedAt: string | null
   onchainStatus: number | null
 }
 
@@ -232,6 +230,7 @@ function normalizeLoanDetailsPayload(raw: unknown): LoanDetailsResponse {
       createdAt: pickStr(lifecycle, 'createdAt', 'created_at'),
       verifiedAt: pickStr(lifecycle, 'verifiedAt', 'verified_at'),
       maturedAt: pickStr(lifecycle, 'maturedAt', 'matured_at'),
+      defaultedAt: pickStr(lifecycle, 'defaultedAt', 'defaulted_at'),
       onchainStatus:
         typeof lifecycle.onchainStatus === 'number'
           ? lifecycle.onchainStatus

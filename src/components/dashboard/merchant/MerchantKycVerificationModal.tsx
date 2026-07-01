@@ -61,6 +61,9 @@ const MerchantKycVerificationModal = ({ onClose }: MerchantKycVerificationModalP
 
   const hasKycToken = Boolean(record?.kyc_token && String(record.kyc_token).trim())
   const kycVerified = Boolean(record?.kyc_verified)
+  const pendingOnChain =
+    typeof record?.pending_multisig_proposal_id === 'string' &&
+    record.pending_multisig_proposal_id.trim().length > 0
   const insuranceVerified = Boolean(record?.insurance_verified)
   const kycRejected = kycStatus === 'rejected'
 
@@ -120,14 +123,22 @@ const MerchantKycVerificationModal = ({ onClose }: MerchantKycVerificationModalP
       case MerchantKycModalView.VerificationSteps:
       default:
         return (
-          <MerchantKycVerificationStepsModal
-            walletConnected={isConnected}
-            hasKycToken={hasKycToken}
-            kycVerified={kycVerified}
-            insuranceVerified={insuranceVerified}
-            kycRejected={kycRejected}
-            onVerifyIdentityClick={() => setActiveView(MerchantKycModalView.VerifyIdentity)}
-          />
+          <>
+            {pendingOnChain ? (
+              <div className="mb-4 rounded-[8px] border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-[#92400E] text-[14px]">
+                Verification is pending on-chain approval. An admin has submitted your review; multisig
+                owners must execute the governance proposal before access is granted.
+              </div>
+            ) : null}
+            <MerchantKycVerificationStepsModal
+              walletConnected={isConnected}
+              hasKycToken={hasKycToken}
+              kycVerified={kycVerified}
+              insuranceVerified={insuranceVerified}
+              kycRejected={kycRejected}
+              onVerifyIdentityClick={() => setActiveView(MerchantKycModalView.VerifyIdentity)}
+            />
+          </>
         )
     }
   }

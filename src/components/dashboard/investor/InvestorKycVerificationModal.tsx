@@ -61,6 +61,9 @@ const InvestorKycVerificationModal = ({ onClose }: InvestorKycVerificationModalP
 
   const hasKycToken = Boolean(record?.kyc_token && String(record.kyc_token).trim())
   const kycVerified = Boolean(record?.kyc_verified)
+  const pendingOnChain =
+    typeof record?.pending_multisig_proposal_id === 'string' &&
+    record.pending_multisig_proposal_id.trim().length > 0
   const kycRejected = kycStatus === 'rejected'
 
   const token = accessToken?.trim() ?? ''
@@ -115,13 +118,21 @@ const InvestorKycVerificationModal = ({ onClose }: InvestorKycVerificationModalP
       case InvestorKycModalView.VerificationSteps:
       default:
         return (
-          <InvestorKycVerificationStepsModal
-            walletConnected={isConnected}
-            hasKycToken={hasKycToken}
-            kycVerified={kycVerified}
-            kycRejected={kycRejected}
-            onVerifyIdentityClick={() => setActiveView(InvestorKycModalView.VerifyIdentity)}
-          />
+          <>
+            {pendingOnChain ? (
+              <div className="mb-4 rounded-[8px] border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-[#92400E] text-[14px]">
+                Verification is pending on-chain approval. An admin has submitted your review; multisig
+                owners must execute the governance proposal before access is granted.
+              </div>
+            ) : null}
+            <InvestorKycVerificationStepsModal
+              walletConnected={isConnected}
+              hasKycToken={hasKycToken}
+              kycVerified={kycVerified}
+              kycRejected={kycRejected}
+              onVerifyIdentityClick={() => setActiveView(InvestorKycModalView.VerifyIdentity)}
+            />
+          </>
         )
     }
   }

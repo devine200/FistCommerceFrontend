@@ -1,6 +1,6 @@
 import { MAX_AUTHORIZATION_HEADER_CHARS } from '@/auth/accessTokenPolicy'
-import type { UserRole } from '@/store/slices/authSlice'
-
+import { ADMIN_LOGIN_PATH, shouldRedirectToAdminLogin } from '@/auth/adminSession'
+import type { SessionKind, UserRole } from '@/store/slices/authSlice'
 import { parseUserRole } from '@/utils/userRole'
 
 /** DRF auth failures are often 401; some gateways or configs surface 403 instead. */
@@ -60,21 +60,23 @@ function connectWalletPathForRole(role: UserRole | null): string {
   return '/onboarding/choose-role'
 }
 
-/** Matches `AdminLoginPage` placeholder token — used only to choose redirect after auth failure. */
-const ADMIN_PLACEHOLDER_ACCESS_TOKEN = 'admin-session'
-
-function redirectPathAfterAuthFailure(accessToken: string | null | undefined, role: UserRole | null): string {
-  if (accessToken?.trim() === ADMIN_PLACEHOLDER_ACCESS_TOKEN) {
-    return '/admin/login'
+function redirectPathAfterAuthFailure(
+  accessToken: string | null | undefined,
+  role: UserRole | null,
+  sessionKind: SessionKind,
+): string {
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : undefined
+  if (shouldRedirectToAdminLogin({ accessToken, sessionKind, pathname })) {
+    return ADMIN_LOGIN_PATH
   }
   return connectWalletPathForRole(role)
 }
 
 async function logoutAndRedirectAfterAuthFailure(): Promise<void> {
   const { store, persistor } = await import('@/store')
-  const { role: roleRaw, accessToken } = store.getState().auth
+  const { role: roleRaw, accessToken, sessionKind } = store.getState().auth
   const role = parseUserRole(roleRaw)
-  const path = redirectPathAfterAuthFailure(accessToken, role)
+  const path = redirectPathAfterAuthFailure(accessToken, role, sessionKind)
   const { resetUserSession } = await import('@/session/resetUserSession')
   resetUserSession(store.dispatch)
   await persistor.flush()
@@ -87,9 +89,9 @@ async function logoutAndRedirectAfterAuthFailure(): Promise<void> {
  */
 async function logoutHeaderTooLargeAndRedirect(): Promise<void> {
   const { store, persistor } = await import('@/store')
-  const { role: roleRaw, accessToken } = store.getState().auth
+  const { role: roleRaw, accessToken, sessionKind } = store.getState().auth
   const role = parseUserRole(roleRaw)
-  const path = redirectPathAfterAuthFailure(accessToken, role)
+  const path = redirectPathAfterAuthFailure(accessToken, role, sessionKind)
   const { resetUserSession } = await import('@/session/resetUserSession')
   resetUserSession(store.dispatch)
   await persistor.flush()

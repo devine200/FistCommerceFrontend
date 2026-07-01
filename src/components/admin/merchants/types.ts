@@ -19,10 +19,16 @@ export type AdminMerchantProfileReceivablesPanelsProps = {
   allPanelTitle?: string
   activePanelSearchAriaLabel?: string
   allPanelSearchAriaLabel?: string
+  receivablesLoading?: boolean
 }
 
 export type AdminMerchantProfileViewProps = {
   avatarSrc: string
   avatarAlt?: string
   profile: MerchantProfileDetail
+  activeSearchValue: string
+  onActiveSearchChange: (value: string) => void
+  allSearchValue: string
+  onAllSearchChange: (value: string) => void
+  receivablesLoading?: boolean
 }

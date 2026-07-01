@@ -2,21 +2,24 @@ import { useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 import { formatEther, formatUnits, parseUnits, type Hash } from 'viem'
 import {
-  TESTNET_FUNDING_POOL_ABI,
-  TESTNET_FUNDING_POOL_ADDRESS,
-  TESTNET_MOCK_ERC20_ABI,
-  TESTNET_MOCK_ERC20_ADDRESS,
-  TESTNET_PAYOUT_ROUTER_ABI,
-  TESTNET_PAYOUT_ROUTER_ADDRESS,
-} from '@/contract_config/testnetDeployment'
+  FUNDING_POOL_ABI,
+  FUNDING_POOL_ADDRESS,
+  MOCK_ERC20_ABI,
+  MOCK_ERC20_ADDRESS,
+  PAYOUT_ROUTER_ABI,
+  PAYOUT_ROUTER_ADDRESS,
+} from '@/contract_config/deployment'
 import { useAppSelector } from '@/store/hooks'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 import { APP_CHAIN } from '@/wallet/appChain'
 import { getBufferedEip1559Fees } from '@/wallet/bufferedEip1559Fees'
 import { ensureWalletChain, getPublicClient, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
 
-/** Chain where `testnet-deployment-config.json` contracts are deployed. */
-export const TESTNET_CONTRACTS_CHAIN = APP_CHAIN
+/** Chain where the active deployment config contracts are deployed. */
+export const APP_CONTRACTS_CHAIN = APP_CHAIN
+
+/** @deprecated Use {@link APP_CONTRACTS_CHAIN}. */
+export const TESTNET_CONTRACTS_CHAIN = APP_CONTRACTS_CHAIN
 
 export type BalanceCheckResult = {
   ok: boolean
@@ -74,8 +77,8 @@ export type UseTestnetContractsOptions = {
 }
 
 /**
- * Smart-contract helpers for the Arbitrum Sepolia testnet deployment (`testnet-deployment-config.json`).
- * Use {@link TESTNET_CONTRACTS_CHAIN} — switch the wallet to Arbitrum Sepolia for reads/writes.
+ * Smart-contract helpers for the active deployment (`deployment.ts`).
+ * Switch the wallet to {@link APP_CONTRACTS_CHAIN} for reads/writes.
  */
 export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const { wallet, address, isConnected } = useActiveWallet()
@@ -83,20 +86,20 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const publicClient = useMemo(() => getPublicClient(), [])
   const [isWritePending, setIsWritePending] = useState(false)
 
-  const isCorrectNetwork = chainId === TESTNET_CONTRACTS_CHAIN.id
+  const isCorrectNetwork = chainId === APP_CONTRACTS_CHAIN.id
   /** Reads use {@link getPublicClient} on Arbitrum Sepolia; they do not require the injected wallet’s chain. */
   const readsEnabled = Boolean(isConnected && address && publicClient)
   /** Writes / gas estimates still require the wallet to be on the deployment chain. */
   const writesEnabled = Boolean(readsEnabled && isCorrectNetwork)
 
   const decimalsQuery = useQuery({
-    queryKey: ['testnet-erc20-decimals', TESTNET_CONTRACTS_CHAIN.id],
+    queryKey: ['testnet-erc20-decimals', APP_CONTRACTS_CHAIN.id],
     enabled: Boolean(publicClient),
     staleTime: 60_000,
     queryFn: async () =>
       await publicClient.readContract({
-        address: TESTNET_MOCK_ERC20_ADDRESS,
-        abi: TESTNET_MOCK_ERC20_ABI,
+        address: MOCK_ERC20_ADDRESS,
+        abi: MOCK_ERC20_ABI,
         functionName: 'decimals',
       }),
   })
@@ -104,14 +107,14 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const tokenDecimals = typeof decimalsQuery.data === 'number' ? decimalsQuery.data : 18
 
   const balanceQuery = useQuery({
-    queryKey: ['testnet-erc20-balance', TESTNET_CONTRACTS_CHAIN.id, address],
+    queryKey: ['testnet-erc20-balance', APP_CONTRACTS_CHAIN.id, address],
     enabled: readsEnabled,
     staleTime: 15_000,
     queryFn: async () => {
       if (!address) throw new Error('Wallet required')
       return await publicClient.readContract({
-        address: TESTNET_MOCK_ERC20_ADDRESS,
-        abi: TESTNET_MOCK_ERC20_ABI,
+        address: MOCK_ERC20_ADDRESS,
+        abi: MOCK_ERC20_ABI,
         functionName: 'balanceOf',
         args: [address as `0x${string}`],
       })
@@ -119,44 +122,44 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   })
 
   const allowanceQuery = useQuery({
-    queryKey: ['testnet-erc20-allowance', TESTNET_CONTRACTS_CHAIN.id, address, TESTNET_FUNDING_POOL_ADDRESS],
+    queryKey: ['testnet-erc20-allowance', APP_CONTRACTS_CHAIN.id, address, FUNDING_POOL_ADDRESS],
     enabled: readsEnabled,
     staleTime: 15_000,
     queryFn: async () => {
       if (!address) throw new Error('Wallet required')
       return await publicClient.readContract({
-        address: TESTNET_MOCK_ERC20_ADDRESS,
-        abi: TESTNET_MOCK_ERC20_ABI,
+        address: MOCK_ERC20_ADDRESS,
+        abi: MOCK_ERC20_ABI,
         functionName: 'allowance',
-        args: [address as `0x${string}`, TESTNET_FUNDING_POOL_ADDRESS],
+        args: [address as `0x${string}`, FUNDING_POOL_ADDRESS],
       })
     },
   })
 
   const payoutRouterAllowanceQuery = useQuery({
-    queryKey: ['testnet-erc20-allowance-payout', TESTNET_CONTRACTS_CHAIN.id, address, TESTNET_PAYOUT_ROUTER_ADDRESS],
+    queryKey: ['testnet-erc20-allowance-payout', APP_CONTRACTS_CHAIN.id, address, PAYOUT_ROUTER_ADDRESS],
     enabled: readsEnabled,
     staleTime: 15_000,
     queryFn: async () => {
       if (!address) throw new Error('Wallet required')
       return await publicClient.readContract({
-        address: TESTNET_MOCK_ERC20_ADDRESS,
-        abi: TESTNET_MOCK_ERC20_ABI,
+        address: MOCK_ERC20_ADDRESS,
+        abi: MOCK_ERC20_ABI,
         functionName: 'allowance',
-        args: [address as `0x${string}`, TESTNET_PAYOUT_ROUTER_ADDRESS],
+        args: [address as `0x${string}`, PAYOUT_ROUTER_ADDRESS],
       })
     },
   })
 
   const userSharesQuery = useQuery({
-    queryKey: ['testnet-pool-shares', TESTNET_CONTRACTS_CHAIN.id, address],
+    queryKey: ['testnet-pool-shares', APP_CONTRACTS_CHAIN.id, address],
     enabled: readsEnabled,
     staleTime: 15_000,
     queryFn: async () => {
       if (!address) throw new Error('Wallet required')
       return await publicClient.readContract({
-        address: TESTNET_FUNDING_POOL_ADDRESS,
-        abi: TESTNET_FUNDING_POOL_ABI,
+        address: FUNDING_POOL_ADDRESS,
+        abi: FUNDING_POOL_ABI,
         functionName: 'shares',
         args: [address as `0x${string}`],
       })
@@ -164,25 +167,25 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   })
 
   const totalSharesQuery = useQuery({
-    queryKey: ['testnet-pool-totalShares', TESTNET_CONTRACTS_CHAIN.id],
+    queryKey: ['testnet-pool-totalShares', APP_CONTRACTS_CHAIN.id],
     enabled: Boolean(publicClient),
     staleTime: 15_000,
     queryFn: async () =>
       await publicClient.readContract({
-        address: TESTNET_FUNDING_POOL_ADDRESS,
-        abi: TESTNET_FUNDING_POOL_ABI,
+        address: FUNDING_POOL_ADDRESS,
+        abi: FUNDING_POOL_ABI,
         functionName: 'totalShares',
       }),
   })
 
   const totalAssetsQuery = useQuery({
-    queryKey: ['testnet-pool-totalAssets', TESTNET_CONTRACTS_CHAIN.id],
+    queryKey: ['testnet-pool-totalAssets', APP_CONTRACTS_CHAIN.id],
     enabled: Boolean(publicClient),
     staleTime: 15_000,
     queryFn: async () =>
       await publicClient.readContract({
-        address: TESTNET_FUNDING_POOL_ADDRESS,
-        abi: TESTNET_FUNDING_POOL_ABI,
+        address: FUNDING_POOL_ADDRESS,
+        abi: FUNDING_POOL_ABI,
         functionName: 'totalAssets',
       }),
   })
@@ -200,7 +203,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     [balanceBn, tokenDecimals],
   )
 
-  const nativeSymbol = TESTNET_CONTRACTS_CHAIN.nativeCurrency.symbol
+  const nativeSymbol = APP_CONTRACTS_CHAIN.nativeCurrency.symbol
 
   const estimateDepositHuman = opts?.estimateDepositHumanAmount
   const depositGasQueryEnabled = Boolean(
@@ -214,7 +217,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const depositGasQuery = useQuery({
     queryKey: [
       'testnet-deposit-gas',
-      TESTNET_CONTRACTS_CHAIN.id,
+      APP_CONTRACTS_CHAIN.id,
       address,
       estimateDepositHuman,
       tokenDecimals,
@@ -229,18 +232,18 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       if (amountWei <= 0n) throw new Error('Invalid amount')
 
       let gasUnits = await publicClient.estimateContractGas({
-        address: TESTNET_FUNDING_POOL_ADDRESS,
-        abi: TESTNET_FUNDING_POOL_ABI,
+        address: FUNDING_POOL_ADDRESS,
+        abi: FUNDING_POOL_ABI,
         functionName: 'deposit',
         args: [amountWei],
         account: address as `0x${string}`,
       })
       if ((allowanceBn ?? 0n) < amountWei) {
         const approveGas = await publicClient.estimateContractGas({
-          address: TESTNET_MOCK_ERC20_ADDRESS,
-          abi: TESTNET_MOCK_ERC20_ABI,
+          address: MOCK_ERC20_ADDRESS,
+          abi: MOCK_ERC20_ABI,
           functionName: 'approve',
-          args: [TESTNET_FUNDING_POOL_ADDRESS, amountWei],
+          args: [FUNDING_POOL_ADDRESS, amountWei],
           account: address as `0x${string}`,
         })
         gasUnits += approveGas
@@ -266,7 +269,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const withdrawGasQuery = useQuery({
     queryKey: [
       'testnet-withdraw-gas',
-      TESTNET_CONTRACTS_CHAIN.id,
+      APP_CONTRACTS_CHAIN.id,
       address,
       estimateWithdrawHuman,
       tokenDecimals,
@@ -287,8 +290,8 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       if (sharesNeeded === null || sharesNeeded <= 0n) throw new Error('Invalid shares')
 
       const gasUnits = await publicClient.estimateContractGas({
-        address: TESTNET_FUNDING_POOL_ADDRESS,
-        abi: TESTNET_FUNDING_POOL_ABI,
+        address: FUNDING_POOL_ADDRESS,
+        abi: FUNDING_POOL_ABI,
         functionName: 'createWithdrawalRequest',
         args: [sharesNeeded],
         account: address as `0x${string}`,
@@ -353,7 +356,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       if (!isCorrectNetwork)
         return {
           ok: false,
-          message: `Switch your wallet to ${TESTNET_CONTRACTS_CHAIN.name} to ${actionLabel}.`,
+          message: `Switch your wallet to ${APP_CONTRACTS_CHAIN.name} to ${actionLabel}.`,
         }
       if (!Number.isFinite(humanAmount) || humanAmount <= 0)
         return { ok: false, message: 'Enter an amount greater than zero.' }
@@ -405,7 +408,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       if (!isCorrectNetwork)
         return {
           ok: false,
-          message: `Switch your wallet to ${TESTNET_CONTRACTS_CHAIN.name} for withdrawals.`,
+          message: `Switch your wallet to ${APP_CONTRACTS_CHAIN.name} for withdrawals.`,
         }
       if (!Number.isFinite(humanAmount) || humanAmount <= 0)
         return { ok: false, message: 'Enter an amount greater than zero.' }
@@ -437,17 +440,17 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       setIsWritePending(true)
       const currentAllowance = allowanceBn ?? 0n
       try {
-        await ensureWalletChain(wallet, TESTNET_CONTRACTS_CHAIN.id)
+        await ensureWalletChain(wallet, APP_CONTRACTS_CHAIN.id)
         const walletClient = await getWalletClientFromPrivyWallet(wallet)
 
         if (currentAllowance < amount) {
           const approveGasFees = await getBufferedEip1559Fees(publicClient)
           const approveHash = await walletClient.writeContract({
-            address: TESTNET_MOCK_ERC20_ADDRESS,
-            abi: TESTNET_MOCK_ERC20_ABI,
+            address: MOCK_ERC20_ADDRESS,
+            abi: MOCK_ERC20_ABI,
             functionName: 'approve',
-            args: [TESTNET_FUNDING_POOL_ADDRESS, amount],
-            chain: TESTNET_CONTRACTS_CHAIN,
+            args: [FUNDING_POOL_ADDRESS, amount],
+            chain: APP_CONTRACTS_CHAIN,
             account: address as `0x${string}`,
             ...approveGasFees,
           })
@@ -457,11 +460,11 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
 
         const depositGasFees = await getBufferedEip1559Fees(publicClient)
         const depositHash = await walletClient.writeContract({
-          address: TESTNET_FUNDING_POOL_ADDRESS,
-          abi: TESTNET_FUNDING_POOL_ABI,
+          address: FUNDING_POOL_ADDRESS,
+          abi: FUNDING_POOL_ABI,
           functionName: 'deposit',
           args: [amount],
-          chain: TESTNET_CONTRACTS_CHAIN,
+          chain: APP_CONTRACTS_CHAIN,
           account: address as `0x${string}`,
           ...depositGasFees,
         })
@@ -487,10 +490,10 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const readPayoutRouterAllowance = useCallback(async (): Promise<bigint> => {
     if (!address || !publicClient) return 0n
     const result = await publicClient.readContract({
-      address: TESTNET_MOCK_ERC20_ADDRESS,
-      abi: TESTNET_MOCK_ERC20_ABI,
+      address: MOCK_ERC20_ADDRESS,
+      abi: MOCK_ERC20_ABI,
       functionName: 'allowance',
-      args: [address as `0x${string}`, TESTNET_PAYOUT_ROUTER_ADDRESS],
+      args: [address as `0x${string}`, PAYOUT_ROUTER_ADDRESS],
     })
     return typeof result === 'bigint' ? result : 0n
   }, [address, publicClient])
@@ -510,7 +513,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       if (!isConnected || !address) throw new Error('Connect your wallet to continue.')
       if (!wallet) throw new Error('Wallet required')
       if (!isCorrectNetwork)
-        throw new Error(`Switch your wallet to ${TESTNET_CONTRACTS_CHAIN.name} to approve tokens.`)
+        throw new Error(`Switch your wallet to ${APP_CONTRACTS_CHAIN.name} to approve tokens.`)
 
       const amount = humanAmountToUnits(humanAmount, tokenDecimals)
       if (amount <= 0n) throw new Error('Invalid amount')
@@ -522,16 +525,16 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
 
       setIsWritePending(true)
       try {
-        await ensureWalletChain(wallet, TESTNET_CONTRACTS_CHAIN.id)
+        await ensureWalletChain(wallet, APP_CONTRACTS_CHAIN.id)
         const walletClient = await getWalletClientFromPrivyWallet(wallet)
         const gasFees = await getBufferedEip1559Fees(publicClient)
 
         const approveHash = await walletClient.writeContract({
-          address: TESTNET_MOCK_ERC20_ADDRESS,
-          abi: TESTNET_MOCK_ERC20_ABI,
+          address: MOCK_ERC20_ADDRESS,
+          abi: MOCK_ERC20_ABI,
           functionName: 'approve',
-          args: [TESTNET_PAYOUT_ROUTER_ADDRESS, amount],
-          chain: TESTNET_CONTRACTS_CHAIN,
+          args: [PAYOUT_ROUTER_ADDRESS, amount],
+          chain: APP_CONTRACTS_CHAIN,
           account: address as `0x${string}`,
           ...gasFees,
         })
@@ -581,16 +584,16 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
 
       setIsWritePending(true)
       try {
-        await ensureWalletChain(wallet, TESTNET_CONTRACTS_CHAIN.id)
+        await ensureWalletChain(wallet, APP_CONTRACTS_CHAIN.id)
         const walletClient = await getWalletClientFromPrivyWallet(wallet)
         const gasFees = await getBufferedEip1559Fees(publicClient)
 
         const repayHash = await walletClient.writeContract({
-          address: TESTNET_PAYOUT_ROUTER_ADDRESS,
-          abi: TESTNET_PAYOUT_ROUTER_ABI,
+          address: PAYOUT_ROUTER_ADDRESS,
+          abi: PAYOUT_ROUTER_ABI,
           functionName: 'repayReceivable',
           args: [receivableIdBytes32, amount],
-          chain: TESTNET_CONTRACTS_CHAIN,
+          chain: APP_CONTRACTS_CHAIN,
           account: address as `0x${string}`,
           ...gasFees,
         })
@@ -659,15 +662,15 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
 
       setIsWritePending(true)
       try {
-        await ensureWalletChain(wallet, TESTNET_CONTRACTS_CHAIN.id)
+        await ensureWalletChain(wallet, APP_CONTRACTS_CHAIN.id)
         const walletClient = await getWalletClientFromPrivyWallet(wallet)
         const gasFees = await getBufferedEip1559Fees(publicClient)
         const hash = await walletClient.writeContract({
-          address: TESTNET_FUNDING_POOL_ADDRESS,
-          abi: TESTNET_FUNDING_POOL_ABI,
+          address: FUNDING_POOL_ADDRESS,
+          abi: FUNDING_POOL_ABI,
           functionName: 'createWithdrawalRequest',
           args: [sharesNeeded],
-          chain: TESTNET_CONTRACTS_CHAIN,
+          chain: APP_CONTRACTS_CHAIN,
           account: (address as `0x${string}`) ?? null,
           ...gasFees,
         })
@@ -695,10 +698,10 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     accountAddress: address,
     isConnected,
     isCorrectNetwork,
-    testnetChain: TESTNET_CONTRACTS_CHAIN,
-    mockTokenAddress: TESTNET_MOCK_ERC20_ADDRESS,
-    fundingPoolAddress: TESTNET_FUNDING_POOL_ADDRESS,
-    payoutRouterAddress: TESTNET_PAYOUT_ROUTER_ADDRESS,
+    testnetChain: APP_CONTRACTS_CHAIN,
+    mockTokenAddress: MOCK_ERC20_ADDRESS,
+    fundingPoolAddress: FUNDING_POOL_ADDRESS,
+    payoutRouterAddress: PAYOUT_ROUTER_ADDRESS,
     tokenDecimals,
     mockTokenBalance: balanceBn,
     mockTokenBalanceFormatted,

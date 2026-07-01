@@ -1,6 +1,10 @@
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
 import { parseJsonResponse, requireApiBaseUrl } from '@/api/client'
 import { displayDashboardMetricString } from '@/api/metrics'
+import {
+  FUNDING_POOL_ADDRESS,
+} from '@/contract_config/deployment'
+import { isLocalContractNetwork } from '@/contract_config/contractNetwork'
 import type { RecentTx } from '@/components/dashboard/investor/lending-pool-detail/types'
 
 const RECENT_TRANSACTIONS_PATH = '/api/payout/recent-transactions/'
@@ -51,7 +55,25 @@ export function getDefaultArbitrumSepoliaBlockExplorerBase(): string | null {
   return raw.replace(/\/+$/, '')
 }
 
-/** Optional pool contract on Arbitrum Sepolia when the payout API does not return one on the envelope. */
+/** Optional pool smart contract when the payout API does not return one on the envelope. */
+export function getDefaultPoolContractAddress(): string | null {
+  if (isLocalContractNetwork()) {
+    return FUNDING_POOL_ADDRESS
+  }
+  return getDefaultArbitrumSepoliaPoolContractAddress()
+}
+
+/** Block explorer origin when the API does not send one. */
+export function getDefaultBlockExplorerBase(): string | null {
+  if (isLocalContractNetwork()) {
+    const raw = readEnvTrim('VITE_LOCAL_BLOCK_EXPLORER_URL')
+    if (!raw) return null
+    return raw.replace(/\/+$/, '')
+  }
+  return getDefaultArbitrumSepoliaBlockExplorerBase()
+}
+
+/** Optional pool smart contract on Arbitrum Sepolia when the payout API does not return one on the envelope. */
 export function getDefaultArbitrumSepoliaPoolContractAddress(): string | null {
   const raw =
     readEnvTrim('VITE_ARBITRUM_SEPOLIA_POOL_CONTRACT_ADDRESS') ||
@@ -199,12 +221,12 @@ function mapStrictApiRow(tx: RecentTxApi, index: number, explorerBase: string | 
 
 function parseStrictRecentTxResponse(json: RecentTxResponse): RecentPayoutBundle {
   const envelope = extractContractAndExplorer(json)
-  const explorerBase = envelope.explorerBaseUrl || getDefaultArbitrumSepoliaBlockExplorerBase()
+  const explorerBase = envelope.explorerBaseUrl || getDefaultBlockExplorerBase()
 
   const firstRowContract = json.transactions.find((t) => isHexAddress(t.contract_address))?.contract_address.trim()
   const contractAddress =
     envelope.contractAddress ?? (firstRowContract && isHexAddress(firstRowContract) ? firstRowContract : null) ??
-    getDefaultArbitrumSepoliaPoolContractAddress()
+    getDefaultPoolContractAddress()
 
   const transactions = json.transactions.map((row, i) => mapStrictApiRow(row, i, explorerBase))
 
@@ -305,8 +327,8 @@ export function parseRecentPayoutResponse(json: unknown): RecentPayoutBundle {
 
   const rows = extractTransactionRows(json)
   const meta = extractContractAndExplorer(json)
-  const explorerBase = meta.explorerBaseUrl || getDefaultArbitrumSepoliaBlockExplorerBase()
-  const contractAddress = meta.contractAddress || getDefaultArbitrumSepoliaPoolContractAddress()
+  const explorerBase = meta.explorerBaseUrl || getDefaultBlockExplorerBase()
+  const contractAddress = meta.contractAddress || getDefaultPoolContractAddress()
 
   const transactions: RecentTx[] = []
   rows.forEach((row, i) => {
@@ -339,3 +361,9 @@ export async function fetchRecentPayoutTransactions(accessToken: string | null |
   const json = await parseJsonResponse<unknown>(res)
   return parseRecentPayoutResponse(json)
 }
+
+/** @deprecated Use {@link fetchAdminLatestRepayments} from `@/api/adminLoan`. */
+export type { AdminRepaymentApi } from '@/api/adminLoan'
+
+/** @deprecated Use {@link fetchAdminLatestRepayments} from `@/api/adminLoan`. */
+export { fetchAdminLatestRepayments as fetchAdminRepaymentHistory } from '@/api/adminLoan'

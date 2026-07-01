@@ -1,7 +1,7 @@
 import type { ReceivableTableRow } from '@/components/dashboard/merchant/receivables/types'
 import type { ReceivableStage } from '@/types/receivables'
 
-export type LifecycleStepVariant = 'blue' | 'purple' | 'green' | 'sky' | 'neutral'
+export type LifecycleStepVariant = 'blue' | 'purple' | 'green' | 'sky' | 'red' | 'neutral'
 
 export type ReceivableLifecycleStep = {
   label: string

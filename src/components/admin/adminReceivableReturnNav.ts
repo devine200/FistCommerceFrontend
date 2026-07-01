@@ -1,5 +1,5 @@
 /** Default when no valid `returnTo` is provided. */
-export const ADMIN_RECEIVABLE_DEFAULT_BACK = '/dashboard/admin/receivables'
+export const ADMIN_RECEIVABLE_DEFAULT_BACK = '/dashboard/admin/merchants'
 
 const RETURN_TO_QUERY_KEY = 'returnTo'
 

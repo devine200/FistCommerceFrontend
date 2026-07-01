@@ -1,6 +1,9 @@
 import activityArrowIcon from '@/assets/arrow.png'
 import repayIcon from '@/assets/repay Icon (5).png'
 import primeChevronRight from '@/assets/prime_chevron-right.png'
+import { ListPagination } from '@/components/shared/ListPagination'
+import { usePaginatedListItems } from '@/hooks/usePaginatedListItems'
+
 import { useMemo, useState } from 'react'
 
 import { convertTimestampToDate, type MerchantTransactionApi } from '@/api/metrics'
@@ -157,6 +160,8 @@ const MerchantProfileActivitiesTabContent = () => {
     return byKind.filter((item) => itemMatchesQuery(searchableText(item), normalizedQuery))
   }, [activities, filter, searchTerm])
 
+  const { pageItems, meta, setPage } = usePaginatedListItems(filteredItems, [filter, searchTerm])
+
   const renderTitle = (item: MerchantActivityItem) => {
     if (item.kind === 'withdrawal') {
       return (
@@ -253,7 +258,7 @@ const MerchantProfileActivitiesTabContent = () => {
             {txError}
           </div>
         ) : null}
-        {filteredItems.map((item) => (
+        {pageItems.map((item) => (
           <article key={item.id} className="border-t border-[#EDF0F4] first:border-t-0 py-5">
             <button
               type="button"
@@ -283,6 +288,7 @@ const MerchantProfileActivitiesTabContent = () => {
             No activities found for this receivable.
           </div>
         ) : null}
+        <ListPagination meta={meta} onPageChange={setPage} variant="dashboard" className="border-t border-[#EDF0F4]" />
       </div>
     </section>
   )

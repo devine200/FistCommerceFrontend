@@ -20,6 +20,7 @@ export type MerchantKycRecord = {
   kyc_token?: string | null
   /** Present when a document has been uploaded (server-side hash). */
   document_hash?: string | null
+  pending_multisig_proposal_id?: string | null
   created_at: string
 }
 
@@ -28,6 +29,11 @@ export type MerchantKycRecord = {
  */
 export function deriveKycStatusFromMerchantRecord(record: MerchantKycRecord | null | undefined): KycStatus {
   if (!record) return 'not_started'
+
+  const pendingProposal =
+    typeof record.pending_multisig_proposal_id === 'string' &&
+    record.pending_multisig_proposal_id.trim().length > 0
+  if (pendingProposal) return 'pending'
 
   const { reviewed, kyc_verified, insurance_verified } = record
   const token = typeof record.kyc_token === 'string' && record.kyc_token.trim().length > 0

@@ -29,6 +29,13 @@ const DEMO_LIFECYCLE: ReceivableDetailView['lifecycle'] = [
     variant: 'sky',
   },
   {
+    label: 'Loan Defaulted',
+    description:
+      'This loan has been marked as defaulted due to missed repayment or other risk events.',
+    date: '—',
+    variant: 'red',
+  },
+  {
     label: 'Loan Repaid',
     description: 'Your loan has been repaid in full and the receivable is closed.',
     date: '26-05-2026',

@@ -1,50 +1,172 @@
-import { type FormEvent, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { usePrivy } from '@privy-io/react-auth'
 
+import { ApiRequestError, formatApiRequestErrorPlain, getApiBaseUrl } from '@/api/client'
+import { postAdminWalletLogin } from '@/api/adminAuth'
+import { createWalletLoginSignable } from '@/api/walletSession'
+import privyIcon from '@/assets/Icon (1).png'
 import { AdminLoginFeedbackModal } from '@/components/admin/AdminLoginFeedbackModal'
+import AdminLoginGuard from '@/components/session/AdminLoginGuard'
+import { ADMIN_DASHBOARD_OVERVIEW_PATH } from '@/auth/adminSession'
 import { useAppDispatch } from '@/store/hooks'
+import { persistor } from '@/store'
 import { patchAuth } from '@/store/slices/authSlice'
+import { useActiveWallet } from '@/wallet/useActiveWallet'
+import { APP_CHAIN } from '@/wallet/appChain'
+import { ensureWalletChain, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
 
-const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-function loginValidationMessage(email: string, password: string): string | null {
-  const e = email.trim()
-  if (!e && !password) return 'Please enter your email address and password.'
-  if (!e) return 'Please enter your email address.'
-  if (!EMAIL_RX.test(e)) return 'Please enter a valid email address.'
-  if (!password) return 'Please enter your password.'
-  return null
+function truncateAddress(address: string) {
+  if (address.length <= 12) return address
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
-type LoginFeedback = { kind: 'error'; message: string } | { kind: 'success' }
+function isWalletSignRejected(e: unknown): boolean {
+  if (!(e instanceof Error)) return false
+  if (e.name === 'UserRejectedRequestError') return true
+  const code = (e as { code?: number }).code
+  if (code === 4001) return true
+  return /user rejected|denied transaction signature|request rejected/i.test(e.message)
+}
+
+function formatAdminLoginError(err: unknown): string {
+  if (err instanceof ApiRequestError) {
+    if (err.status === 401) {
+      return 'This wallet is not authorized as a multisig owner, or the signature was invalid. Connect with a multisig owner wallet and try again.'
+    }
+    return formatApiRequestErrorPlain(err)
+  }
+  return err instanceof Error ? err.message : 'Could not sign in. Please try again.'
+}
 
 const AdminLoginPage = () => {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [feedback, setFeedback] = useState<LoginFeedback | null>(null)
+  const { ready: privyReady, login, connectWallet } = usePrivy()
+  const { wallet, address, isConnected, walletClientType, ready: walletsReady } = useActiveWallet()
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    const msg = loginValidationMessage(email, password)
-    if (msg) {
-      setFeedback({ kind: 'error', message: msg })
+  const [connecting, setConnecting] = useState(false)
+  const [authInFlight, setAuthInFlight] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  const handlePrivyLogin = async () => {
+    setErrorMessage(null)
+    if (!privyReady) {
+      setErrorMessage('Login is still loading. Please try again in a moment.')
       return
     }
-    setFeedback({ kind: 'success' })
+    setConnecting(true)
+    try {
+      await login()
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Could not open login.'
+      setErrorMessage(message)
+      console.error(e)
+    } finally {
+      setConnecting(false)
+    }
   }
 
-  const dismissError = () => setFeedback(null)
-
-  const completeSignIn = () => {
-    dispatch(patchAuth({ onboarded: true, accessToken: 'admin-session', refreshToken: null }))
-    navigate('/dashboard/admin/overview', { replace: true })
-    setFeedback(null)
+  const handleConnectExternalWallet = async () => {
+    setErrorMessage(null)
+    if (!privyReady) {
+      setErrorMessage('Wallet connection is still loading. Please try again in a moment.')
+      return
+    }
+    if (typeof connectWallet !== 'function') {
+      setErrorMessage('External wallet connection is not available in this build.')
+      return
+    }
+    setConnecting(true)
+    try {
+      await connectWallet()
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Could not connect wallet.'
+      setErrorMessage(message)
+      console.error(e)
+    } finally {
+      setConnecting(false)
+    }
   }
+
+  const handleSignIn = async () => {
+    if (!getApiBaseUrl()) {
+      setErrorMessage(
+        'API base URL is not configured. Set VITE_API_BASE_URL in your .env file (see .env.example) and restart the dev server.',
+      )
+      return
+    }
+
+    if (!walletsReady) {
+      setErrorMessage('Wallet is still loading. Please wait a moment and try again.')
+      return
+    }
+
+    if (!wallet || !address) {
+      setErrorMessage('Connect a wallet first (embedded or external) to sign in.')
+      return
+    }
+
+    setErrorMessage(null)
+    setAuthInFlight(true)
+    try {
+      try {
+        await ensureWalletChain(wallet, APP_CHAIN.id)
+      } catch (e) {
+        if (isWalletSignRejected(e)) {
+          setErrorMessage(
+            `Switch to ${APP_CHAIN.name} was cancelled. Approve the network change to sign in.`,
+          )
+          return
+        }
+        throw e
+      }
+
+      const signable = createWalletLoginSignable(APP_CHAIN.id, address as `0x${string}`)
+      const walletClient = await getWalletClientFromPrivyWallet(wallet)
+      const signature = await walletClient.signTypedData({
+        domain: signable.domain,
+        types: signable.types as any,
+        primaryType: signable.primaryType,
+        message: signable.message as any,
+        account: address as `0x${string}`,
+      })
+
+      const result = await postAdminWalletLogin({
+        signedMessage: signable.signedMessageForApi,
+        signature,
+        signerAddress: address,
+      })
+
+      dispatch(
+        patchAuth({
+          onboarded: true,
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+          role: null,
+          sessionKind: 'admin',
+          user: { id: address },
+        }),
+      )
+      await persistor.flush()
+      navigate(ADMIN_DASHBOARD_OVERVIEW_PATH, { replace: true })
+    } catch (e) {
+      if (isWalletSignRejected(e)) {
+        setErrorMessage('Signature was cancelled. Please try again when you are ready to sign in.')
+      } else {
+        setErrorMessage(formatAdminLoginError(e))
+      }
+      console.error(e)
+    } finally {
+      setAuthInFlight(false)
+    }
+  }
+
+  const busy = connecting || authInFlight
 
   return (
     <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden px-4 py-10 sm:px-6">
+      <AdminLoginGuard />
       <div className="pointer-events-none absolute inset-0" aria-hidden>
         <div className="isolate absolute inset-0">
           <div className="absolute inset-0 bg-linear-to-br from-[#EEF1F7] via-[#FAFBFD] to-[#E2E8F3]" />
@@ -66,62 +188,59 @@ const AdminLoginPage = () => {
           Sign In
         </h1>
         <p className="mt-3 text-center text-[15px] leading-relaxed text-[#6B7280] sm:text-base">
-          Securely sign in to monitor, manage, and control platform operations.
+          Connect your multisig owner wallet to monitor, manage, and control platform operations.
         </p>
 
-        <form className="mt-10 flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
-          <div>
-            <label htmlFor="admin-login-email" className="sr-only">
-              Email address
-            </label>
-            <input
-              id="admin-login-email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email Address"
-              className="w-full rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 text-lg leading-normal text-[#2B2F36] placeholder:text-[#9CA3AF] outline-none transition-[box-shadow,border-color] focus:border-[#1D61C1]/50 focus:ring-2 focus:ring-[#1D61C1]/25 sm:rounded-2xl sm:text-xl sm:py-4.5"
-            />
-          </div>
-          <div>
-            <label htmlFor="admin-login-password" className="sr-only">
-              Password
-            </label>
-            <input
-              id="admin-login-password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              className="w-full rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 text-lg leading-normal text-[#2B2F36] placeholder:text-[#9CA3AF] outline-none transition-[box-shadow,border-color] focus:border-[#1D61C1]/50 focus:ring-2 focus:ring-[#1D61C1]/25 sm:rounded-2xl sm:text-xl sm:py-4.5"
-            />
-          </div>
+        {isConnected && address ? (
+          <p className="mt-8 text-center text-[14px] text-[#195EBC] font-medium" aria-live="polite">
+            Connected: <span className="font-mono">{truncateAddress(address)}</span>
+            {walletClientType ? <span className="ml-2 text-[#6B7280]">({walletClientType})</span> : null}
+          </p>
+        ) : null}
+
+        <div className="mt-8 flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={() => void handlePrivyLogin()}
+            disabled={busy}
+            className="flex items-center justify-between rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 text-left transition-[box-shadow,border-color] hover:bg-[#F9FAFB] focus:border-[#1D61C1]/50 focus:ring-2 focus:ring-[#1D61C1]/25 disabled:opacity-60 sm:rounded-2xl"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={privyIcon} alt="" className="inline-block w-[22px] h-[22px]" />
+              <span className="text-[#2B2F36] font-semibold truncate">Continue with Google or email</span>
+            </div>
+            <span className="text-[14px] text-[#6B7280] shrink-0">{connecting ? 'Opening…' : 'Login'}</span>
+          </button>
 
           <button
-            type="submit"
-            className="mt-2 w-full rounded-xl bg-[#1D61C1] py-4 text-base font-semibold text-white shadow-md shadow-[#1D61C1]/25 transition-[background-color,transform,box-shadow] hover:bg-[#1955AD] hover:shadow-lg hover:shadow-[#1D61C1]/30 active:scale-[0.99] sm:rounded-2xl sm:py-4.5"
+            type="button"
+            onClick={() => void handleConnectExternalWallet()}
+            disabled={busy}
+            className="flex items-center justify-between rounded-xl border border-[#E5E7EB] bg-white px-5 py-4 text-left transition-[box-shadow,border-color] hover:bg-[#F9FAFB] focus:border-[#1D61C1]/50 focus:ring-2 focus:ring-[#1D61C1]/25 disabled:opacity-60 sm:rounded-2xl"
           >
-            Sign In
+            <span className="text-[#2B2F36] font-semibold truncate">Connect external wallet</span>
+            <span className="text-[14px] text-[#6B7280] shrink-0">{connecting ? 'Opening…' : 'Connect'}</span>
           </button>
-        </form>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => void handleSignIn()}
+          disabled={!isConnected || busy}
+          className="mt-8 w-full rounded-xl bg-[#1D61C1] py-4 text-base font-semibold text-white shadow-md shadow-[#1D61C1]/25 transition-[background-color,transform,box-shadow] hover:bg-[#1955AD] hover:shadow-lg hover:shadow-[#1D61C1]/30 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed sm:rounded-2xl sm:py-4.5"
+        >
+          {authInFlight ? 'Signing in…' : 'Sign In'}
+        </button>
       </div>
 
-      {feedback ? (
+      {errorMessage ? (
         <AdminLoginFeedbackModal
           open
-          variant={feedback.kind === 'error' ? 'error' : 'success'}
-          title={feedback.kind === 'error' ? 'Unable to sign in' : 'Signed in successfully'}
-          description={
-            feedback.kind === 'error'
-              ? feedback.message
-              : 'You can now access the admin dashboard to monitor and manage platform operations.'
-          }
-          primaryLabel={feedback.kind === 'error' ? 'Try again' : 'Continue to dashboard'}
-          onPrimary={feedback.kind === 'error' ? dismissError : completeSignIn}
+          variant="error"
+          title="Unable to sign in"
+          description={errorMessage}
+          primaryLabel="Try again"
+          onPrimary={() => setErrorMessage(null)}
         />
       ) : null}
     </div>

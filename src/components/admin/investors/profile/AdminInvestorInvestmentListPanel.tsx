@@ -12,16 +12,20 @@ export function AdminInvestorInvestmentListPanel({
   investorId,
   title,
   items,
+  titleCountOverride,
   searchValue,
   onSearchChange,
-  searchPlaceholder = 'Search for a receivable',
+  searchPlaceholder = 'Search investments',
   searchAriaLabel,
+  loading = false,
 }: AdminInvestorInvestmentListPanelProps) {
+  const titleCount = titleCountOverride ?? items.length
+
   return (
     <AdminPanel>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-5 py-4 border-b border-[#E6E8EC]">
         <h2 className="text-[#0B1220] font-semibold text-[16px]">
-          {title} ({items.length})
+          {title} ({titleCount})
         </h2>
         <AdminSearchField
           value={searchValue}
@@ -31,7 +35,7 @@ export function AdminInvestorInvestmentListPanel({
           className="max-w-[280px] w-full sm:w-auto"
         />
       </div>
-      <ul className="divide-y divide-[#E6E8EC]">
+      <ul className={['divide-y divide-[#E6E8EC]', loading ? 'opacity-60' : ''].join(' ')}>
         {items.map((item) => (
           <li key={item.id}>
             <Link

@@ -380,3 +380,176 @@ export async function fetchMerchantTransactions(
   const data = await parseJsonResponse<MerchantTransactionsResponse>(res)
   return Array.isArray(data.transactions) ? data.transactions : []
 }
+
+/** `GET /api/metrics/admin/` — protocol-wide metrics (admin only). */
+export type AdminMetrics = {
+  capital: {
+    tvl: string
+    liquidAssets: string
+    outstanding: string
+    availableLiquidity: string
+    /** Percent points (e.g. 65 → 65%). */
+    utilization: number
+    /** Percent points. */
+    apy: number
+  }
+  credit: {
+    activeLoans: number
+    originatedPrincipal: string
+    repaidPrincipal: string
+    defaultedPrincipal: string
+    /** Ratio in (0, 1] unless API sends percent points. */
+    defaultRate: number
+  }
+  risk: {
+    largestBorrowerExposure: string
+    concentrationRatio: number
+    overdueLoans: number
+    impaired: string
+  }
+}
+
+export type AdminMetricsApi = Record<string, unknown>
+
+function normalizeAdminMetricsPayload(raw: unknown): AdminMetrics {
+  const r = asJsonObject(raw)
+  const capital = pickObjectField(r, 'capital')
+  const credit = pickObjectField(r, 'credit')
+  const risk = pickObjectField(r, 'risk')
+  return {
+    capital: {
+      tvl: pickStringField(capital, 'tvl'),
+      liquidAssets: pickStringField(capital, 'liquidAssets', 'liquid_assets'),
+      outstanding: pickStringField(capital, 'outstanding'),
+      availableLiquidity: pickStringField(
+        capital,
+        'availableLiquidity',
+        'available_liquidity',
+      ),
+      utilization: pickNumberField(capital, 'utilization'),
+      apy: pickNumberField(capital, 'apy'),
+    },
+    credit: {
+      activeLoans: pickNumberField(credit, 'activeLoans', 'active_loans'),
+      originatedPrincipal: pickStringField(
+        credit,
+        'originatedPrincipal',
+        'originated_principal',
+      ),
+      repaidPrincipal: pickStringField(credit, 'repaidPrincipal', 'repaid_principal'),
+      defaultedPrincipal: pickStringField(
+        credit,
+        'defaultedPrincipal',
+        'defaulted_principal',
+      ),
+      defaultRate: pickNumberField(credit, 'defaultRate', 'default_rate'),
+    },
+    risk: {
+      largestBorrowerExposure: pickStringField(
+        risk,
+        'largestBorrowerExposure',
+        'largest_borrower_exposure',
+      ),
+      concentrationRatio: pickNumberField(risk, 'concentrationRatio', 'concentration_ratio'),
+      overdueLoans: pickNumberField(risk, 'overdueLoans', 'overdue_loans'),
+      impaired: pickStringField(risk, 'impaired'),
+    },
+  }
+}
+
+export async function fetchAdminMetrics(
+  accessToken: string | null | undefined,
+): Promise<AdminMetrics> {
+  const base = apiBaseUrl()
+  const res = await fetchWithAuthRecovery(`${base}/api/metrics/admin/`, {
+    method: 'GET',
+    headers: authHeaders(accessToken),
+  })
+  const raw = await parseJsonResponse<AdminMetricsApi>(res)
+  return normalizeAdminMetricsPayload(raw)
+}
+
+/** Point in monthly admin chart series (`GET …/metrics/admin/tvl/history/` etc.). */
+export type AdminChartSeriesPoint = {
+  month: string
+  label: string
+  /** Chart-friendly value in millions. */
+  value: number
+  /** Full TVL decimal string (TVL history endpoint). */
+  tvl?: string
+  /** Full principal decimal string (originated-principal history endpoint). */
+  principal?: string
+}
+
+export type AdminChartHistory = {
+  months: number
+  asOf: string
+  series: AdminChartSeriesPoint[]
+}
+
+type AdminChartHistoryApi = Record<string, unknown>
+
+function normalizeChartSeriesPoint(
+  raw: unknown,
+  amountKey: 'tvl' | 'principal',
+): AdminChartSeriesPoint | null {
+  const r = asJsonObject(raw)
+  const month = pickStringField(r, 'month')
+  const label = pickStringField(r, 'label')
+  const value = pickNumberField(r, 'value')
+  if (!month && !label) return null
+  const amount = pickStringField(r, amountKey)
+  return {
+    month: month || label,
+    label: label || month,
+    value: Number.isFinite(value) ? value : 0,
+    ...(amountKey === 'tvl' ? { tvl: amount || undefined } : { principal: amount || undefined }),
+  }
+}
+
+function normalizeAdminChartHistory(raw: unknown, amountKey: 'tvl' | 'principal'): AdminChartHistory {
+  const r = asJsonObject(raw)
+  const rawSeries = r.series
+  const series: AdminChartSeriesPoint[] = []
+  if (Array.isArray(rawSeries)) {
+    for (const item of rawSeries) {
+      const point = normalizeChartSeriesPoint(item, amountKey)
+      if (point) series.push(point)
+    }
+  }
+  return {
+    months: pickNumberField(r, 'months') || series.length,
+    asOf: pickStringField(r, 'asOf', 'as_of'),
+    series,
+  }
+}
+
+export async function fetchAdminTvlHistory(
+  accessToken: string | null | undefined,
+  options?: { months?: number },
+): Promise<AdminChartHistory> {
+  const base = apiBaseUrl()
+  const months = options?.months ?? 7
+  const url = `${base}/api/metrics/admin/tvl/history/?months=${encodeURIComponent(String(months))}`
+  const res = await fetchWithAuthRecovery(url, {
+    method: 'GET',
+    headers: authHeaders(accessToken),
+  })
+  const raw = await parseJsonResponse<AdminChartHistoryApi>(res)
+  return normalizeAdminChartHistory(raw, 'tvl')
+}
+
+export async function fetchAdminOriginatedPrincipalHistory(
+  accessToken: string | null | undefined,
+  options?: { months?: number },
+): Promise<AdminChartHistory> {
+  const base = apiBaseUrl()
+  const months = options?.months ?? 7
+  const url = `${base}/api/metrics/admin/originated-principal/history/?months=${encodeURIComponent(String(months))}`
+  const res = await fetchWithAuthRecovery(url, {
+    method: 'GET',
+    headers: authHeaders(accessToken),
+  })
+  const raw = await parseJsonResponse<AdminChartHistoryApi>(res)
+  return normalizeAdminChartHistory(raw, 'principal')
+}

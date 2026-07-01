@@ -181,7 +181,13 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
         return
       }
 
-      dispatch(patchAuth({ accessToken: loginRes.accessToken, refreshToken: loginRes.refreshToken ?? null }))
+      dispatch(
+        patchAuth({
+          accessToken: loginRes.accessToken,
+          refreshToken: loginRes.refreshToken ?? null,
+          sessionKind: 'app',
+        }),
+      )
       unlockAfterConnectWallet(role)
       await persistor.flush()
 

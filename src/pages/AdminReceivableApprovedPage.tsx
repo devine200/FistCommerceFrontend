@@ -1,13 +1,11 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
 
-import { getReceivableDetailById } from '@/components/dashboard/merchant/receivables/receivableDetailConfig'
 import approvedIllustration from '@/assets/admin-receivable-approved.png'
 
 const AdminReceivableApprovedPage = () => {
   const { receivableId } = useParams<{ receivableId: string }>()
-  const detail = receivableId ? getReceivableDetailById(receivableId) : null
 
-  if (!receivableId || !detail) {
+  if (!receivableId?.trim()) {
     return <Navigate to="/dashboard/admin/receivables" replace />
   }
 
@@ -26,7 +24,13 @@ const AdminReceivableApprovedPage = () => {
             </p>
           </section>
 
-          <section className="mt-6 rounded-[10px] border border-[#E6E8EC] bg-white p-4 sm:p-5">
+          <section className="mt-6 rounded-[10px] border border-[#E6E8EC] bg-white p-4 sm:p-5 flex flex-col gap-3">
+            <Link
+              to={`/dashboard/admin/receivables/${encodeURIComponent(receivableId)}`}
+              className="h-[46px] rounded-[4px] border border-[#195EBC] text-[#195EBC] text-[15px] font-medium inline-flex items-center justify-center hover:bg-[#F0F6FF] transition-colors w-full"
+            >
+              View receivable details
+            </Link>
             <Link
               to="/dashboard/admin/overview"
               className="h-[46px] rounded-[4px] bg-[#195EBC] text-white text-[15px] font-medium inline-flex items-center justify-center hover:bg-[#154a9a] transition-colors w-full"
@@ -41,4 +45,3 @@ const AdminReceivableApprovedPage = () => {
 }
 
 export default AdminReceivableApprovedPage
-

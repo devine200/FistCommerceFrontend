@@ -1,104 +1,225 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import type { AdminMerchantListStatus } from '@/api/adminKycMerchants'
+import { AdminKycPendingGovernanceBadge } from '@/components/admin/kyc/AdminKycPendingGovernanceBadge'
+import { usePaginatedListItems } from '@/hooks/usePaginatedListItems'
 import {
+  AdminListPagination,
   AdminPageFrame,
   AdminPanel,
   AdminPartyStack,
   AdminSearchField,
+  AdminSegmentedTabs,
   AdminStatCard,
   AdminStatGrid,
   AdminStatusPill,
   AdminTableHeadRow,
   AdminTableShell,
   AdminTableTextLink,
+  AdminToolbarRow,
   adminZebraRowClass,
   type AdminPillVariant,
+  type AdminTabItem,
 } from '@/components/admin/primitives'
-import type { MerchantTableRow } from '@/components/admin/merchants/merchantsMockData'
-import { useAppSelector } from '@/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { refreshAdminMerchants } from '@/store/slices/adminMerchantsSlice'
+import {
+  adminMerchantStatusLabel,
+  formatAdminMerchantMoney,
+  formatAdminMerchantReceivablesCount,
+  formatAdminMerchantsCount,
+} from '@/utils/mapAdminMerchantsList'
+import {
+  ADMIN_MERCHANTS_FULL_LIST_FILTER,
+  adminMerchantsListCacheKey,
+  filterAdminMerchantsBySearch,
+  filterAdminMerchantsByStatus,
+} from '@/utils/adminMerchantsListCache'
 
-const SUMMARY = [
-  { title: 'Total Merchants', value: '2' },
-  { title: 'Active Merchants', value: '34' },
-  { title: 'Under Review', value: '1,543' },
-  { title: 'Suspended Merchants', value: '126' },
-] as const
+const FULL_LIST_CACHE_KEY = adminMerchantsListCacheKey(ADMIN_MERCHANTS_FULL_LIST_FILTER)
 
-function merchantPillVariant(status: MerchantTableRow['status']): AdminPillVariant {
-  switch (status) {
-    case 'Approved':
-      return 'approved'
-    case 'Rejected':
-      return 'rejected'
-    case 'Under Review':
-      return 'underReview'
+const TABS = ['All', 'Pending', 'Under Review', 'Approved', 'Rejected'] as const
+type TabKey = (typeof TABS)[number]
+
+const TAB_ITEMS: AdminTabItem<TabKey>[] = TABS.map((t) => ({ value: t, label: t }))
+
+const TABLE_HEADERS = ['Merchant', 'Industry', 'Total Loans', 'Current Debt Owed', 'Status', 'No. of Receivables', 'Action'] as const
+
+function tabToApiFilter(tab: TabKey) {
+  switch (tab) {
     case 'Pending':
+      return 'pending' as const
+    case 'Under Review':
+      return 'under_review' as const
+    case 'Approved':
+      return 'approved' as const
+    case 'Rejected':
+      return 'rejected' as const
+    default:
+      return 'all' as const
+  }
+}
+
+function merchantPillVariant(status: AdminMerchantListStatus): AdminPillVariant {
+  switch (status) {
+    case 'approved':
+      return 'approved'
+    case 'rejected':
+      return 'rejected'
+    case 'under_review':
+      return 'underReview'
+    case 'pending':
       return 'pending'
     default:
       return 'neutral'
   }
 }
 
-const TABLE_HEADERS = ['Merchant', 'Industry', 'Total Loans', 'Current Debt Owed', 'Status', 'No. of Receivables', 'Action'] as const
-
 const AdminMerchantsManagementPage = () => {
-  const tableRows = useAppSelector((s) => s.adminMerchants.tableRows)
-  const [query, setQuery] = useState('')
+  const dispatch = useAppDispatch()
+  const { counts, results, resultsCache, status } = useAppSelector((s) => s.adminMerchants)
+  const accessToken = useAppSelector((s) => s.auth.accessToken)
+  const sessionKind = useAppSelector((s) => s.auth.sessionKind)
 
-  const filteredRows = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return tableRows
-    return tableRows.filter((r) => {
-      return (
-        r.merchantName.toLowerCase().includes(q) ||
-        r.merchantWallet.toLowerCase().includes(q) ||
-        r.industry.toLowerCase().includes(q) ||
-        r.status.toLowerCase().includes(q)
+  const [tab, setTab] = useState<TabKey>('All')
+  const [searchInput, setSearchInput] = useState('')
+  const [searchDebounced, setSearchDebounced] = useState('')
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearchDebounced(searchInput.trim()), 350)
+    return () => window.clearTimeout(timer)
+  }, [searchInput])
+
+  const apiFilter = useMemo(() => tabToApiFilter(tab), [tab])
+
+  const hasFullListCache = Object.prototype.hasOwnProperty.call(resultsCache, FULL_LIST_CACHE_KEY)
+
+  const allMerchants = useMemo(() => {
+    if (hasFullListCache) return resultsCache[FULL_LIST_CACHE_KEY]
+    return results
+  }, [hasFullListCache, resultsCache, results])
+
+  const refreshFullList = useCallback(
+    (background: boolean) => {
+      void dispatch(
+        refreshAdminMerchants({
+          ...ADMIN_MERCHANTS_FULL_LIST_FILTER,
+          background,
+        }),
       )
-    })
-  }, [query, tableRows])
+    },
+    [dispatch],
+  )
+
+  useEffect(() => {
+    if (!accessToken?.trim() || sessionKind !== 'admin') return
+    refreshFullList(hasFullListCache)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hasFullListCache read at dispatch time only
+  }, [accessToken, sessionKind, refreshFullList])
+
+  const statusFiltered = useMemo(
+    () => filterAdminMerchantsByStatus(allMerchants, apiFilter),
+    [allMerchants, apiFilter],
+  )
+
+  const filtered = useMemo(
+    () => filterAdminMerchantsBySearch(statusFiltered, searchDebounced),
+    [statusFiltered, searchDebounced],
+  )
+
+  const { pageItems, meta, setPage } = usePaginatedListItems(filtered, [tab, searchDebounced])
+
+  const summaryCards = useMemo(
+    () => [
+      { title: 'Total Merchants', value: formatAdminMerchantsCount(counts.totalMerchants) },
+      { title: 'Active Merchants', value: formatAdminMerchantsCount(counts.activeMerchants) },
+      { title: 'Under Review', value: formatAdminMerchantsCount(counts.underReview) },
+      { title: 'Rejected Merchants', value: formatAdminMerchantsCount(counts.rejectedMerchants) },
+    ],
+    [counts],
+  )
+
+  const tableLoading = status === 'loading' && allMerchants.length === 0
+  const emptyMessage = searchDebounced
+    ? 'No merchants match your search.'
+    : tab !== 'All'
+      ? 'No merchants in this tab yet.'
+      : 'No merchants found.'
 
   return (
     <AdminPageFrame>
       <AdminStatGrid>
-        {SUMMARY.map((c) => (
+        {summaryCards.map((c) => (
           <AdminStatCard key={c.title} title={c.title} value={c.value} />
         ))}
       </AdminStatGrid>
 
-      <section className="flex items-center justify-between gap-4">
-        <AdminSearchField
-          value={query}
-          onChange={setQuery}
-          placeholder="Search for a merchant."
-          aria-label="Search for a merchant"
-          className="max-w-[280px]"
-        />
-      </section>
-
       <AdminPanel>
+        <AdminToolbarRow
+          start={<AdminSegmentedTabs items={TAB_ITEMS} value={tab} onChange={setTab} />}
+          end={
+            <AdminSearchField
+              value={searchInput}
+              onChange={setSearchInput}
+              placeholder="Search for a merchant."
+              aria-label="Search for a merchant"
+            />
+          }
+        />
+
         <AdminTableShell minWidthClassName="min-w-[1060px]">
           <AdminTableHeadRow labels={TABLE_HEADERS} />
           <tbody className="bg-white">
-            {filteredRows.map((r, idx) => (
-              <tr key={r.id} className={adminZebraRowClass(idx)}>
-                <td className="px-5 py-5">
-                  <AdminPartyStack primary={r.merchantName} secondary={r.merchantWallet} />
-                </td>
-                <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">{r.industry}</td>
-                <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">{r.totalLoans}</td>
-                <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">{r.currentDebtOwed}</td>
-                <td className="px-5 py-5">
-                  <AdminStatusPill variant={merchantPillVariant(r.status)}>{r.status}</AdminStatusPill>
-                </td>
-                <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">{r.receivablesCountLabel}</td>
-                <td className="px-5 py-5">
-                  <AdminTableTextLink to={`/dashboard/admin/merchants/${r.id}`}>View Details</AdminTableTextLink>
+            {tableLoading ? (
+              <tr>
+                <td colSpan={TABLE_HEADERS.length} className="px-5 py-10 text-center text-[#6B7488] text-[14px]">
+                  Loading merchants…
                 </td>
               </tr>
-            ))}
+            ) : pageItems.length === 0 ? (
+              <tr>
+                <td colSpan={TABLE_HEADERS.length} className="px-5 py-10 text-center text-[#6B7488] text-[14px]">
+                  {emptyMessage}
+                </td>
+              </tr>
+            ) : (
+              pageItems.map((r, idx) => (
+                <tr key={r.merchantUserId} className={adminZebraRowClass(idx)}>
+                  <td className="px-5 py-5">
+                    <AdminPartyStack
+                      primary={r.merchant.displayName}
+                      secondary={r.merchant.walletShort || r.merchant.wallet}
+                    />
+                  </td>
+                  <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">{r.industry}</td>
+                  <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">
+                    {formatAdminMerchantMoney(r.totalLoans)}
+                  </td>
+                  <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">
+                    {formatAdminMerchantMoney(r.currentDebtOwed)}
+                  </td>
+                  <td className="px-5 py-5">
+                    <div className="flex flex-col gap-2 items-start">
+                      <AdminStatusPill variant={merchantPillVariant(r.status)}>
+                        {adminMerchantStatusLabel(r.status)}
+                      </AdminStatusPill>
+                      <AdminKycPendingGovernanceBadge proposalId={r.pendingMultisigProposalId} />
+                    </div>
+                  </td>
+                  <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">
+                    {formatAdminMerchantReceivablesCount(r.receivablesCount)}
+                  </td>
+                  <td className="px-5 py-5">
+                    <AdminTableTextLink to={`/dashboard/admin/merchants/${r.merchantUserId}`}>
+                      View Details
+                    </AdminTableTextLink>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </AdminTableShell>
+        <AdminListPagination meta={meta} onPageChange={setPage} loading={tableLoading} />
       </AdminPanel>
     </AdminPageFrame>
   )

@@ -8,6 +8,8 @@ import {
   resolveAsyncTableBodyState,
 } from '@/components/dashboard/shared/asyncDataTableBody'
 import type { ReceivableSummaryCard, ReceivableTableRow } from '@/components/dashboard/merchant/receivables/types'
+import { ListPagination } from '@/components/shared/ListPagination'
+import { usePaginatedListItems } from '@/hooks/usePaginatedListItems'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
@@ -131,6 +133,8 @@ const MerchantAllReceivablesContent = () => {
     if (!q) return rows
     return rows.filter((row) => matchesSearch(rowHaystack(row), q))
   }, [searchTerm, rows])
+
+  const { pageItems, meta, setPage } = usePaginatedListItems(filteredRows, [searchTerm])
 
   const tableBody = useMemo(
     () =>
@@ -260,7 +264,7 @@ const MerchantAllReceivablesContent = () => {
                 mobileClassName="px-2 py-8"
               />
             ) : (
-              filteredRows.map((row) => (
+              pageItems.map((row) => (
                 <button
                   key={row.id}
                   type="button"
@@ -330,7 +334,7 @@ const MerchantAllReceivablesContent = () => {
                   desktopCellClassName="px-8 py-12"
                 />
               ) : (
-                filteredRows.map((row) => (
+                pageItems.map((row) => (
                 <tr
                   key={row.id}
                   role="link"
@@ -375,6 +379,7 @@ const MerchantAllReceivablesContent = () => {
             </tbody>
           </table>
         </div>
+        <ListPagination meta={meta} onPageChange={setPage} variant="dashboard" />
       </section>
     </div>
   )

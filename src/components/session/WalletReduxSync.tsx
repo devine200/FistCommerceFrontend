@@ -2,8 +2,14 @@ import { useEffect, useRef } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 
 import { resetUserSession } from '@/session/resetUserSession'
+import {
+  ADMIN_LOGIN_PATH,
+  isAdminLoginPath,
+  shouldRedirectToAdminLogin,
+} from '@/auth/adminSession'
 import { store } from '@/store'
 import { useAppDispatch } from '@/store/hooks'
+import type { AppDispatch } from '@/store'
 import { patchAuth } from '@/store/slices/authSlice'
 import { setWalletFromProvider } from '@/store/slices/walletSlice'
 import { syncWalletChainIdFromProviderToRedux } from '@/wallet/syncWalletChainToRedux'
@@ -40,6 +46,27 @@ function agentDebugLog(payload: Record<string, unknown>) {
 type Eip1193Emitter = {
   on?: (event: string, handler: (...args: unknown[]) => void) => void
   removeListener?: (event: string, handler: (...args: unknown[]) => void) => void
+}
+
+/** Admins and admin login are not part of the investor/merchant onboarding wallet flow. */
+function resetWalletAppSessionAndRedirect(dispatch: AppDispatch) {
+  const { sessionKind, accessToken } = store.getState().auth
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+
+  // Persisted admin API session — wallet/Privy disconnect must not clear staff auth.
+  if (sessionKind === 'admin') return
+
+  // Admin sign-in screen: disconnect/reconnect is expected; stay on `/admin/login`.
+  if (isAdminLoginPath(pathname)) return
+
+  if (shouldRedirectToAdminLogin({ accessToken, sessionKind, pathname })) {
+    resetUserSession(dispatch)
+    window.location.replace(ADMIN_LOGIN_PATH)
+    return
+  }
+
+  resetUserSession(dispatch)
+  window.location.replace('/onboarding/choose-role')
 }
 
 /**
@@ -190,8 +217,7 @@ export default function WalletReduxSync() {
           timestamp: Date.now(),
         })
         // #endregion agent log
-        resetUserSession(dispatch)
-        window.location.replace('/onboarding/choose-role')
+        resetWalletAppSessionAndRedirect(dispatch)
       }
 
       // Still Privy-authenticated: only reset after a sustained disconnect (avoids idle flicker).
@@ -227,8 +253,7 @@ export default function WalletReduxSync() {
         timestamp: Date.now(),
       })
       // #endregion agent log
-      resetUserSession(dispatch)
-      window.location.replace('/onboarding/choose-role')
+      resetWalletAppSessionAndRedirect(dispatch)
     }
     wasConnected.current = isConnected
     lastAddress.current = address
@@ -259,8 +284,7 @@ export default function WalletReduxSync() {
         timestamp: Date.now(),
       })
       // #endregion agent log
-      resetUserSession(dispatch)
-      window.location.replace('/onboarding/choose-role')
+      resetWalletAppSessionAndRedirect(dispatch)
     }
     wasAuthenticated.current = authenticated
   }, [dispatch, privyReady, walletsReady, authenticated, isConnected, address])

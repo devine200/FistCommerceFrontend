@@ -1,7 +1,7 @@
 import { useEffect, type MouseEvent } from 'react'
 
 const overlayClass =
-  'fixed inset-0 z-[80] flex items-center justify-center bg-black/25 backdrop-blur-[2px] p-5'
+  'fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm p-5'
 
 function useModalEscape(onClose: () => void, open: boolean, escapeEnabled: boolean) {
   useEffect(() => {

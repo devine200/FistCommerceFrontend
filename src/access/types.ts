@@ -1,5 +1,5 @@
 import type { KycStatus } from '@/store/slices/kycSlice'
-import type { UserRole } from '@/store/slices/authSlice'
+import type { SessionKind, UserRole } from '@/store/slices/authSlice'
 
 export type AccessDecision = {
   allowed: boolean
@@ -13,6 +13,8 @@ export type AccessDecision = {
     | 'kyc_required'
     | 'onboarding_step'
     | 'role_mismatch'
+    | 'admin_required'
+    | 'admin_session_only'
 }
 
 export type AccessContext = {
@@ -24,6 +26,7 @@ export type AccessContext = {
   role: UserRole | null
   onboarded: boolean
   accessToken: string | null
+  sessionKind: SessionKind
   /** Wallet connection status (used by access guards). */
   walletStatus: string
   walletConnected: boolean

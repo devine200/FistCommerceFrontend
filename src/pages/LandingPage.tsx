@@ -1,5 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+
+import { fetchPublicContactSocialLinks } from '@/api/adminContactSocialLinks'
 
 import landingLendingPoolDashboard from '@/assets/landing-lending-pool-dashboard.png'
 import {
@@ -19,13 +21,30 @@ import {
   LANDING_MERCHANT_BENEFITS,
   LANDING_STATS,
 } from '@/components/landing'
+import { LANDING_SOCIAL_DEFAULTS } from '@/components/landing/landingFooterSocial'
+import type { LandingSocialLinkItem } from '@/components/landing/types'
 import { useSession } from '@/state/useSession'
+import { contactSocialLinkItems } from '@/utils/contactSocialLinks'
 import { dashboardOverviewPath, parseUserRole } from '@/utils/userRole'
 
 export default function LandingPage() {
   const navigate = useNavigate()
   const { onboarded, role } = useSession()
   const [copied, setCopied] = useState(false)
+  const [contactEmail, setContactEmail] = useState(LANDING_CONTACT_EMAIL)
+  const [socialLinks, setSocialLinks] = useState<LandingSocialLinkItem[]>(LANDING_SOCIAL_DEFAULTS)
+
+  useEffect(() => {
+    void fetchPublicContactSocialLinks()
+      .then((links) => {
+        if (links.email?.trim()) setContactEmail(links.email.trim())
+        const items = contactSocialLinkItems(links)
+        if (items.length) setSocialLinks(items)
+      })
+      .catch(() => {
+        /* keep defaults */
+      })
+  }, [])
 
   const goToApp = useCallback(() => {
     const normalizedRole = parseUserRole(role)
@@ -38,13 +57,13 @@ export default function LandingPage() {
 
   const copyEmail = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(LANDING_CONTACT_EMAIL)
+      await navigator.clipboard.writeText(contactEmail)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
     } catch {
       setCopied(false)
     }
-  }, [])
+  }, [contactEmail])
 
   return (
     <div className="min-h-screen bg-white text-slate-900 antialiased">
@@ -105,11 +124,11 @@ export default function LandingPage() {
 
       <LandingFooter
         contactHeading="Start participating in the future of finance"
-        email={LANDING_CONTACT_EMAIL}
+        email={contactEmail}
         copied={copied}
         onCopyEmail={copyEmail}
         columns={LANDING_FOOTER_COLUMNS}
-        legalBar={{ copyright: '© Fist Commerce 2026. All Rights Reserved.' }}
+        legalBar={{ copyright: '© Fist Commerce 2026. All Rights Reserved.', socialLinks }}
       />
     </div>
   )

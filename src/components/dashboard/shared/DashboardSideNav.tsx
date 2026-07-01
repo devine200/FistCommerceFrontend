@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { useLogout } from '@privy-io/react-auth'
 import { Link, useLocation } from 'react-router-dom'
 
 import logo from '@/assets/logo.png'
@@ -6,12 +8,36 @@ import coinIcon from '@/assets/Coin.svg'
 import userIcon from '@/assets/ph_user.svg'
 import documentNavIcon from '@/assets/Frame 1000004246.png'
 import collapseArrowIcon from '@/assets/CollapseArrow.svg'
+import supportNavIcon from '@/assets/mobile-notification.png'
+
+import { logoutUserSession } from '@/session/logoutUserSession'
+import { useAppDispatch } from '@/store/hooks'
+import { useActiveWallet } from '@/wallet/useActiveWallet'
 
 import type { DashboardBasePath, DashboardSideNavItem, DashboardSideNavProps } from './types'
 
 const ICON_24 = 'w-[24px] h-[24px] max-w-[24px] max-h-[24px] object-contain shrink-0'
 
 const LOGO_HEADER = 'w-[45px] h-[40px] max-w-[45px] max-h-[40px] object-contain shrink-0'
+
+function DashboardLogoutIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  )
+}
 
 function resolveDashboardBase(pathname: string, explicit?: DashboardBasePath): DashboardBasePath {
   if (explicit) return explicit
@@ -25,6 +51,10 @@ const DashboardSideNav = ({
   onToggleExpanded,
   onRequestClose,
 }: DashboardSideNavProps) => {
+  const dispatch = useAppDispatch()
+  const { logout } = useLogout()
+  const { wallet } = useActiveWallet()
+  const [loggingOut, setLoggingOut] = useState(false)
   const location = useLocation()
   const pathname = location.pathname
 
@@ -80,7 +110,23 @@ const DashboardSideNav = ({
         ]
       : []
 
-  const allNavItems = [...navItems.slice(0, 2), ...merchantExtraItems, ...navItems.slice(2)]
+  const supportItem: DashboardSideNavItem = {
+    path: `${base}/support`,
+    label: 'Support',
+    icon: supportNavIcon,
+    isActive: pathname === `${base}/support` || pathname.startsWith(`${base}/support/`),
+  }
+
+  const allNavItems = [...navItems.slice(0, 2), ...merchantExtraItems, ...navItems.slice(2), supportItem]
+
+  const handleLogout = () => {
+    if (loggingOut) return
+    onRequestClose?.()
+    setLoggingOut(true)
+    void logoutUserSession(dispatch, wallet, logout).catch(() => {
+      setLoggingOut(false)
+    })
+  }
 
   return (
     <aside
@@ -167,19 +213,43 @@ const DashboardSideNav = ({
         ))}
       </nav>
 
-      <div className="p-3 border-t border-[#E6E8EC] flex justify-center">
+      <div className="p-3 border-t border-[#E6E8EC] flex flex-col gap-2">
         <button
           type="button"
-          onClick={onToggleExpanded}
-          className="h-10 w-10 rounded-full border border-[#195EBC] flex items-center justify-center text-[#195EBC] hover:bg-[#E8EFFB] transition-colors"
-          aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className={[
+            'flex items-center gap-3 rounded-[6px] px-3 py-3 text-left transition-colors w-full',
+            'text-[#6B7488] hover:bg-[#FEF2F2] hover:text-[#DC2626] disabled:opacity-60',
+          ].join(' ')}
+          aria-label="Log out"
         >
-          <img
-            src={collapseArrowIcon}
-            alt=""
-            className={[ICON_24, 'transition-transform duration-200', expanded ? 'rotate-180' : ''].join(' ')}
-          />
+          <span className="h-[24px] w-[24px] shrink-0 flex items-center justify-center text-[#6B7488]">
+            <DashboardLogoutIcon className="w-[24px] h-[24px]" />
+          </span>
+          <span
+            className={[
+              'text-[14px] font-medium truncate transition-opacity duration-200',
+              showLabels ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0 overflow-hidden',
+            ].join(' ')}
+          >
+            {loggingOut ? 'Logging out…' : 'Log out'}
+          </span>
         </button>
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={onToggleExpanded}
+            className="h-10 w-10 rounded-full border border-[#195EBC] flex items-center justify-center text-[#195EBC] hover:bg-[#E8EFFB] transition-colors"
+            aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+            <img
+              src={collapseArrowIcon}
+              alt=""
+              className={[ICON_24, 'transition-transform duration-200', expanded ? 'rotate-180' : ''].join(' ')}
+            />
+          </button>
+        </div>
       </div>
     </aside>
   )

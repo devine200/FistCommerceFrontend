@@ -86,9 +86,17 @@ function DetailRows({ detail }: AdminTransactionModalDetailRowsProps) {
     { label: 'Transaction Amount', value: detail.transactionAmount },
     { label: 'Fees Deducted', value: detail.feesDeducted },
     { label: 'Net Received', value: detail.netReceived },
-    { label: 'Wallet Address', value: detail.walletAddress, valueClassName: 'text-[#195EBC] font-medium' },
+    { label: 'Wallet Address', value: detail.walletAddressFull?.trim() || detail.walletAddress, valueClassName: 'text-[#195EBC] font-medium' },
     { label: 'Network', value: detail.network },
   ]
+
+  if (detail.transactionHash?.trim()) {
+    rows.push({
+      label: 'Transaction Hash',
+      value: detail.transactionHash,
+      valueClassName: 'text-[#195EBC] font-medium break-all',
+    })
+  }
 
   return (
     <dl className="flex flex-col divide-y divide-[#E6E8EC] border-t border-b border-[#E6E8EC]">

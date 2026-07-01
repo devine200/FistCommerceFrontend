@@ -13,6 +13,7 @@ const lifecycleBarClass = (variant: LifecycleStepVariant): string => {
   if (variant === 'purple') return 'bg-[#9333EA]'
   if (variant === 'green') return 'bg-[#16A34A]'
   if (variant === 'sky') return 'bg-[#38BDF8]'
+  if (variant === 'red') return 'bg-[#DC2626]'
   if (variant === 'neutral') return 'bg-[#1F2937]'
   return 'bg-[#195EBC]'
 }

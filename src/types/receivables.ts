@@ -3,6 +3,7 @@ export enum ReceivableStage {
   Verified = 'VERIFIED',
   Funded = 'FUNDED',
   Matured = 'MATURED',
+  Defaulted = 'DEFAULTED',
   Repaid = 'REPAID',
 }
 
@@ -20,8 +21,10 @@ export function lifecycleCompletedCount(stage: ReceivableStage) {
       return 3
     case ReceivableStage.Matured:
       return 4
-    case ReceivableStage.Repaid:
+    case ReceivableStage.Defaulted:
       return 5
+    case ReceivableStage.Repaid:
+      return 6
     default:
       return 1
   }

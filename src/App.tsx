@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import InvestorDashboardSessionLayout from '@/components/session/InvestorDashboardSessionLayout'
 import KycFinancialRoutesGuard from '@/components/session/KycFinancialRoutesGuard'
 import MerchantDashboardSessionLayout from '@/components/session/MerchantDashboardSessionLayout'
-import { Navigate, Outlet, RouterProvider, createBrowserRouter } from 'react-router-dom'
+import AdminDashboardSessionLayout from '@/components/session/AdminDashboardSessionLayout'
+import { Navigate, Outlet, RouterProvider, createBrowserRouter, useLocation } from 'react-router-dom'
 
 import { useAppSelector } from '@/store/hooks'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
@@ -39,30 +40,48 @@ import MerchantReceivableDetailPage from '@/pages/MerchantReceivableDetailPage'
 import MerchantRepayLoanPage from '@/pages/MerchantRepayLoanPage'
 import MerchantRepayLoanConfirmationPage from '@/pages/MerchantRepayLoanConfirmationPage'
 import MerchantRepayLoanFailurePage from '@/pages/MerchantRepayLoanFailurePage'
+import DashboardSupportContactPage from '@/pages/DashboardSupportContactPage'
 import AdminDashboardLayout from '@/layouts/AdminDashboardLayout'
 import AdminPlatformOverviewPage from '@/pages/AdminPlatformOverviewPage'
-import AdminReceivablesManagementPage from '@/pages/AdminReceivablesManagementPage'
+import AdminPayoutWithdrawalManagementPage from '@/pages/AdminPayoutWithdrawalManagementPage'
 import AdminReceivableDetailPage from '@/pages/AdminReceivableDetailPage'
 import AdminReceivableApprovedPage from '@/pages/AdminReceivableApprovedPage'
+import AdminReceivablesManagementPage from '@/pages/AdminReceivablesManagementPage'
 import AdminMerchantProfilePage from '@/pages/AdminMerchantProfilePage'
 import AdminMerchantsManagementPage from '@/pages/AdminMerchantsManagementPage'
 import AdminInvestorsManagementPage from '@/pages/AdminInvestorsManagementPage'
+import AdminGovernanceProposalDetailPage from '@/pages/AdminGovernanceProposalDetailPage'
+import AdminGovernanceQueuePage from '@/pages/AdminGovernanceQueuePage'
+import AdminLoanMonitoringDetailPage from '@/pages/AdminLoanMonitoringDetailPage'
 import AdminLoanMonitoringPage from '@/pages/AdminLoanMonitoringPage'
 import AdminSectionPlaceholderPage from '@/pages/AdminSectionPlaceholderPage'
 import AdminTransactionsPage from '@/pages/AdminTransactionsPage'
 import AdminSettingsPage from '@/pages/AdminSettingsPage'
-import AdminAlertsPage from '@/pages/AdminAlertsPage'
+import AdminSupportDisputeInfoPage from '@/pages/AdminSupportDisputeInfoPage'
 import AdminInvestorActivityDetailPage from '@/pages/AdminInvestorActivityDetailPage'
 import AdminInvestorProfilePage from '@/pages/AdminInvestorProfilePage'
 import AdminLoginPage from '@/pages/AdminLoginPage'
+import AdminProtectedOutlet from '@/components/session/AdminProtectedOutlet'
 import LandingPage from '@/pages/LandingPage'
 import { resolveDashboardReturnTo } from '@/session/dashboardReturnTo'
 import { parseUserRole } from '@/utils/userRole'
+import {
+  ADMIN_DASHBOARD_OVERVIEW_PATH,
+  ADMIN_LOGIN_PATH,
+  isAdminDashboardPath,
+  isAdminSession,
+} from '@/auth/adminSession'
 
 const RootRedirect = () => {
-  const { onboarded, role, accessToken } = useAppSelector((s) => s.auth)
+  const { onboarded, role, accessToken, sessionKind } = useAppSelector((s) => s.auth)
   const { isConnected } = useActiveWallet()
   const normalizedRole = parseUserRole(role)
+  if (isAdminSession(accessToken, sessionKind)) {
+    return <Navigate to={ADMIN_DASHBOARD_OVERVIEW_PATH} replace />
+  }
+  if (sessionKind === 'admin') {
+    return <Navigate to={ADMIN_LOGIN_PATH} replace />
+  }
   if (!onboarded) return <Navigate to="/onboarding" replace />
   if (!isConnected || !accessToken?.length) {
     if (!normalizedRole) return <Navigate to="/onboarding/choose-role" replace />
@@ -78,11 +97,29 @@ const RequireOnboarded = ({ children }: { children: ReactNode }) => {
   return <>{children}</>
 }
 
-const RequireOnboardedOutlet = () => (
-  <RequireOnboarded>
-    <Outlet />
-  </RequireOnboarded>
-)
+/** Admin dashboard uses its own login; do not require wallet onboarding for `/dashboard/admin`. */
+const RequireOnboardedOutlet = () => {
+  const { pathname } = useLocation()
+  if (isAdminDashboardPath(pathname) || pathname === '/dashboard/admin/login') {
+    return <Outlet />
+  }
+  return (
+    <RequireOnboarded>
+      <Outlet />
+    </RequireOnboarded>
+  )
+}
+
+const DashboardIndexRedirect = () => {
+  const { accessToken, sessionKind } = useAppSelector((s) => s.auth)
+  if (isAdminSession(accessToken, sessionKind)) {
+    return <Navigate to={ADMIN_DASHBOARD_OVERVIEW_PATH} replace />
+  }
+  if (sessionKind === 'admin') {
+    return <Navigate to={ADMIN_LOGIN_PATH} replace />
+  }
+  return <Navigate to="investor" replace />
+}
 
 const router = createBrowserRouter([
   {
@@ -187,7 +224,7 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="investor" replace />,
+        element: <DashboardIndexRedirect />,
       },
       {
         path: 'investor',
@@ -256,6 +293,10 @@ const router = createBrowserRouter([
             element: <InvestorLendingPoolDetailPage />,
           },
           {
+            path: 'support',
+            element: <DashboardSupportContactPage />,
+          },
+          {
             path: '*',
             element: <Navigate to="/dashboard/investor/overview" replace />,
           },
@@ -270,15 +311,33 @@ const router = createBrowserRouter([
             element: <AdminLoginPage />,
           },
           {
-            element: <AdminDashboardLayout />,
+            element: <AdminProtectedOutlet />,
             children: [
+              {
+                element: <AdminDashboardSessionLayout />,
+                children: [
+              {
+                element: <AdminDashboardLayout />,
+                children: [
               {
                 index: true,
                 element: <Navigate to="overview" replace />,
               },
               {
+                path: 'governance/:proposalId',
+                element: <AdminGovernanceProposalDetailPage />,
+              },
+              {
+                path: 'governance',
+                element: <AdminGovernanceQueuePage />,
+              },
+              {
                 path: 'overview',
                 element: <AdminPlatformOverviewPage />,
+              },
+              {
+                path: 'payout-withdrawals',
+                element: <AdminPayoutWithdrawalManagementPage />,
               },
               {
                 path: 'receivables',
@@ -313,6 +372,10 @@ const router = createBrowserRouter([
                 element: <AdminInvestorsManagementPage />,
               },
               {
+                path: 'loan-monitoring/:loanId',
+                element: <AdminLoanMonitoringDetailPage />,
+              },
+              {
                 path: 'loan-monitoring',
                 element: <AdminLoanMonitoringPage />,
               },
@@ -326,11 +389,7 @@ const router = createBrowserRouter([
               },
               {
                 path: 'support',
-                element: <AdminSectionPlaceholderPage title="Support & Disputes" />,
-              },
-              {
-                path: 'alerts',
-                element: <AdminAlertsPage />,
+                element: <AdminSupportDisputeInfoPage />,
               },
               {
                 path: 'settings',
@@ -339,6 +398,10 @@ const router = createBrowserRouter([
               {
                 path: '*',
                 element: <Navigate to="/dashboard/admin/overview" replace />,
+              },
+                ],
+              },
+                ],
               },
             ],
           },
@@ -441,6 +504,10 @@ const router = createBrowserRouter([
                 <MerchantApplyLoanFailurePage />
               </KycFinancialRoutesGuard>
             ),
+          },
+          {
+            path: 'support',
+            element: <DashboardSupportContactPage />,
           },
           {
             path: '*',

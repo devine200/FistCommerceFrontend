@@ -1,7 +1,7 @@
 import { MERCHANT_RECEIVABLES_ROWS } from '@/components/dashboard/merchant/receivables/merchantReceivablesConfig'
 import type { ReceivableTableRow } from '@/components/dashboard/merchant/receivables/types'
 
-export type MerchantKycLabel = 'Verified' | 'Rejected' | 'Under Review'
+export type MerchantKycLabel = 'Verified' | 'Rejected' | 'Under Review' | 'Pending' | 'Approved'
 
 export type MerchantTableRow = {
   id: string
@@ -17,10 +17,13 @@ export type MerchantTableRow = {
 
 export type MerchantProfileDetail = {
   id: string
+  kycId: string | null
   displayName: string
+  wallet: string
   walletLabel: string
   businessName: string
   kycLabel: MerchantKycLabel
+  pendingMultisigProposalId: string | null
   registrationDate: string
   accountStatus: 'Active' | 'Inactive'
   receivablesSubmittedLabel: string
@@ -115,10 +118,13 @@ function profileFromMerchantRow(row: MerchantTableRow): MerchantProfileDetail {
 
   return {
     id: row.id,
+    kycId: null,
     displayName: row.merchantName,
+    wallet: row.merchantWallet,
     walletLabel: row.merchantWallet,
     businessName: 'Ajala Trading Solutions',
     kycLabel,
+    pendingMultisigProposalId: null,
     registrationDate: '24th March 2026',
     accountStatus: 'Active',
     receivablesSubmittedLabel: '13 Receivables',

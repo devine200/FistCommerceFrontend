@@ -1,5 +1,7 @@
 import activityArrowIcon from '@/assets/arrow.png'
 import activityTrendIcon from '@/assets/Vector.png'
+import { ListPagination } from '@/components/shared/ListPagination'
+import { usePaginatedListItems } from '@/hooks/usePaginatedListItems'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
@@ -139,6 +141,8 @@ const InvestorProfileHistoryTabContent = () => {
     return byType.filter((item) => itemMatchesQuery(searchableText(item), normalizedQuery))
   }, [filter, searchTerm])
 
+  const { pageItems, meta, setPage } = usePaginatedListItems(filteredItems, [filter, searchTerm])
+
   return (
     <section className="rounded-[8px] border border-[#E6E8EC] bg-white p-4 sm:p-5">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -195,7 +199,7 @@ const InvestorProfileHistoryTabContent = () => {
             Could not load activities. Please try again.
           </div>
         ) : null}
-        {filteredItems.map((item) => (
+        {pageItems.map((item) => (
           <article key={item.id} className="border-t border-[#EDF0F4] first:border-t-0 py-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
@@ -238,6 +242,7 @@ const InvestorProfileHistoryTabContent = () => {
             No activities found for this receivable.
           </div>
         ) : null}
+        <ListPagination meta={meta} onPageChange={setPage} variant="dashboard" className="border-t border-[#EDF0F4]" />
       </div>
     </section>
   )

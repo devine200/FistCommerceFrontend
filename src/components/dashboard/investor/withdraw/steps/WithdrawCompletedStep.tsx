@@ -34,7 +34,7 @@ const WithdrawCompletedStep = ({
         ['Fees Deducted', '$0.00'],
         ['Net Received', amountDisplay],
         ['Pool', poolName],
-        ['Network', 'Arbitrum One'],
+        ['Network', 'Arbitrum Sepolia'],
       ] as const,
     [amountDisplay, poolName],
   )
@@ -45,8 +45,9 @@ const WithdrawCompletedStep = ({
         <img src={kycPendingIllustration} alt="" className="h-20 w-20 object-contain" draggable={false} />
         <h2 className="mt-4 text-[#0B1220] font-bold text-[34px] leading-tight">Withdrawal Initiated!</h2>
         <p className="mt-2 max-w-[560px] text-[#6B7488] text-[15px] leading-relaxed">
-          Your withdrawal of {amountDisplay} USDC from {poolName} has been submitted. Expected processing time: 24-48
-          hrs.
+          Your withdrawal of {amountDisplay} USDC from {poolName} has been submitted. Approval may require
+          multiple governance signatures before funds are released. Expected processing time: 24–48 hrs after
+          on-chain execution.
         </p>
 
         <div className="mt-6 rounded-[6px] border border-[#E6E8EC] bg-white overflow-hidden">

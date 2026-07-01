@@ -19,9 +19,16 @@ import {
   ONBOARDING_PERSIST_KEY,
 } from '@/store/persistConstants'
 import { authReducer } from '@/store/slices/authSlice'
+import { adminContactSocialLinksReducer } from '@/store/slices/adminContactSocialLinksSlice'
 import { adminDashboardReducer } from '@/store/slices/adminDashboardSlice'
 import { adminInvestorsReducer } from '@/store/slices/adminInvestorsSlice'
 import { adminMerchantsReducer } from '@/store/slices/adminMerchantsSlice'
+import { adminLoanMonitoringReducer } from '@/store/slices/adminLoanMonitoringSlice'
+import { adminMultisigReducer } from '@/store/slices/adminMultisigSlice'
+import { adminPayoutWithdrawalsReducer } from '@/store/slices/adminPayoutWithdrawalsSlice'
+import { adminReceivablesReducer } from '@/store/slices/adminReceivablesSlice'
+import { adminServicerWalletReducer } from '@/store/slices/adminServicerWalletSlice'
+import { adminTransactionsReducer } from '@/store/slices/adminTransactionsSlice'
 import { investorDashboardReducer } from '@/store/slices/investorDashboardSlice'
 import { recentTransactionsReducer } from '@/store/slices/recentTransactionsSlice'
 import { merchantDashboardReducer } from '@/store/slices/merchantDashboardSlice'
@@ -107,9 +114,16 @@ const rootReducer = combineReducers({
   onboardingProfileDraft: onboardingProfileDraftReducer,
   // KYC must be derived from backend payloads; do not persist.
   kyc: kycReducer,
+  adminContactSocialLinks: adminContactSocialLinksReducer,
   adminDashboard: adminDashboardReducer,
   adminInvestors: adminInvestorsReducer,
   adminMerchants: adminMerchantsReducer,
+  adminReceivables: adminReceivablesReducer,
+  adminPayoutWithdrawals: adminPayoutWithdrawalsReducer,
+  adminLoanMonitoring: adminLoanMonitoringReducer,
+  adminMultisig: adminMultisigReducer,
+  adminServicerWallet: adminServicerWalletReducer,
+  adminTransactions: adminTransactionsReducer,
   investorDashboard: investorDashboardReducer,
   recentTransactions: recentTransactionsReducer,
   merchantDashboard: merchantDashboardReducer,

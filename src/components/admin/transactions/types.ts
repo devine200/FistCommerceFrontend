@@ -16,7 +16,9 @@ export type AdminTransactionDetail = {
   feesDeducted: string
   netReceived: string
   walletAddress: string
+  walletAddressFull?: string | null
   network: string
+  transactionHash?: string | null
 }
 
 export type AdminTransactionDetailsModalProps = {

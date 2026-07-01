@@ -16,6 +16,7 @@ export function AdminMerchantProfileReceivablesPanels({
   allPanelTitle = DEFAULT_ALL_TITLE,
   activePanelSearchAriaLabel = 'Search active receivables',
   allPanelSearchAriaLabel = 'Search all receivables',
+  receivablesLoading = false,
 }: AdminMerchantProfileReceivablesPanelsProps) {
   return (
     <>
@@ -25,6 +26,7 @@ export function AdminMerchantProfileReceivablesPanels({
         searchValue={activeSearchValue}
         onSearchChange={onActiveSearchChange}
         searchAriaLabel={activePanelSearchAriaLabel}
+        loading={receivablesLoading}
       />
       <AdminMerchantReceivablesTablePanel
         title={allPanelTitle}
@@ -33,6 +35,7 @@ export function AdminMerchantProfileReceivablesPanels({
         searchValue={allSearchValue}
         onSearchChange={onAllSearchChange}
         searchAriaLabel={allPanelSearchAriaLabel}
+        loading={receivablesLoading}
       />
     </>
   )

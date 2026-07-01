@@ -42,6 +42,9 @@ const DashboardTopBar = ({
   const profileTo = isMerchantDashboard
     ? '/dashboard/merchant/profile/overview'
     : '/dashboard/investor/profile/overview'
+  const supportTo = isMerchantDashboard
+    ? '/dashboard/merchant/support'
+    : '/dashboard/investor/support'
   const profileWalletsHref = isMerchantDashboard
     ? '/dashboard/merchant/profile/wallets'
     : '/dashboard/investor/profile/wallets'
@@ -93,10 +96,10 @@ const DashboardTopBar = ({
       </div>
 
       <div className="flex items-center gap-3 lg:gap-4 shrink-0">
-        <button
-          type="button"
-          className="relative h-[34px] w-[34px] lg:h-[40px] lg:w-[40px] lg:border lg:border-[#E6E8EC] lg:rounded-[6px] text-[#4D5D80] flex items-center justify-center shrink-0"
-          aria-label={notificationUnread ? 'Notifications, unread' : 'Notifications'}
+        <Link
+          to={supportTo}
+          className="relative h-[34px] w-[34px] lg:h-[40px] lg:w-[40px] lg:border lg:border-[#E6E8EC] lg:rounded-[6px] text-[#4D5D80] flex items-center justify-center shrink-0 hover:bg-[#F9FAFB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#195EBC]"
+          aria-label={notificationUnread ? 'Support and disputes, unread' : 'Support and disputes'}
         >
           <img src={mobileNotificationIcon} alt="" className="lg:hidden h-[19px] w-[19px] object-contain" />
           <BellIcon className="hidden lg:block" />
@@ -106,7 +109,7 @@ const DashboardTopBar = ({
               aria-hidden
             />
           ) : null}
-        </button>
+        </Link>
 
         <Link
           to={profileTo}

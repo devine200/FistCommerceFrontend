@@ -4,6 +4,7 @@ import { usePrivy } from '@privy-io/react-auth'
 import DashboardErrorModal from '@/components/dashboard/shared/DashboardErrorModal'
 import { disconnectPrivySession } from '@/session/disconnectPrivySession'
 import { resetUserSession } from '@/session/resetUserSession'
+import { ADMIN_LOGIN_PATH, shouldRedirectToAdminLogin } from '@/auth/adminSession'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { store } from '@/store'
 import { APP_CHAIN } from '@/wallet/appChain'
@@ -93,8 +94,11 @@ export default function ArbitrumSepoliaWalletEnforcer() {
 
   const handleLogoutWrongNetwork = useCallback(async () => {
     await disconnectPrivySession(wallet, logout)
+    const { accessToken, sessionKind } = store.getState().auth
+    const pathname = typeof window !== 'undefined' ? window.location.pathname : undefined
+    const toAdminLogin = shouldRedirectToAdminLogin({ accessToken, sessionKind, pathname })
     resetUserSession(dispatch)
-    window.location.replace('/onboarding/choose-role')
+    window.location.replace(toAdminLogin ? ADMIN_LOGIN_PATH : '/onboarding/choose-role')
   }, [wallet, logout, dispatch])
 
   const handleSwitchToAppChain = useCallback(() => {

@@ -50,8 +50,9 @@ function apiStatusToStage(statusRaw: string | null | undefined): ReceivableStage
   const s = (statusRaw ?? '').trim().toLowerCase()
   if (s === 'verified') return ReceivableStage.Verified
   if (s === 'funded') return ReceivableStage.Funded
+  if (s === 'matured') return ReceivableStage.Matured
+  if (s === 'defaulted') return ReceivableStage.Defaulted
   if (s === 'repaid') return ReceivableStage.Repaid
-  if (s === 'defaulted' || s === 'matured') return ReceivableStage.Matured
   return ReceivableStage.Created
 }
 
@@ -137,12 +138,19 @@ function mergeLifecycle(
   api: LoanDetailsResponse,
   fallback: ReceivableDetailView,
 ): ReceivableDetailView['lifecycle'] {
+  const status = api.lifecycle.status?.trim().toLowerCase() ?? ''
   const dates = [
     api.lifecycle.createdAt,
     api.lifecycle.verifiedAt,
-    null,
+    status === 'funded' ||
+    status === 'matured' ||
+    status === 'defaulted' ||
+    status === 'repaid'
+      ? api.lifecycle.verifiedAt ?? api.lifecycle.maturedAt
+      : null,
     api.lifecycle.maturedAt,
-    api.lifecycle.status?.toLowerCase() === 'repaid' ? api.lifecycle.maturedAt : null,
+    status === 'defaulted' ? api.lifecycle.defaultedAt ?? api.lifecycle.maturedAt : null,
+    status === 'repaid' ? api.lifecycle.maturedAt : null,
   ]
   return fallback.lifecycle.map((step, i) => ({
     ...step,

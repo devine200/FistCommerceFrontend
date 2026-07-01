@@ -10,7 +10,7 @@ function AdminSegmentedTabs<T extends string>({ items, value, onChange, variant 
   const inactiveBorder = variant === 'alerts' ? 'border border-[#E6E8EC]' : 'border border-[#E6E8EC]'
 
   return (
-    <>
+    <div className="flex flex-wrap items-center gap-4">
       {items.map((item) => {
         const active = item.value === value
         return (
@@ -29,7 +29,7 @@ function AdminSegmentedTabs<T extends string>({ items, value, onChange, variant 
           </button>
         )
       })}
-    </>
+    </div>
   )
 }
 

@@ -11,6 +11,7 @@ const activityDetailPath = (investorId: string, activityId: string) =>
 export function AdminInvestorActivityPanel({
   investorId,
   items,
+  titleCountOverride,
   searchValue,
   onSearchChange,
   activityFilter,
@@ -18,12 +19,15 @@ export function AdminInvestorActivityPanel({
   filterTabs,
   searchPlaceholder = 'Search activity',
   searchAriaLabel = 'Search activity',
+  loading = false,
 }: AdminInvestorActivityPanelProps) {
+  const titleCount = titleCountOverride ?? items.length
+
   return (
     <AdminPanel>
       <div className="flex flex-col gap-4 px-5 py-4 border-b border-[#E6E8EC]">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h2 className="text-[#0B1220] font-semibold text-[16px]">Activity ({items.length})</h2>
+          <h2 className="text-[#0B1220] font-semibold text-[16px]">Activity ({titleCount})</h2>
           <AdminSearchField
             value={searchValue}
             onChange={onSearchChange}
@@ -36,7 +40,7 @@ export function AdminInvestorActivityPanel({
           <AdminSegmentedTabs items={filterTabs} value={activityFilter} onChange={onActivityFilterChange} variant="alerts" />
         </div>
       </div>
-      <ul className="divide-y divide-[#E6E8EC]">
+      <ul className={['divide-y divide-[#E6E8EC]', loading ? 'opacity-60' : ''].join(' ')}>
         {items.map((item) => {
           const rowInner = (
             <>

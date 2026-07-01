@@ -7,6 +7,7 @@ import { PersistGate } from 'redux-persist/integration/react'
 
 import App from './App.tsx'
 import ArbitrumSepoliaWalletEnforcer from '@/components/session/ArbitrumSepoliaWalletEnforcer'
+import { getContractNetworkLabel, isLocalContractNetwork } from '@/contract_config/contractNetwork'
 import { APP_CHAIN } from '@/wallet/appChain'
 import WalletReduxSync from '@/components/session/WalletReduxSync'
 import AuthStorageSync from '@/store/AuthStorageSync'
@@ -25,6 +26,14 @@ const googleOauthClientIdForDocs =
 if (import.meta.env.DEV && !googleOauthClientIdForDocs) {
   console.info(
     '[Privy] Set VITE_GOOGLE_OAUTH_CLIENT_ID in .env to match the Google Web Client ID you configure in the Privy dashboard. The React SDK does not load OAuth secrets from the frontend.',
+  )
+}
+
+if (import.meta.env.DEV) {
+  console.info(
+    `[contracts] ${getContractNetworkLabel()} — chain ${APP_CHAIN.name} (${APP_CHAIN.id})${
+      isLocalContractNetwork() ? ` @ ${APP_CHAIN.rpcUrls.default.http[0]}` : ''
+    }`,
   )
 }
 

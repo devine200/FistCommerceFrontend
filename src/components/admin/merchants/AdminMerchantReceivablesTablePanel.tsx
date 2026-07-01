@@ -43,6 +43,7 @@ export type AdminMerchantReceivablesTablePanelProps = {
   searchValue: string
   onSearchChange: (value: string) => void
   searchAriaLabel?: string
+  loading?: boolean
 }
 
 export function AdminMerchantReceivablesTablePanel({
@@ -52,6 +53,7 @@ export function AdminMerchantReceivablesTablePanel({
   searchValue,
   onSearchChange,
   searchAriaLabel,
+  loading = false,
 }: AdminMerchantReceivablesTablePanelProps) {
   const receivableDetailHref = useAdminReceivableDetailHref()
   const count = titleCountOverride ?? items.length
@@ -71,7 +73,7 @@ export function AdminMerchantReceivablesTablePanel({
       </div>
       <AdminTableShell minWidthClassName="min-w-[1100px]">
         <AdminTableHeadRow labels={HEADERS} />
-        <tbody className="bg-white">
+        <tbody className={['bg-white', loading ? 'opacity-60' : ''].join(' ')}>
           {items.length === 0 ? (
             <tr>
               <td colSpan={HEADERS.length} className="px-5 py-12 text-center text-[#6B7488] text-[14px]">

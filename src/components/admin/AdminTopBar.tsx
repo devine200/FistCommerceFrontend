@@ -35,6 +35,8 @@ const AdminTopBar = ({
   onMenuClick,
   menuButtonAriaLabel,
   walletDisplay,
+  onConnectWallet,
+  connectWalletPending,
 }: AdminTopBarProps) => {
   const titleBlock = (
     <h1 className="text-black font-semibold text-[18px] sm:text-[24px] leading-tight truncate">{title}</h1>
@@ -117,9 +119,11 @@ const AdminTopBar = ({
           ) : (
             <button
               type="button"
-              className="bg-[#195EBC] text-white px-5 min-h-[40px] rounded-[6px] text-[16px] font-medium shrink-0 inline-flex items-center"
+              onClick={onConnectWallet}
+              disabled={!onConnectWallet || connectWalletPending}
+              className="bg-[#195EBC] text-white px-5 min-h-[40px] rounded-[6px] text-[16px] font-medium shrink-0 inline-flex items-center disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Connect Wallet
+              {connectWalletPending ? 'Connecting…' : 'Connect Wallet'}
             </button>
           )}
         </div>

@@ -1,18 +1,23 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
-import adminIconDollar1 from '@/assets/admin-icon-dollar-1.png'
-import adminIconDollar2 from '@/assets/admin-icon-dollar-2.png'
-import adminIconCoin from '@/assets/admin-icon-coin.png'
-import moneyIcon from '@/assets/Money.png'
-import adminActivityRepayment from '@/assets/admin-activity-repayment.png'
-import adminActivityDisbursement from '@/assets/admin-activity-disbursement.png'
-import adminActivityReceivable from '@/assets/admin-activity-receivable.png'
-import adminActivityUser from '@/assets/admin-activity-user.png'
+import { fetchAdminLatestRepayments } from '@/api/adminLoan'
+import { ApiRequestError } from '@/api/client'
+import {
+  fetchAdminMetrics,
+  fetchAdminOriginatedPrincipalHistory,
+  fetchAdminTvlHistory,
+  type AdminChartHistory,
+  type AdminMetrics,
+} from '@/api/metrics'
+import {
+  adminMetricsToMetricCards,
+  adminRepaymentsToActivityRows,
+  PLACEHOLDER_ADMIN_METRIC_CARDS,
+} from '@/utils/mapAdminMetricsOverview'
 
 export type AdminMetricCard = {
   title: string
   value: string
-  trend: string
   iconSrc: string
   iconClass?: string
 }
@@ -30,74 +35,62 @@ export type AdminDashboardSyncStatus = 'idle' | 'loading' | 'succeeded' | 'faile
 export type AdminDashboardState = {
   metricCards: AdminMetricCard[]
   activities: AdminActivityRow[]
+  adminMetrics: AdminMetrics | null
+  tvlHistory: AdminChartHistory | null
+  originatedHistory: AdminChartHistory | null
   status: AdminDashboardSyncStatus
   error: string | null
   lastUpdated: number | null
 }
 
-const initialMetricCards: AdminMetricCard[] = [
-  { title: 'Total Value Locked', value: '$48.2M', trend: '+12.4%', iconSrc: adminIconDollar1 },
-  { title: 'Total Active Loans', value: '343', trend: '+12.4%', iconSrc: adminIconCoin },
-  { title: 'Total Investors', value: '1,543', trend: '+12.4%', iconSrc: adminIconDollar2 },
-  { title: 'Total Merchants', value: '126', trend: '+12.4%', iconSrc: moneyIcon },
-  { title: 'Capital Deployed', value: '$48.2M', trend: '+12.4%', iconSrc: adminIconDollar1 },
-  { title: 'Repayments Collected', value: '343', trend: '+12.4%', iconSrc: adminIconCoin },
-  { title: 'Default Rate', value: '1,543', trend: '+12.4%', iconSrc: adminIconDollar2 },
-  { title: 'Platform Revenue', value: '126', trend: '+12.4%', iconSrc: moneyIcon },
-]
-
-const initialActivities: AdminActivityRow[] = [
-  {
-    title: 'Loan Repaid',
-    subtitle: '$5,500',
-    date: 'Mar 8, 2026',
-    iconSrc: adminActivityRepayment,
-    iconBgClass: 'bg-[#F3F7FC]',
-  },
-  {
-    title: 'Loan Disbursed',
-    subtitle: '$5,000',
-    date: 'Mar 8, 2026',
-    iconSrc: adminActivityDisbursement,
-    iconBgClass: 'bg-[#E7F6EC]',
-  },
-  {
-    title: 'Receivable Verified',
-    subtitle: 'Slippers Bulk Order',
-    date: 'Mar 8, 2026',
-    iconSrc: adminActivityReceivable,
-    iconBgClass: 'bg-[#FFF0E5]',
-  },
-  {
-    title: 'New Investor Approved',
-    subtitle: 'Jonah Will',
-    date: 'Mar 8, 2026',
-    iconSrc: adminActivityUser,
-    iconBgClass: 'bg-[#F3F7FC]',
-  },
-  {
-    title: 'New Merchant Approved',
-    subtitle: 'TechFlow Solutions',
-    date: 'Mar 8, 2026',
-    iconSrc: adminActivityUser,
-    iconBgClass: 'bg-[#F3F7FC]',
-  },
-]
-
 const initialState: AdminDashboardState = {
-  metricCards: initialMetricCards,
-  activities: initialActivities,
+  metricCards: PLACEHOLDER_ADMIN_METRIC_CARDS,
+  activities: [],
+  adminMetrics: null,
+  tvlHistory: null,
+  originatedHistory: null,
   status: 'idle',
   error: null,
   lastUpdated: null,
 }
 
-export const refreshAdminDashboard = createAsyncThunk('adminDashboard/refresh', async () => {
-  await new Promise<void>((resolve) => {
-    setTimeout(resolve, 450)
-  })
-  return { refreshedAt: Date.now() }
-})
+type RefreshAdminAuth = {
+  auth?: { accessToken?: string | null }
+}
+
+export const refreshAdminDashboard = createAsyncThunk(
+  'adminDashboard/refresh',
+  async (_arg, thunkApi) => {
+    const state = thunkApi.getState() as RefreshAdminAuth
+    const accessToken = state.auth?.accessToken
+    if (!accessToken?.trim()) {
+      throw new Error('Sign in to load admin dashboard metrics.')
+    }
+
+    try {
+      const [adminMetrics, tvlHistory, originatedHistory, repayments] = await Promise.all([
+        fetchAdminMetrics(accessToken),
+        fetchAdminTvlHistory(accessToken, { months: 7 }).catch(() => null),
+        fetchAdminOriginatedPrincipalHistory(accessToken, { months: 7 }).catch(() => null),
+        fetchAdminLatestRepayments(accessToken, { limit: 10 }).catch(() => []),
+      ])
+
+      return {
+        refreshedAt: Date.now(),
+        adminMetrics,
+        tvlHistory,
+        originatedHistory,
+        metricCards: adminMetricsToMetricCards(adminMetrics),
+        activities: adminRepaymentsToActivityRows(repayments),
+      }
+    } catch (e) {
+      if (e instanceof ApiRequestError) {
+        return thunkApi.rejectWithValue(e.message)
+      }
+      throw e
+    }
+  },
+)
 
 const adminDashboardSlice = createSlice({
   name: 'adminDashboard',
@@ -125,10 +118,18 @@ const adminDashboardSlice = createSlice({
       .addCase(refreshAdminDashboard.fulfilled, (state, action) => {
         state.status = 'succeeded'
         state.lastUpdated = action.payload.refreshedAt
+        state.adminMetrics = action.payload.adminMetrics
+        state.tvlHistory = action.payload.tvlHistory
+        state.originatedHistory = action.payload.originatedHistory
+        state.metricCards = action.payload.metricCards
+        state.activities = action.payload.activities
       })
       .addCase(refreshAdminDashboard.rejected, (state, action) => {
         state.status = 'failed'
-        state.error = typeof action.payload === 'string' ? action.payload : 'Refresh failed'
+        state.error =
+          (typeof action.payload === 'string' ? action.payload : null) ??
+          action.error.message ??
+          'Could not load dashboard metrics.'
       })
   },
 })
