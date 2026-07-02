@@ -100,7 +100,13 @@ export function PrivilegedActionFeedbackLayer({
         description={actionFeedbackModal.description}
         primaryLabel={actionFeedbackModal.primaryLabel}
         onPrimary={actionFeedbackModal.onPrimary}
-        onCancel={phase === 'loading' ? onCancelLoading : undefined}
+        onCancel={
+          phase === 'loading'
+            ? onCancelLoading
+            : phase === 'failed'
+              ? onDismiss
+              : undefined
+        }
       />
       <AdminGovernanceOutcomeFlow
         open={showGovernanceOutcome}

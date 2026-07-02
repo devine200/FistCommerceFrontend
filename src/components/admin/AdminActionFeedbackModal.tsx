@@ -23,8 +23,10 @@ export type AdminActionFeedbackModalProps = {
   description: string
   primaryLabel?: string
   onPrimary?: () => void
-  /** When set, loading modals can be dismissed via overlay click or Escape to cancel the in-flight action. */
+  /** Loading: abort in-flight request. Error: dismiss without retry. */
   onCancel?: () => void
+  /** Label for the secondary dismiss button on error (default: Cancel). */
+  cancelLabel?: string
 }
 
 function LoadingIcon() {
@@ -83,25 +85,37 @@ export default function AdminActionFeedbackModal({
   primaryLabel = 'OK',
   onPrimary,
   onCancel,
+  cancelLabel = 'Cancel',
 }: AdminActionFeedbackModalProps) {
   const titleId = 'admin-action-feedback-title'
   const descId = 'admin-action-feedback-desc'
-  const canDismissResult = variant !== 'loading' && Boolean(onPrimary)
   const canCancelLoading = variant === 'loading' && Boolean(onCancel)
+  const canDismissError = variant === 'error' && Boolean(onCancel)
+  const showErrorRetry = variant === 'error' && Boolean(onPrimary)
+  const showErrorDismissOnly = variant === 'error' && Boolean(onCancel) && !onPrimary
+  const canDismissSuccess = variant === 'success' && Boolean(onPrimary)
 
-  useModalEscape(canDismissResult ? onPrimary : canCancelLoading ? onCancel : undefined, open)
+  const handleEscapeOrOverlayDismiss = () => {
+    if (canCancelLoading && onCancel) {
+      onCancel()
+      return
+    }
+    if (canDismissError && onCancel) {
+      onCancel()
+      return
+    }
+    if (canDismissSuccess && onPrimary) {
+      onPrimary()
+    }
+  }
+
+  useModalEscape(handleEscapeOrOverlayDismiss, open)
 
   if (!open) return null
 
   const handleOverlayMouseDown = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return
-    if (canCancelLoading && onCancel) {
-      onCancel()
-      return
-    }
-    if (canDismissResult && onPrimary) {
-      onPrimary()
-    }
+    handleEscapeOrOverlayDismiss()
   }
 
   const borderClass =
@@ -140,16 +154,34 @@ export default function AdminActionFeedbackModal({
           ) : null}
         </div>
 
-        {canDismissResult && onPrimary ? (
+        {variant === 'error' && (showErrorRetry || showErrorDismissOnly || canDismissError) ? (
+          <div className="mt-8 flex w-full flex-col gap-3">
+            {showErrorRetry && onPrimary ? (
+              <button
+                type="button"
+                onClick={onPrimary}
+                className="min-h-[48px] w-full rounded-xl bg-[#1D61C1] text-[15px] font-semibold text-white shadow-sm transition-[background-color,transform] hover:bg-[#1955AD] active:scale-[0.99]"
+              >
+                {primaryLabel}
+              </button>
+            ) : null}
+            {canDismissError && onCancel ? (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="min-h-[48px] w-full rounded-xl border border-[#E5E7EB] bg-white text-[15px] font-semibold text-[#374151] transition-[background-color,transform] hover:bg-[#F9FAFB] active:scale-[0.99]"
+              >
+                {showErrorRetry ? cancelLabel : primaryLabel}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {canDismissSuccess && onPrimary ? (
           <button
             type="button"
             onClick={onPrimary}
-            className={[
-              'mt-8 min-h-[48px] w-full rounded-xl text-[15px] font-semibold transition-[background-color,transform] active:scale-[0.99]',
-              variant === 'error'
-                ? 'border border-[#E5E7EB] bg-white text-[#374151] hover:bg-[#F9FAFB]'
-                : 'bg-[#1D61C1] text-white shadow-sm hover:bg-[#1955AD]',
-            ].join(' ')}
+            className="mt-8 min-h-[48px] w-full rounded-xl bg-[#1D61C1] text-[15px] font-semibold text-white shadow-sm transition-[background-color,transform] hover:bg-[#1955AD] active:scale-[0.99]"
           >
             {primaryLabel}
           </button>
