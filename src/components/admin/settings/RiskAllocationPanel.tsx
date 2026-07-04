@@ -8,6 +8,7 @@ import {
   postMultisigCreateMaxMerchantBpsProposal,
 } from '@/api/adminProtocolSettings'
 import { fetchRiskTiers } from '@/api/riskTiers'
+import { toUserFacingError } from '@/api/client'
 import {
   PrivilegedActionFeedbackLayer,
   buildRiskTierProposalBody,
@@ -120,7 +121,7 @@ const RiskAllocationPanel = () => {
         setLoadError(null)
       } catch (e) {
         if (!cancelled) {
-          setLoadError(e instanceof Error ? e.message : 'Could not load on-chain risk settings.')
+          setLoadError(toUserFacingError(e, 'Could not load on-chain risk settings.'))
         }
       }
     })()
@@ -229,7 +230,7 @@ const RiskAllocationPanel = () => {
         setSubmitPhase('idle')
         return
       }
-      setSubmitError(e instanceof Error ? e.message : 'Could not submit risk allocation changes.')
+      setSubmitError(toUserFacingError(e, 'Could not submit risk allocation changes.'))
       setSubmitPhase('failed')
     } finally {
       if (submitAbortRef.current === controller) {

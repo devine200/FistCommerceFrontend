@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import InvestorKycVerificationModal from '@/components/dashboard/investor/InvestorKycVerificationModal'
 import MerchantKycVerificationModal from '@/components/dashboard/merchant/MerchantKycVerificationModal'
+import { hasDiditVerificationInProgress } from '@/api/kycDiditVerification'
 import type { KycVerificationCardProps, KycVerificationCardVariant } from '@/components/dashboard/shared/types'
 import { useAppSelector } from '@/store/hooks'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
@@ -14,17 +15,29 @@ export type { KycVerificationCardVariant }
 function deriveCardState(
   variant: KycVerificationCardVariant,
   isConnected: boolean,
-  investorRecord: { kyc_token?: string | null; kyc_verified?: boolean; insurance_verified?: boolean } | null,
-  merchantRecord: { kyc_token?: string | null; kyc_verified?: boolean; insurance_verified?: boolean } | null,
+  investorRecord: {
+    verification_url?: string | null
+    didit_session_id?: string | null
+    reviewed?: boolean
+    kyc_verified?: boolean
+    insurance_verified?: boolean
+  } | null,
+  merchantRecord: { verification_url?: string | null; didit_session_id?: string | null; kyc_verified?: boolean; insurance_verified?: boolean } | null,
 ) {
   if (variant === 'investor') {
-    const hasStartedKyc = Boolean(investorRecord?.kyc_token && String(investorRecord.kyc_token).trim())
+    const hasStartedKyc = hasDiditVerificationInProgress(investorRecord)
     if (hasStartedKyc) {
+      const fullyVerified = Boolean(investorRecord?.reviewed && investorRecord?.kyc_verified)
+      const diditPassed = Boolean(investorRecord?.kyc_verified)
       return {
         hasStartedKyc: true,
         totalSteps: 1,
         currentStepNumber: 1,
-        currentStepName: investorRecord?.kyc_verified ? 'Identity verified' : 'Identity verification',
+        currentStepName: fullyVerified
+          ? 'Verification complete'
+          : diditPassed
+            ? 'Pending on-chain approval'
+            : 'Identity verification',
       }
     }
     return {
@@ -35,7 +48,7 @@ function deriveCardState(
     }
   }
 
-  const hasStartedKyc = Boolean(merchantRecord?.kyc_token && String(merchantRecord.kyc_token).trim())
+  const hasStartedKyc = hasDiditVerificationInProgress(merchantRecord)
   if (hasStartedKyc) {
     const kv = Boolean(merchantRecord?.kyc_verified)
     const iv = Boolean(merchantRecord?.insurance_verified)

@@ -1,5 +1,7 @@
 import { useEffect, type MouseEvent } from 'react'
 
+import { toUserFacingError } from '@/api/client'
+
 const overlayClass =
   'fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm p-5'
 
@@ -71,7 +73,7 @@ export default function DashboardErrorModal({
     onClose()
   }
 
-  const safeMessage = message?.trim() ? message : 'Something went wrong.'
+  const safeMessage = toUserFacingError(message, 'Something went wrong.')
 
   return (
     <div

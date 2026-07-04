@@ -106,6 +106,8 @@ export type InvestorProfileDetail = {
   email: string
   accountStatus: 'Active' | 'Inactive'
   kycLabel: string
+  kycVerified: boolean
+  reviewed: boolean
   pendingMultisigProposalId: string | null
   dateJoined: string
   totalInvested: string
@@ -227,6 +229,8 @@ function profileFromRow(row: InvestorTableRow): InvestorProfileDetail {
     email: 'user1234@gmail.com',
     accountStatus: 'Active',
     kycLabel,
+    kycVerified: false,
+    reviewed: false,
     pendingMultisigProposalId: null,
     dateJoined: '24th March 2026',
     totalInvested: '$60,000',

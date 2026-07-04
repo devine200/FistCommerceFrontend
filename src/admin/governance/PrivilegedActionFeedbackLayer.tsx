@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 
+import { toUserFacingError } from '@/api/client'
 import AdminActionFeedbackModal from '@/components/admin/AdminActionFeedbackModal'
 
 import { AdminGovernanceOutcomeFlow } from './AdminGovernanceOutcomeFlow'
@@ -53,7 +54,10 @@ export function PrivilegedActionFeedbackLayer({
         open: true,
         variant: 'error' as const,
         title: errorTitle,
-        description: errorDescription?.trim() || 'Could not complete this action. Please try again.',
+        description: toUserFacingError(
+          errorDescription,
+          'Could not complete this action. Please try again.',
+        ),
         primaryLabel: 'Try again',
         onPrimary: onRetry,
       }

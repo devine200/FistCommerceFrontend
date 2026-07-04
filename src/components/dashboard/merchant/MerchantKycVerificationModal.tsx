@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { deriveKycStatusFromMerchantRecord, fetchMerchantKycRecord } from '@/api/kycMerchant'
+import { hasDiditVerificationInProgress, isKycIdentityAwaitingOnChainApproval } from '@/api/kycDiditVerification'
 import KycVerificationCompleteModal from '@/components/dashboard/kyc/KycVerificationCompleteModal'
 import VerifyIdentityModal from '@/components/dashboard/kyc/VerifyIdentityModal'
 import MerchantKycVerificationStepsModal from '@/components/dashboard/merchant/MerchantKycVerificationStepsModal'
@@ -59,11 +60,13 @@ const MerchantKycVerificationModal = ({ onClose }: MerchantKycVerificationModalP
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose])
 
-  const hasKycToken = Boolean(record?.kyc_token && String(record.kyc_token).trim())
+  const hasVerificationInProgress = hasDiditVerificationInProgress(record)
   const kycVerified = Boolean(record?.kyc_verified)
+  const kycUploadLocked = isKycIdentityAwaitingOnChainApproval(record)
   const pendingOnChain =
     typeof record?.pending_multisig_proposal_id === 'string' &&
     record.pending_multisig_proposal_id.trim().length > 0
+  const diditInReview = record?.didit_status === 'In Review'
   const insuranceVerified = Boolean(record?.insurance_verified)
   const kycRejected = kycStatus === 'rejected'
 
@@ -82,7 +85,7 @@ const MerchantKycVerificationModal = ({ onClose }: MerchantKycVerificationModalP
     }
   }
 
-  const handleIdentitySumsubFinished = async () => {
+  const handleIdentityVerificationFinished = async () => {
     await refetchMerchantKyc()
     await dispatch(refreshMerchantDashboard()).unwrap().catch(() => {})
     setActiveView(MerchantKycModalView.VerificationSteps)
@@ -110,12 +113,13 @@ const MerchantKycVerificationModal = ({ onClose }: MerchantKycVerificationModalP
           <VerifyIdentityModal
             flow="merchant_identity"
             accessToken={token}
-            initialSumsubToken={record?.kyc_token ?? null}
+            initialVerificationUrl={record?.verification_url ?? null}
             reviewed={record?.reviewed ?? false}
             kycRejected={kycRejected}
+            uploadLocked={kycUploadLocked}
             onBack={() => setActiveView(MerchantKycModalView.VerificationSteps)}
             onCancel={onClose}
-            onSumsubFinished={handleIdentitySumsubFinished}
+            onVerificationFinished={handleIdentityVerificationFinished}
           />
         )
       case MerchantKycModalView.Completed:
@@ -124,6 +128,12 @@ const MerchantKycVerificationModal = ({ onClose }: MerchantKycVerificationModalP
       default:
         return (
           <>
+            {diditInReview ? (
+              <div className="mb-4 rounded-[8px] border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-[#1E40AF] text-[14px]">
+                Your KYB Lite verification is under review. We will update your status when Didit completes
+                screening.
+              </div>
+            ) : null}
             {pendingOnChain ? (
               <div className="mb-4 rounded-[8px] border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-[#92400E] text-[14px]">
                 Verification is pending on-chain approval. An admin has submitted your review; multisig
@@ -132,11 +142,15 @@ const MerchantKycVerificationModal = ({ onClose }: MerchantKycVerificationModalP
             ) : null}
             <MerchantKycVerificationStepsModal
               walletConnected={isConnected}
-              hasKycToken={hasKycToken}
+              hasKycToken={hasVerificationInProgress}
               kycVerified={kycVerified}
+              kycUploadLocked={kycUploadLocked}
               insuranceVerified={insuranceVerified}
               kycRejected={kycRejected}
-              onVerifyIdentityClick={() => setActiveView(MerchantKycModalView.VerifyIdentity)}
+              onVerifyIdentityClick={() => {
+                if (kycUploadLocked) return
+                setActiveView(MerchantKycModalView.VerifyIdentity)
+              }}
             />
           </>
         )

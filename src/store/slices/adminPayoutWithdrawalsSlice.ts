@@ -13,7 +13,7 @@ import {
   type AdminRequestType,
   type AdminRequestTypeFilter,
 } from '@/api/adminRequests'
-import { ApiRequestError } from '@/api/client'
+import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
 import {
   isLatestAdminListRequest,
   markAdminListRequestPending,
@@ -147,7 +147,7 @@ export const refreshAdminPayoutWithdrawals = createAsyncThunk(
       }
     } catch (e) {
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }
@@ -199,7 +199,7 @@ export const approveAdminRequest = createAsyncThunk(
         throw e
       }
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }
@@ -236,7 +236,7 @@ export const rejectAdminRequest = createAsyncThunk(
         throw e
       }
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }

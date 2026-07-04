@@ -10,6 +10,7 @@ import {
   type MerchantMetrics,
   type PoolMetrics,
 } from '@/api/metrics'
+import { toUserFacingError } from '@/api/client'
 import { deriveKycStatusFromMerchantRecord, fetchMerchantKycRecord } from '@/api/kycMerchant'
 import type { LendingPoolCardState } from '@/store/slices/investorDashboardSlice'
 import { patchAuth } from '@/store/slices/authSlice'
@@ -95,8 +96,17 @@ export const refreshMerchantDashboard = createAsyncThunk(
       return { refreshedAt: Date.now(), poolMetrics: null, merchantMetrics: null }
     }
 
-    const [poolMetrics, merchantMetrics] = await Promise.all([fetchPoolMetrics(accessToken), fetchMerchantMetrics(accessToken)])
-    return { refreshedAt: Date.now(), poolMetrics, merchantMetrics }
+    try {
+      const [poolMetrics, merchantMetrics] = await Promise.all([
+        fetchPoolMetrics(accessToken),
+        fetchMerchantMetrics(accessToken),
+      ])
+      return { refreshedAt: Date.now(), poolMetrics, merchantMetrics }
+    } catch (e) {
+      return thunkApi.rejectWithValue(
+        toUserFacingError(e, 'Dashboard sync failed. Please check your connection and try again.'),
+      )
+    }
   },
 )
 

@@ -1,7 +1,7 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 import { fetchAdminLatestRepayments } from '@/api/adminLoan'
-import { ApiRequestError } from '@/api/client'
+import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
 import {
   fetchAdminMetrics,
   fetchAdminOriginatedPrincipalHistory,
@@ -85,7 +85,7 @@ export const refreshAdminDashboard = createAsyncThunk(
       }
     } catch (e) {
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }

@@ -6,7 +6,7 @@ import {
   type AdminReceivablesTabFilter,
   type AdminReceivableListRow,
 } from '@/api/adminLoan'
-import { ApiRequestError } from '@/api/client'
+import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
 import {
   adminReceivableListsEqual,
   adminReceivablesListCacheKey,
@@ -91,7 +91,7 @@ export const refreshAdminReceivables = createAsyncThunk(
       }
     } catch (e) {
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }

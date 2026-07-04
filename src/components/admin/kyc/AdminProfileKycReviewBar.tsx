@@ -8,6 +8,7 @@ import {
 } from '@/api/adminKycReview'
 import { submitAdminAction } from '@/admin/governance/submitAdminAction'
 import { AdminGovernanceStatusBadge } from '@/admin/governance/AdminGovernanceStatusBadge'
+import { canEnableAdminKycReviewButton } from '@/components/admin/kyc/adminKycReviewEligibility'
 import { AdminKycReviewModal } from '@/components/admin/kyc/AdminKycReviewModal'
 import { AdminPanel, AdminStatusPill, type AdminPillVariant } from '@/components/admin/primitives'
 import { useAppSelector } from '@/store/hooks'
@@ -20,6 +21,9 @@ type AdminProfileKycReviewBarProps = {
   userType: KycReviewUserType
   kycLabel: string
   kycPillVariant?: AdminPillVariant
+  kycVerified: boolean
+  insuranceVerified?: boolean
+  reviewed: boolean
   pendingMultisigProposalId: string | null
   onReviewComplete: () => void
 }
@@ -41,6 +45,9 @@ export function AdminProfileKycReviewBar({
   userType,
   kycLabel,
   kycPillVariant,
+  kycVerified,
+  insuranceVerified,
+  reviewed,
   pendingMultisigProposalId,
   onReviewComplete,
 }: AdminProfileKycReviewBarProps) {
@@ -48,6 +55,14 @@ export function AdminProfileKycReviewBar({
   const [modalOpen, setModalOpen] = useState(false)
   const pillVariant = kycPillVariant ?? kycLabelToPillVariant(kycLabel)
   const governancePending = Boolean(pendingMultisigProposalId?.trim())
+  const canReview = canEnableAdminKycReviewButton({
+    userType,
+    kycVerified,
+    insuranceVerified,
+    reviewed,
+    governancePending,
+    kycLabel,
+  })
 
   return (
     <>
@@ -64,7 +79,7 @@ export function AdminProfileKycReviewBar({
           <button
             type="button"
             className="h-10 px-5 rounded-[6px] bg-[#195EBC] text-white text-[14px] font-semibold hover:bg-[#154a9a] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-            disabled={governancePending}
+            disabled={!canReview}
             onClick={() => setModalOpen(true)}
           >
             Review KYC
@@ -85,8 +100,10 @@ export function AdminProfileKycReviewBar({
           }
           const resolvedKycId = await resolveAdminKycId(accessToken, {
             kycId,
+            wallet,
             userId,
             userType,
+            signal,
           })
           if (signal.aborted) {
             throw new DOMException('Aborted', 'AbortError')

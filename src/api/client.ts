@@ -90,6 +90,23 @@ export function formatApiRequestErrorPlain(error: ApiRequestError): string {
   return [error.message, ...error.detailLines].filter(Boolean).join('\n')
 }
 
+/** User-facing copy for modals and inline alerts; preserves API validation detail lines when present. */
+export function toUserFacingError(error: unknown, fallback: string): string {
+  if (typeof error === 'string') {
+    const trimmed = error.trim()
+    return trimmed || fallback
+  }
+  if (error instanceof ApiRequestError) {
+    const plain = formatApiRequestErrorPlain(error).trim()
+    return plain || fallback
+  }
+  if (error instanceof Error) {
+    const trimmed = error.message.trim()
+    return trimmed || fallback
+  }
+  return fallback
+}
+
 export async function parseJsonResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     throw await parseApiErrorResponse(res)

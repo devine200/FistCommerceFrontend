@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 
-import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFullPageLoading'
+import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { refreshAdminDashboard } from '@/store/slices/adminDashboardSlice'
 
@@ -10,10 +10,15 @@ export default function AdminDashboardSessionLayout() {
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const sessionKind = useAppSelector((s) => s.auth.sessionKind)
   const status = useAppSelector((s) => s.adminDashboard.status)
+  const error = useAppSelector((s) => s.adminDashboard.error)
+  const [loadingDismissed, setLoadingDismissed] = useState(false)
+  const [errorDismissed, setErrorDismissed] = useState(false)
   const didKickoffRef = useRef(false)
 
   useEffect(() => {
     didKickoffRef.current = false
+    setLoadingDismissed(false)
+    setErrorDismissed(false)
   }, [accessToken, sessionKind])
 
   useEffect(() => {
@@ -25,13 +30,34 @@ export default function AdminDashboardSessionLayout() {
     void dispatch(refreshAdminDashboard())
   }, [dispatch, status, accessToken, sessionKind])
 
+  useEffect(() => {
+    if (status === 'failed') setErrorDismissed(false)
+    if (status === 'loading') setLoadingDismissed(false)
+    if (status === 'succeeded') setLoadingDismissed(false)
+  }, [status])
+
+  const feedbackPhase =
+    status === 'loading' && !loadingDismissed
+      ? 'loading'
+      : status === 'failed' && !errorDismissed
+        ? 'failed'
+        : 'idle'
+
   return (
     <>
-      {status === 'loading' ? (
-        <div className="fixed inset-0 z-75">
-          <DashboardFullPageLoading label="Syncing platform overview…" />
-        </div>
-      ) : null}
+      <DashboardRequestFeedbackLayer
+        phase={feedbackPhase}
+        loadingTitle="Syncing platform overview"
+        loadingDescription="Fetching the latest admin dashboard metrics…"
+        errorTitle="Unable to load dashboard"
+        errorDescription={error ?? undefined}
+        onDismiss={() => setErrorDismissed(true)}
+        onRetry={() => {
+          setErrorDismissed(false)
+          void dispatch(refreshAdminDashboard())
+        }}
+        onCancelLoading={() => setLoadingDismissed(true)}
+      />
       <Outlet />
     </>
   )

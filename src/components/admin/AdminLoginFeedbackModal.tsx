@@ -1,5 +1,7 @@
 import { useEffect, type MouseEvent } from 'react'
 
+import { toUserFacingError } from '@/api/client'
+
 const overlayClass =
   'fixed inset-0 z-[70] flex items-center justify-center bg-black/25 backdrop-blur-[2px] p-5'
 
@@ -65,6 +67,11 @@ export function AdminLoginFeedbackModal({
 
   useModalEscape(onPrimary, open)
 
+  const safeDescription =
+    variant === 'error'
+      ? toUserFacingError(description, 'Could not sign in. Please try again.')
+      : description?.trim() || ''
+
   if (!open) return null
 
   const handleOverlayMouseDown = (e: MouseEvent<HTMLDivElement>) => {
@@ -92,8 +99,8 @@ export function AdminLoginFeedbackModal({
           <h2 id={titleId} className="mt-5 text-lg font-semibold tracking-tight text-[#0B1220] sm:text-xl">
             {title}
           </h2>
-          <p id={descId} className="mt-2 text-sm leading-relaxed text-[#6B7280]">
-            {description}
+          <p id={descId} className="mt-2 text-sm leading-relaxed text-[#6B7280] whitespace-pre-line">
+            {safeDescription}
           </p>
         </div>
 

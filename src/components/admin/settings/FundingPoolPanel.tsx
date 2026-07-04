@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { toUserFacingError } from '@/api/client'
 import {
   PrivilegedActionFeedbackLayer,
   submitAdminAction,
@@ -74,7 +75,7 @@ const FundingPoolPanel = () => {
         setLoadError(null)
       } catch (e) {
         if (!cancelled) {
-          setLoadError(e instanceof Error ? e.message : 'Could not load funding pool settings.')
+          setLoadError(toUserFacingError(e, 'Could not load funding pool settings.'))
         }
       }
     })()
@@ -107,7 +108,7 @@ const FundingPoolPanel = () => {
         assertValidEthAddress(draft.payoutRouter, 'Payout router address')
       }
     } catch (e) {
-      setSaveNotice(e instanceof Error ? e.message : 'Invalid funding pool values.')
+      setSaveNotice(toUserFacingError(e, 'Invalid funding pool values.'))
       return
     }
 
@@ -190,7 +191,7 @@ const FundingPoolPanel = () => {
         setSubmitPhase('idle')
         return
       }
-      setSubmitError(e instanceof Error ? e.message : 'Could not submit funding pool changes.')
+      setSubmitError(toUserFacingError(e, 'Could not submit funding pool changes.'))
       setSubmitPhase('failed')
     } finally {
       if (submitAbortRef.current === controller) {

@@ -8,7 +8,7 @@ import {
   type AdminMerchantsTabFilter,
   type FetchAdminMerchantProfileParams,
 } from '@/api/adminKycMerchants'
-import { ApiRequestError } from '@/api/client'
+import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
 import type { MerchantProfileDetail } from '@/components/admin/merchants/merchantsMockData'
 import { mapAdminMerchantProfileToDetail } from '@/utils/mapAdminMerchantsList'
 import {
@@ -115,7 +115,7 @@ export const refreshAdminMerchants = createAsyncThunk(
       }
     } catch (e) {
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }
@@ -151,7 +151,7 @@ export const refreshAdminMerchantProfile = createAsyncThunk(
       }
     } catch (e) {
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }

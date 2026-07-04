@@ -3,7 +3,7 @@ import type { RootState } from '@/store'
 import { parseUserRole } from '@/utils/userRole'
 
 /**
- * Dashboard / financial access: investor when `kyc_verified`; merchant when both identity and insurance verified.
+ * Dashboard / financial access: investor when `reviewed` and `kyc_verified`; merchant when both identity and insurance verified.
  * Falls back to `kyc.status === 'verified'` when the GET snapshot is not yet hydrated.
  */
 export function selectIsKycVerified(state: RootState): boolean {
@@ -12,7 +12,8 @@ export function selectIsKycVerified(state: RootState): boolean {
   if (st === 'verified') return true
   const role = parseUserRole(state.auth.role)
   if (role === 'investor') {
-    return Boolean(state.kyc.investorKycRecord?.kyc_verified)
+    const r = state.kyc.investorKycRecord
+    return Boolean(r?.reviewed && r?.kyc_verified)
   }
   if (role === 'merchant') {
     const m = state.kyc.merchantKycRecord

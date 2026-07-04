@@ -9,6 +9,7 @@ import {
   type InvestorMetrics,
   type PoolMetrics,
 } from '@/api/metrics'
+import { toUserFacingError } from '@/api/client'
 import { deriveKycStatusFromInvestorRecord, fetchInvestorKycRecord } from '@/api/kycInvestor'
 import { fetchRecentPayoutTransactions, type RecentPayoutBundle } from '@/api/payout'
 import { patchAuth, type UserRole } from '@/store/slices/authSlice'
@@ -121,19 +122,24 @@ export const refreshInvestorDashboard = createAsyncThunk(
 
     const isKycVerified = kycStatus === 'verified'
 
-    // Hard gate: never fetch dashboard metrics / payout history unless KYC is verified.
-    const [poolMetrics, investorMetrics, recentPayout] = isKycVerified
-      ? await Promise.all([
-          fetchPoolMetrics(accessToken),
-          fetchInvestorMetrics(accessToken),
-          fetchRecentPayoutTransactions(accessToken).catch(() => emptyRecentPayout),
-        ])
-      : ([null, null, emptyRecentPayout] as const)
+    try {
+      const [poolMetrics, investorMetrics, recentPayout] = isKycVerified
+        ? await Promise.all([
+            fetchPoolMetrics(accessToken),
+            fetchInvestorMetrics(accessToken),
+            fetchRecentPayoutTransactions(accessToken).catch(() => emptyRecentPayout),
+          ])
+        : ([null, null, emptyRecentPayout] as const)
 
-    const refreshedAt = Date.now()
-    thunkApi.dispatch(setRecentPayoutBundle({ bundle: recentPayout, fetchedAt: refreshedAt }))
+      const refreshedAt = Date.now()
+      thunkApi.dispatch(setRecentPayoutBundle({ bundle: recentPayout, fetchedAt: refreshedAt }))
 
-    return { refreshedAt, poolMetrics, investorMetrics }
+      return { refreshedAt, poolMetrics, investorMetrics }
+    } catch (e) {
+      return thunkApi.rejectWithValue(
+        toUserFacingError(e, 'Dashboard sync failed. Please check your connection and try again.'),
+      )
+    }
   },
 )
 

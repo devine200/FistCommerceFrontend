@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { toUserFacingError } from '@/api/client'
 import {
   AdminGovernanceStatusBadge,
   PrivilegedActionFeedbackLayer,
@@ -75,7 +76,7 @@ const ProtocolSafetyPanel = () => {
         setLoadError(null)
       } catch (e) {
         if (!cancelled) {
-          setLoadError(e instanceof Error ? e.message : 'Could not load protocol pause state.')
+          setLoadError(toUserFacingError(e, 'Could not load protocol pause state.'))
         }
       }
     })()
@@ -140,7 +141,7 @@ const ProtocolSafetyPanel = () => {
         setSubmitPhase('idle')
         return
       }
-      setSubmitError(e instanceof Error ? e.message : 'Could not submit protocol pause change.')
+      setSubmitError(toUserFacingError(e, 'Could not submit protocol pause change.'))
       setSubmitPhase('failed')
     } finally {
       if (submitAbortRef.current === controller) {

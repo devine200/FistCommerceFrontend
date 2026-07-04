@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { toUserFacingError } from '@/api/client'
 import {
   PrivilegedActionFeedbackLayer,
   submitAdminAction,
@@ -72,7 +73,7 @@ const PayoutRouterPanel = () => {
         setLoadError(null)
       } catch (e) {
         if (!cancelled) {
-          setLoadError(e instanceof Error ? e.message : 'Could not load payout router settings.')
+          setLoadError(toUserFacingError(e, 'Could not load payout router settings.'))
         }
       }
     })()
@@ -109,7 +110,7 @@ const PayoutRouterPanel = () => {
         assertValidEthAddress(draft.acceptedToken, 'Accepted token address')
       }
     } catch (e) {
-      setSaveNotice(e instanceof Error ? e.message : 'Invalid payout router values.')
+      setSaveNotice(toUserFacingError(e, 'Invalid payout router values.'))
       return
     }
 
@@ -208,7 +209,7 @@ const PayoutRouterPanel = () => {
         setSubmitPhase('idle')
         return
       }
-      setSubmitError(e instanceof Error ? e.message : 'Could not submit payout router changes.')
+      setSubmitError(toUserFacingError(e, 'Could not submit payout router changes.'))
       setSubmitPhase('failed')
     } finally {
       if (submitAbortRef.current === controller) {

@@ -73,7 +73,7 @@ export const refreshAdminContactSocialLinks = createAsyncThunk(
       return { fetchedAt: Date.now(), data }
     } catch (e) {
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }

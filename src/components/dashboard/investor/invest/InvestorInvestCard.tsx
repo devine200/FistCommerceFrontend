@@ -15,7 +15,7 @@ import InvestmentCompletedStep from '@/components/dashboard/investor/invest/step
 import InvestmentConfirmationStep from '@/components/dashboard/investor/invest/steps/InvestmentConfirmationStep'
 import InvestmentPoolSelectionStep from '@/components/dashboard/investor/invest/steps/InvestmentPoolSelectionStep'
 import { InvestmentStep } from '@/components/dashboard/investor/invest/types'
-import FlowFailureStep from '@/components/dashboard/shared/FlowFailureStep'
+import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useAppSelector } from '@/store/hooks'
 import { formatFlowFailureMessage } from '@/utils/formatFlowFailureMessage'
@@ -36,6 +36,8 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
   const [amount, setAmount] = useState(0)
   const [flowFailure, setFlowFailure] = useState<InvestFlowFailure | null>(null)
   const [investSubmitting, setInvestSubmitting] = useState(false)
+  const [feedbackPhase, setFeedbackPhase] = useState<'idle' | 'loading' | 'failed'>('idle')
+  const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const [internalStep, setInternalStep] = useState<InvestmentStep>(InvestmentStep.AmountEntry)
   const currentStep = step ?? internalStep
   const displayAmount = amount
@@ -66,8 +68,11 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
   }, [currentStep])
 
   const openFlowFailure = (source: unknown, returnStep: InvestmentStep) => {
-    setFlowFailure({ message: formatFlowFailureMessage(source), returnStep })
-    setStep(InvestmentStep.FlowFailure)
+    const message = formatFlowFailureMessage(source)
+    setFlowFailure({ message, returnStep })
+    setFeedbackError(message)
+    setFeedbackPhase('failed')
+    setStep(returnStep)
   }
 
   const walletMockTokenLabel = useMemo(() => {
@@ -98,8 +103,11 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
 
   const handleInvestConfirm = async () => {
     setInvestSubmitting(true)
+    setFeedbackPhase('loading')
+    setFeedbackError(null)
     try {
       await contracts.depositFundingPool(displayAmount)
+      setFeedbackPhase('idle')
       setStep(InvestmentStep.InvestmentCompleted)
     } catch (e) {
       openFlowFailure(e, InvestmentStep.InvestmentConfirmation)
@@ -108,25 +116,13 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
     }
   }
 
+  const activeFeedbackPhase =
+    investSubmitting || contracts.isWritePending
+      ? 'loading'
+      : feedbackPhase
+
   const renderInvestmentStep = () => {
     switch (currentStep) {
-      case InvestmentStep.FlowFailure:
-        return (
-          <FlowFailureStep
-            message={flowFailure?.message ?? 'Something went wrong. Please try again.'}
-            onPrimary={() => {
-              const back = flowFailure?.returnStep ?? InvestmentStep.PoolSelection
-              setFlowFailure(null)
-              setStep(back)
-            }}
-            secondaryLabel="Change amount"
-            onSecondary={() => {
-              setFlowFailure(null)
-              setStep(InvestmentStep.AmountEntry)
-            }}
-          />
-        )
-
       case InvestmentStep.InvestmentConfirmation:
         return (
           <InvestmentConfirmationStep
@@ -181,7 +177,30 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
   }
 
   return (
-    <>{renderInvestmentStep()}</>
+    <>
+      <DashboardRequestFeedbackLayer
+        phase={activeFeedbackPhase}
+        loadingTitle="Submitting investment"
+        loadingDescription="Confirm the deposit in your wallet…"
+        errorTitle="Unable to complete investment"
+        errorDescription={feedbackError ?? flowFailure?.message}
+        onDismiss={() => {
+          setFeedbackPhase('idle')
+          setFeedbackError(null)
+          setFlowFailure(null)
+        }}
+        onRetry={() => {
+          setFeedbackPhase('idle')
+          setFeedbackError(null)
+          if (flowFailure?.returnStep === InvestmentStep.InvestmentConfirmation) {
+            void handleInvestConfirm()
+            return
+          }
+          if (flowFailure?.returnStep) setStep(flowFailure.returnStep)
+        }}
+      />
+      {renderInvestmentStep()}
+    </>
   )
 }
 

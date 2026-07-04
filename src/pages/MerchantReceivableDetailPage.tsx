@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 
-import { ApiRequestError } from '@/api/client'
+import { ApiRequestError, toUserFacingError } from '@/api/client'
 import { canNavigateToLoanDetail, fetchLoanDetails } from '@/api/loanDetails'
-import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFullPageLoading'
+import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import MerchantReceivableDetailContent from '@/components/dashboard/merchant/receivables/MerchantReceivableDetailContent'
 import { getReceivableDetailById } from '@/components/dashboard/merchant/receivables/receivableDetailConfig'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
@@ -17,11 +17,20 @@ type ReceivableDetailLocationState = {
 
 const walletDisplay = '0x7A3F...92C1'
 
+function loanDetailsErrorMessage(error: unknown): string {
+  if (error instanceof ApiRequestError && error.status === 404) {
+    return 'This loan request was not found. The link may be invalid or you may not have access.'
+  }
+  return toUserFacingError(error, 'Could not load receivable details.')
+}
+
 const MerchantReceivableDetailPage = () => {
   const { receivableId } = useParams<{ receivableId: string }>()
   const navigate = useNavigate()
   const location = useLocation()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
+  const [errorDismissed, setErrorDismissed] = useState(false)
+  const [loadingDismissed, setLoadingDismissed] = useState(false)
 
   const poolSlug = (location.state as ReceivableDetailLocationState | null)?.poolSlug?.trim() ?? ''
   const poolDetailPath = poolSlug
@@ -56,6 +65,8 @@ const MerchantReceivableDetailPage = () => {
     return mapLoanDetailsToReceivableDetailView(loanId, loanDetailsQuery.data)
   }, [loanDetailsQuery.data, loanId])
 
+  const resolvedDetail = detail ?? (!fetchFromApi ? demoOnlyDetail : null)
+
   const topBarBreadcrumbs: DashboardBreadcrumbItem[] = useMemo(
     () => [
       { label: 'All Receivables', to: '/dashboard/merchant/receivables' },
@@ -63,6 +74,13 @@ const MerchantReceivableDetailPage = () => {
     ],
     [],
   )
+
+  const feedbackPhase =
+    fetchFromApi && loanDetailsQuery.isLoading && !loadingDismissed
+      ? 'loading'
+      : fetchFromApi && loanDetailsQuery.isError && !errorDismissed
+        ? 'failed'
+        : 'idle'
 
   if (!loanId) {
     return <Navigate to="/dashboard/merchant/receivables" replace />
@@ -72,67 +90,7 @@ const MerchantReceivableDetailPage = () => {
     return <Navigate to="/onboarding/merchant/connect-wallet" replace />
   }
 
-  if (fetchFromApi && loanDetailsQuery.isLoading) {
-    return (
-      <DashboardLayout
-        dashboardBasePath="/dashboard/merchant"
-        topBarBreadcrumbs={topBarBreadcrumbs}
-        topBarWalletDisplay={walletDisplay}
-        topBarNotificationUnread
-      >
-        <DashboardFullPageLoading label="Loading receivable details…" />
-      </DashboardLayout>
-    )
-  }
-
-  if (fetchFromApi && loanDetailsQuery.isError) {
-    const err = loanDetailsQuery.error
-    const message =
-      err instanceof ApiRequestError
-        ? err.status === 404
-          ? 'This loan request was not found. The link may be invalid or you may not have access.'
-          : err.message
-        : err instanceof Error
-          ? err.message
-          : 'Could not load receivable details.'
-
-    return (
-      <DashboardLayout
-        dashboardBasePath="/dashboard/merchant"
-        topBarBreadcrumbs={topBarBreadcrumbs}
-        topBarWalletDisplay={walletDisplay}
-        topBarNotificationUnread
-      >
-        <div className="max-w-[640px] mx-auto py-12 px-4">
-          <section className="rounded-[10px] border border-[#FECACA] bg-[#FEF2F2] px-6 py-10 text-center">
-            <h1 className="text-[#991B1B] font-bold text-[20px]">Unable to load receivable</h1>
-            <p className="mt-3 text-[#7F1D1D] text-[14px] leading-relaxed">{message}</p>
-          </section>
-          <button
-            type="button"
-            onClick={() => navigate(poolDetailPath, { replace: true })}
-            className="mt-6 w-full h-[46px] rounded-[6px] bg-[#195EBC] text-white text-[15px] font-medium hover:bg-[#154a9a] transition-colors"
-          >
-            Back to lending pool
-          </button>
-        </div>
-      </DashboardLayout>
-    )
-  }
-
-  if (!detail) {
-    if (!fetchFromApi && demoOnlyDetail) {
-      return (
-        <DashboardLayout
-          dashboardBasePath="/dashboard/merchant"
-          topBarBreadcrumbs={topBarBreadcrumbs}
-          topBarWalletDisplay={walletDisplay}
-          topBarNotificationUnread
-        >
-          <MerchantReceivableDetailContent detail={demoOnlyDetail} />
-        </DashboardLayout>
-      )
-    }
+  if (!resolvedDetail && !fetchFromApi) {
     return <Navigate to="/dashboard/merchant/receivables" replace />
   }
 
@@ -143,7 +101,26 @@ const MerchantReceivableDetailPage = () => {
       topBarWalletDisplay={walletDisplay}
       topBarNotificationUnread
     >
-      <MerchantReceivableDetailContent detail={detail} />
+      <DashboardRequestFeedbackLayer
+        phase={feedbackPhase}
+        loadingTitle="Loading receivable details"
+        loadingDescription="Fetching loan and repayment information…"
+        errorTitle="Unable to load receivable"
+        errorDescription={
+          loanDetailsQuery.error ? loanDetailsErrorMessage(loanDetailsQuery.error) : undefined
+        }
+        onDismiss={() => {
+          setErrorDismissed(true)
+          navigate(poolDetailPath, { replace: true })
+        }}
+        onRetry={() => {
+          setErrorDismissed(false)
+          void loanDetailsQuery.refetch()
+        }}
+        onCancelLoading={() => setLoadingDismissed(true)}
+        cancelLabel="Go back"
+      />
+      {resolvedDetail ? <MerchantReceivableDetailContent detail={resolvedDetail} /> : null}
     </DashboardLayout>
   )
 }

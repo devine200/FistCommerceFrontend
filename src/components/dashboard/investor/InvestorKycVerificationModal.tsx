@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { deriveKycStatusFromInvestorRecord, fetchInvestorKycRecord } from '@/api/kycInvestor'
+import { hasDiditVerificationInProgress, isKycIdentityAwaitingOnChainApproval } from '@/api/kycDiditVerification'
 import InvestorKycVerificationStepsModal from '@/components/dashboard/investor/InvestorKycVerificationStepsModal'
 import KycVerificationCompleteModal from '@/components/dashboard/kyc/KycVerificationCompleteModal'
 import VerifyIdentityModal from '@/components/dashboard/kyc/VerifyIdentityModal'
@@ -59,16 +60,18 @@ const InvestorKycVerificationModal = ({ onClose }: InvestorKycVerificationModalP
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose])
 
-  const hasKycToken = Boolean(record?.kyc_token && String(record.kyc_token).trim())
-  const kycVerified = Boolean(record?.kyc_verified)
+  const hasVerificationInProgress = hasDiditVerificationInProgress(record)
+  const kycFullyVerified = Boolean(record?.reviewed && record?.kyc_verified)
+  const kycUploadLocked = isKycIdentityAwaitingOnChainApproval(record)
   const pendingOnChain =
     typeof record?.pending_multisig_proposal_id === 'string' &&
     record.pending_multisig_proposal_id.trim().length > 0
+  const diditInReview = record?.didit_status === 'In Review'
   const kycRejected = kycStatus === 'rejected'
 
   const token = accessToken?.trim() ?? ''
 
-  const handleSumsubFinished = async () => {
+  const handleVerificationFinished = async () => {
     if (!token) return
     try {
       const r = await fetchInvestorKycRecord(token)
@@ -105,12 +108,13 @@ const InvestorKycVerificationModal = ({ onClose }: InvestorKycVerificationModalP
           <VerifyIdentityModal
             flow="investor_identity"
             accessToken={token}
-            initialSumsubToken={record?.kyc_token ?? null}
+            initialVerificationUrl={record?.verification_url ?? null}
             reviewed={record?.reviewed ?? false}
             kycRejected={kycRejected}
+            uploadLocked={kycUploadLocked}
             onBack={() => setActiveView(InvestorKycModalView.VerificationSteps)}
             onCancel={onClose}
-            onSumsubFinished={handleSumsubFinished}
+            onVerificationFinished={handleVerificationFinished}
           />
         )
       case InvestorKycModalView.Completed:
@@ -119,6 +123,12 @@ const InvestorKycVerificationModal = ({ onClose }: InvestorKycVerificationModalP
       default:
         return (
           <>
+            {diditInReview ? (
+              <div className="mb-4 rounded-[8px] border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-[#1E40AF] text-[14px]">
+                Your KYC and AML checks are under review. We will update your status when Didit completes
+                screening.
+              </div>
+            ) : null}
             {pendingOnChain ? (
               <div className="mb-4 rounded-[8px] border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-[#92400E] text-[14px]">
                 Verification is pending on-chain approval. An admin has submitted your review; multisig
@@ -127,10 +137,14 @@ const InvestorKycVerificationModal = ({ onClose }: InvestorKycVerificationModalP
             ) : null}
             <InvestorKycVerificationStepsModal
               walletConnected={isConnected}
-              hasKycToken={hasKycToken}
-              kycVerified={kycVerified}
+              hasKycToken={hasVerificationInProgress}
+              kycVerified={kycFullyVerified}
+              kycUploadLocked={kycUploadLocked}
               kycRejected={kycRejected}
-              onVerifyIdentityClick={() => setActiveView(InvestorKycModalView.VerifyIdentity)}
+              onVerifyIdentityClick={() => {
+                if (kycUploadLocked) return
+                setActiveView(InvestorKycModalView.VerifyIdentity)
+              }}
             />
           </>
         )

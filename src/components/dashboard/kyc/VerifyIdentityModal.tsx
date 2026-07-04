@@ -2,28 +2,26 @@ import { useMemo, useRef, useState, type DragEvent } from 'react'
 
 import backArrowIcon from '@/assets/ph_arrow-left.png'
 import cloudUploadIcon from '@/assets/cloud-upload.png'
-import {
-  postInvestorKycIdentityForSumsub,
-} from '@/api/kycInvestor'
-import { postMerchantKycIdentityForSumsub, postMerchantKycInsuranceForSumsub } from '@/api/kycMerchant'
+import { postInvestorKycIdentity } from '@/api/kycInvestor'
+import { postMerchantKycIdentity, postMerchantKycInsurance } from '@/api/kycMerchant'
 import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
-import SumsubWebSdkPanel from '@/components/dashboard/kyc/SumsubWebSdkPanel'
+import DiditVerificationPanel from '@/components/dashboard/kyc/DiditVerificationPanel'
 
 export type KycVerifyIdentityFlow = 'investor_identity' | 'merchant_identity' | 'merchant_insurance'
 
 type VerifyIdentityModalProps = {
   flow: KycVerifyIdentityFlow
   accessToken: string
-  /** When present and `reviewed === false`, skip upload UI and open Sumsub directly. */
-  initialSumsubToken?: string | null
-  /** From GET `kyc_record.reviewed` */
+  /** When present and `reviewed === false`, skip upload UI and open Didit directly. */
+  initialVerificationUrl?: string | null
   reviewed?: boolean
-  /** Safety: never auto-jump on rejected flows. */
   kycRejected?: boolean
+  /** Identity already passed Didit; block re-upload while on-chain approval is pending. */
+  uploadLocked?: boolean
   onBack: () => void
   onCancel: () => void
-  /** Called after Sumsub reports applicant submitted (parent refetches KYC / navigates). */
-  onSumsubFinished: () => void | Promise<void>
+  /** Called after Didit reports completion (parent refetches KYC / navigates). */
+  onVerificationFinished: () => void | Promise<void>
 }
 
 const copy: Record<
@@ -31,55 +29,94 @@ const copy: Record<
   { title: string; subtitle: string; uploadHeading: string; uploadHint: string }
 > = {
   investor_identity: {
-    title: 'Verify Your Identity',
+    title: 'KYC & AML Verification',
     subtitle:
-      'Upload a valid government ID, then continue to Sumsub to complete face verification and confirm your identity.',
+      'Upload a valid government ID, then continue to Didit to complete identity verification and AML screening.',
     uploadHeading: 'Upload your government ID',
-    uploadHint: 'List of accepted government IDs is provided during Sumsub verification.',
+    uploadHint: 'Accepted IDs and AML steps are shown during Didit verification.',
   },
   merchant_identity: {
-    title: 'Verify Your Identity',
+    title: 'KYB Lite Verification',
     subtitle:
-      'Upload a valid government ID for the business representative, then complete verification in Sumsub.',
+      'Upload a valid government ID for the business representative, then complete KYB Lite verification in Didit.',
     uploadHeading: 'Upload representative government ID',
-    uploadHint: 'List of accepted government IDs is provided during Sumsub verification.',
+    uploadHint: 'Business verification steps are shown during Didit KYB Lite.',
   },
   merchant_insurance: {
-    title: 'Verify Insurance',
-    subtitle: 'Upload your business insurance certificate, then continue to Sumsub to complete this step.',
-    uploadHeading: 'Upload insurance certificate',
-    uploadHint: 'PDF or image formats accepted unless your policy states otherwise.',
+    title: 'Insurance on File',
+    subtitle:
+      'Business insurance is reviewed by our team separately. This step updates automatically once your policy is verified.',
+    uploadHeading: 'Insurance certificate (optional)',
+    uploadHint: 'Contact support if you need to submit or update your insurance documentation.',
   },
 }
 
 const VerifyIdentityModal = ({
   flow,
   accessToken,
-  initialSumsubToken,
+  initialVerificationUrl,
   reviewed,
   kycRejected,
+  uploadLocked = false,
   onBack,
   onCancel,
-  onSumsubFinished,
+  onVerificationFinished,
 }: VerifyIdentityModalProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const shouldAutoJumpToSumsub = useMemo(() => {
-    const t = typeof initialSumsubToken === 'string' ? initialSumsubToken.trim() : ''
-    if (!t) return false
+  const shouldAutoJumpToDidit = useMemo(() => {
+    if (uploadLocked) return false
+    const url = typeof initialVerificationUrl === 'string' ? initialVerificationUrl.trim() : ''
+    if (!url) return false
     if (kycRejected) return false
     return reviewed === false
-  }, [initialSumsubToken, kycRejected, reviewed])
+  }, [initialVerificationUrl, kycRejected, reviewed, uploadLocked])
 
-  const [phase, setPhase] = useState<'upload' | 'sumsub'>(shouldAutoJumpToSumsub ? 'sumsub' : 'upload')
-  const [sumsubToken, setSumsubToken] = useState<string | null>(
-    shouldAutoJumpToSumsub ? (initialSumsubToken ?? null) : null,
+  const [phase, setPhase] = useState<'upload' | 'didit'>(shouldAutoJumpToDidit ? 'didit' : 'upload')
+  const [verificationUrl, setVerificationUrl] = useState<string | null>(
+    shouldAutoJumpToDidit ? (initialVerificationUrl ?? null) : null,
   )
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const labels = copy[flow]
+
+  if (uploadLocked && flow !== 'merchant_insurance') {
+    return (
+      <div className="max-w-[620px] mx-auto">
+        <div className="flex items-start gap-3 mb-3">
+          <button type="button" onClick={onBack} className="h-[40px] w-[40px] flex items-center justify-center shrink-0">
+            <img src={backArrowIcon} alt="back" className="w-[24px] h-[24px] object-contain" />
+          </button>
+          <div className="flex flex-col flex-1 min-w-0">
+            <h2 className="text-black font-bold text-[20px] sm:text-[26px]">{labels.title}</h2>
+            <p className="text-[#6B7488] text-[13px] sm:text-[16px] mt-1">{labels.subtitle}</p>
+          </div>
+        </div>
+        <div className="mt-6 rounded-[10px] border border-[#FDE68A] bg-[#FFFBEB] px-4 py-4 text-[#92400E] text-[14px]">
+          Your identity verification is complete and pending on-chain approval. You cannot upload new
+          documents until this review finishes.
+        </div>
+        <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-full sm:w-auto px-5 py-3 rounded-md border border-[#C9CFDA] text-[#374151] text-[15px] font-semibold"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="w-full sm:w-auto px-5 py-3 rounded-md border border-[#C9CFDA] text-[#374151] text-[15px] font-semibold"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const openFilePicker = () => {
     fileInputRef.current?.click()
@@ -115,12 +152,12 @@ const VerifyIdentityModal = ({
 
   const postForFlow = async (file: File) => {
     if (flow === 'investor_identity') {
-      return postInvestorKycIdentityForSumsub(accessToken, file)
+      return postInvestorKycIdentity(accessToken, file)
     }
     if (flow === 'merchant_identity') {
-      return postMerchantKycIdentityForSumsub(accessToken, file)
+      return postMerchantKycIdentity(accessToken, file)
     }
-    return postMerchantKycInsuranceForSumsub(accessToken, file)
+    return postMerchantKycInsurance(accessToken, file)
   }
 
   const handleContinue = async () => {
@@ -131,9 +168,9 @@ const VerifyIdentityModal = ({
     setSubmitting(true)
     setError(null)
     try {
-      const { sumsubAccessToken } = await postForFlow(selectedFile)
-      setSumsubToken(sumsubAccessToken)
-      setPhase('sumsub')
+      const { verificationUrl: url } = await postForFlow(selectedFile)
+      setVerificationUrl(url)
+      setPhase('didit')
     } catch (err) {
       if (err instanceof ApiRequestError) {
         setError(formatApiRequestErrorPlain(err))
@@ -147,7 +184,7 @@ const VerifyIdentityModal = ({
     }
   }
 
-  if (phase === 'sumsub' && sumsubToken) {
+  if (phase === 'didit' && verificationUrl) {
     return (
       <div className="max-w-[620px] mx-auto">
         <div className="flex items-start gap-3 mb-3">
@@ -160,10 +197,10 @@ const VerifyIdentityModal = ({
           </div>
         </div>
         {error ? <p className="text-red-600 text-sm mb-2">{error}</p> : null}
-        <SumsubWebSdkPanel
-          accessToken={sumsubToken}
+        <DiditVerificationPanel
+          verificationUrl={verificationUrl}
           onFinished={() => {
-            void Promise.resolve(onSumsubFinished()).catch(() => {
+            void Promise.resolve(onVerificationFinished()).catch(() => {
               /* parent handles */
             })
           }}

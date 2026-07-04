@@ -23,6 +23,9 @@ export type MerchantProfileDetail = {
   walletLabel: string
   businessName: string
   kycLabel: MerchantKycLabel
+  kycVerified: boolean
+  insuranceVerified: boolean
+  diditStatus: string | null
   pendingMultisigProposalId: string | null
   registrationDate: string
   accountStatus: 'Active' | 'Inactive'
@@ -124,6 +127,16 @@ function profileFromMerchantRow(row: MerchantTableRow): MerchantProfileDetail {
     walletLabel: row.merchantWallet,
     businessName: 'Ajala Trading Solutions',
     kycLabel,
+    kycVerified: kycLabel === 'Verified',
+    insuranceVerified: kycLabel === 'Verified',
+    diditStatus:
+      row.status === 'Approved'
+        ? 'Approved'
+        : row.status === 'Rejected'
+          ? 'Declined'
+          : row.status === 'Under Review'
+            ? 'In Review'
+            : null,
     pendingMultisigProposalId: null,
     registrationDate: '24th March 2026',
     accountStatus: 'Active',

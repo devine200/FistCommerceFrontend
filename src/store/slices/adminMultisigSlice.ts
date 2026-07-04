@@ -1,7 +1,7 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
 import type { AdminWriteOutcome } from '@/api/adminActionResponse'
-import { ApiRequestError } from '@/api/client'
+import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
 import { fetchMultisigConfig } from '@/api/multisig/config'
 import {
   fetchMultisigProposalDetail,
@@ -87,7 +87,7 @@ export const refreshMultisigConfig = createAsyncThunk(
     try {
       return await fetchMultisigConfig(accessToken)
     } catch (e) {
-      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(e.message)
+      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       throw e
     }
   },
@@ -104,7 +104,7 @@ export const refreshMultisigProposals = createAsyncThunk(
       const proposals = await fetchMultisigProposals(accessToken, filter)
       return { proposals, filter, fetchedAt: Date.now() }
     } catch (e) {
-      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(e.message)
+      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       throw e
     }
   },
@@ -122,7 +122,7 @@ export const refreshMultisigProposalDetail = createAsyncThunk(
       const detail = await fetchMultisigProposalDetail(accessToken, id)
       return detail
     } catch (e) {
-      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(e.message)
+      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       throw e
     }
   },
@@ -145,7 +145,7 @@ export const signMultisigProposal = createAsyncThunk(
       await thunkApi.dispatch(refreshMultisigProposalDetail(params.proposalId)).unwrap()
       return params.proposalId
     } catch (e) {
-      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(e.message)
+      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       throw e
     }
   },
@@ -162,7 +162,7 @@ export const executeMultisigProposal = createAsyncThunk(
       await thunkApi.dispatch(refreshMultisigProposalDetail(proposalId)).unwrap()
       return { proposalId, result }
     } catch (e) {
-      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(e.message)
+      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       throw e
     }
   },
@@ -179,7 +179,7 @@ export const cancelMultisigProposal = createAsyncThunk(
       await thunkApi.dispatch(refreshMultisigProposalDetail(proposalId)).unwrap()
       return proposalId
     } catch (e) {
-      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(e.message)
+      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       throw e
     }
   },

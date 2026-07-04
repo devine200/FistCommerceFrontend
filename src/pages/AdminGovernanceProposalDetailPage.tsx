@@ -5,6 +5,10 @@ import {
   governanceOperationLabel,
   governanceStatusPillVariant,
 } from '@/components/admin/governance/adminGovernanceUi'
+import {
+  PrivilegedActionFeedbackLayer,
+  type PrivilegedActionPhase,
+} from '@/admin/governance/PrivilegedActionFeedbackLayer'
 import { canUserSignGovernanceProposal, hasGovernanceSignature } from '@/admin/governance/governanceSigner'
 import { useGovernanceSignAndSubmit } from '@/admin/governance/useGovernanceSignAndSubmit'
 import { proposalStatusLabel } from '@/api/multisig/normalize'
@@ -13,6 +17,7 @@ import { AdminPageFrame, AdminPanel, AdminStatusPill } from '@/components/admin/
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import {
   cancelMultisigProposal,
+  clearAdminMultisigActionError,
   clearLastExecuteOutcome,
   executeMultisigProposal,
   refreshMultisigConfig,
@@ -39,14 +44,15 @@ const AdminGovernanceProposalDetailPage = () => {
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const sessionKind = useAppSelector((s) => s.auth.sessionKind)
-  const { config, detailStatus, actionStatus, actionKind, lastExecuteOutcome } = useAppSelector(
+  const { config, detailStatus, actionStatus, actionKind, actionError, lastExecuteOutcome } = useAppSelector(
     (s) => s.adminMultisig,
   )
   const detail = useAppSelector((s) =>
     proposalId ? selectMultisigProposalDetail(s.adminMultisig, proposalId) : null,
   )
   const { address, isConnected } = useActiveWallet()
-  const { signAndSubmit, pending: signPending, error: signHookError } = useGovernanceSignAndSubmit()
+  const { signAndSubmit, pending: signPending, error: signHookError, clearError: clearSignError } =
+    useGovernanceSignAndSubmit()
   const [signingNote, setSigningNote] = useState<string | null>(null)
 
   useEffect(() => {
@@ -93,6 +99,77 @@ const AdminGovernanceProposalDetailPage = () => {
     if (!window.confirm('Cancel this governance proposal?')) return
     void dispatch(cancelMultisigProposal(proposalId))
   }, [dispatch, proposalId])
+
+  const handleDismissActionFeedback = useCallback(() => {
+    clearSignError()
+    dispatch(clearAdminMultisigActionError())
+  }, [clearSignError, dispatch])
+
+  const handleRetryGovernanceAction = useCallback(() => {
+    if (!proposalId) return
+    if (signHookError) {
+      void handleSign()
+      return
+    }
+    if (actionKind === 'execute') {
+      void dispatch(executeMultisigProposal(proposalId))
+      return
+    }
+    if (actionKind === 'cancel') {
+      if (!window.confirm('Cancel this governance proposal?')) return
+      void dispatch(cancelMultisigProposal(proposalId))
+    }
+  }, [proposalId, signHookError, actionKind, handleSign, dispatch])
+
+  const governanceFeedback = useMemo(() => {
+    if (signPending) {
+      return {
+        phase: 'loading' as PrivilegedActionPhase,
+        errorDescription: undefined as string | undefined,
+        loadingTitle: 'Signing proposal',
+        loadingDescription: 'Requesting signature payload and submitting your signature…',
+        errorTitle: 'Unable to sign proposal',
+        directSuccessTitle: 'Proposal signed',
+      }
+    }
+    if (signHookError) {
+      return {
+        phase: 'failed' as PrivilegedActionPhase,
+        errorDescription: signHookError,
+        loadingTitle: 'Signing proposal',
+        loadingDescription: '',
+        errorTitle: 'Unable to sign proposal',
+        directSuccessTitle: 'Proposal signed',
+      }
+    }
+    if (actionKind === 'execute' || actionKind === 'cancel') {
+      let phase: PrivilegedActionPhase = 'idle'
+      if (actionStatus === 'loading' || actionStatus === 'failed') {
+        phase = actionStatus
+      } else if (actionKind === 'cancel' && actionStatus === 'succeeded') {
+        phase = 'succeeded'
+      }
+      return {
+        phase,
+        errorDescription: actionError ?? undefined,
+        loadingTitle: actionKind === 'execute' ? 'Executing proposal' : 'Cancelling proposal',
+        loadingDescription:
+          actionKind === 'execute'
+            ? 'Submitting on-chain execution for this governance proposal…'
+            : 'Cancelling this governance proposal…',
+        errorTitle: actionKind === 'execute' ? 'Unable to execute proposal' : 'Unable to cancel proposal',
+        directSuccessTitle: actionKind === 'execute' ? 'Proposal executed' : 'Proposal cancelled',
+      }
+    }
+    return {
+      phase: 'idle' as const,
+      errorDescription: undefined,
+      loadingTitle: '',
+      loadingDescription: '',
+      errorTitle: '',
+      directSuccessTitle: '',
+    }
+  }, [signPending, signHookError, actionKind, actionStatus, actionError])
 
   if (!proposalId) {
     return <Navigate to={GOVERNANCE_LIST_PATH} replace />
@@ -150,6 +227,18 @@ const AdminGovernanceProposalDetailPage = () => {
 
   return (
     <AdminPageFrame>
+      <PrivilegedActionFeedbackLayer
+        phase={governanceFeedback.phase}
+        resolvedOutcome={null}
+        loadingTitle={governanceFeedback.loadingTitle}
+        loadingDescription={governanceFeedback.loadingDescription}
+        errorTitle={governanceFeedback.errorTitle}
+        errorDescription={governanceFeedback.errorDescription}
+        directSuccessTitle={governanceFeedback.directSuccessTitle}
+        onDismiss={handleDismissActionFeedback}
+        onRetry={handleRetryGovernanceAction}
+      />
+
       <button
         type="button"
         onClick={() => navigate(GOVERNANCE_LIST_PATH)}
@@ -333,7 +422,6 @@ const AdminGovernanceProposalDetailPage = () => {
             ) : alreadySigned ? (
               <p className="px-5 pb-4 text-[#16A34A] text-[13px]">You have already signed this proposal.</p>
             ) : null}
-            {signHookError ? <p className="px-5 pb-4 text-[#DC2626] text-[13px]">{signHookError}</p> : null}
           </AdminPanel>
 
           {detail.calls.length > 0 ? (

@@ -45,6 +45,9 @@ export type AdminMerchantProfileHeader = {
   businessName: string
   kycStatus: AdminMerchantListStatus
   kycStatusLabel: string
+  kycVerified: boolean
+  insuranceVerified: boolean
+  diditStatus: string | null
   registrationDate: string | null
   accountStatus: string
   accountStatusLabel: string
@@ -138,6 +141,14 @@ function pickNumber(record: Record<string, unknown>, ...keys: string[]): number 
     }
   }
   return null
+}
+
+function pickBool(record: Record<string, unknown>, ...keys: string[]): boolean {
+  for (const key of keys) {
+    const v = record[key]
+    if (typeof v === 'boolean') return v
+  }
+  return false
 }
 
 function normalizeListStatus(raw: string): AdminMerchantListStatus {
@@ -271,6 +282,9 @@ function normalizeProfileHeader(raw: unknown): AdminMerchantProfileHeader | null
       pickStr(r, 'kycStatusLabel', 'kyc_status_label') ||
       pickStr(r, 'status') ||
       'Pending',
+    kycVerified: pickBool(r, 'kycVerified', 'kyc_verified'),
+    insuranceVerified: pickBool(r, 'insuranceVerified', 'insurance_verified'),
+    diditStatus: pickNullableStr(r, 'diditStatus', 'didit_status'),
     registrationDate: pickNullableStr(r, 'registrationDate', 'registration_date'),
     accountStatus: pickStr(r, 'accountStatus', 'account_status') || 'active',
     accountStatusLabel: pickStr(r, 'accountStatusLabel', 'account_status_label') || 'Active',

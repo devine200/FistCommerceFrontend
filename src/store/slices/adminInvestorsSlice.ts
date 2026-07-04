@@ -8,7 +8,7 @@ import {
   type AdminInvestorsTabFilter,
   type FetchAdminInvestorProfileParams,
 } from '@/api/adminKycInvestors'
-import { ApiRequestError } from '@/api/client'
+import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
 import {
   resolveInvestmentActivityDetail,
   type InvestmentActivityDetail,
@@ -131,7 +131,7 @@ export const refreshAdminInvestors = createAsyncThunk(
       }
     } catch (e) {
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }
@@ -171,7 +171,7 @@ export const refreshAdminInvestorProfile = createAsyncThunk(
       }
     } catch (e) {
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }

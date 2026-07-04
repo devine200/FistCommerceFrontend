@@ -1,35 +1,34 @@
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
 import { parseApiErrorResponse, parseJsonResponse, requireApiBaseUrl } from '@/api/client'
-import { sumsubTokenFromKycPostResponse } from '@/api/kycSumsubTokens'
+import {
+  hasDiditVerificationInProgress,
+  verificationUrlFromKycPostResponse,
+} from '@/api/kycDiditVerification'
 import type { KycStatus } from '@/store/slices/kycSlice'
 
 const INVESTOR_KYC_PATH = '/api/kyc/investor'
 
 /**
  * Shape returned by `KYCReviewSerializer` for `AccountVerificationKYC`.
- * (`document_hash` exists on the model but is not exposed by this serializer.)
  */
 export type InvestorKycRecord = {
   id: string
-  /** FK to User — typically the primary key from DRF. */
   user: number | string
   user_type: string
   reviewed: boolean
   kyc_verified: boolean
   insurance_verified: boolean
-  /** When non-empty, user has started Sumsub-backed KYC (in progress on dashboard). */
-  kyc_token?: string | null
-  /** Present when a document has been uploaded (server-side hash). */
+  /** Didit session URL when verification is in progress. */
+  verification_url?: string | null
+  didit_session_id?: string | null
+  didit_status?: string | null
   document_hash?: string | null
   pending_multisig_proposal_id?: string | null
   created_at: string
 }
 
 /**
- * Investor dashboard access: **verified** when `kyc_verified` only (`insurance_verified` ignored).
- * - **rejected** — `reviewed` and identity not verified
- * - **pending** — non-empty `kyc_token`, or identity not yet verified after partial progress
- * - **not_started** — no token and identity not verified
+ * Investor dashboard access: **verified** when `reviewed` and `kyc_verified` (on-chain finalize complete).
  */
 export function deriveKycStatusFromInvestorRecord(record: InvestorKycRecord | null | undefined): KycStatus {
   if (!record) return 'not_started'
@@ -40,11 +39,11 @@ export function deriveKycStatusFromInvestorRecord(record: InvestorKycRecord | nu
   if (pendingProposal) return 'pending'
 
   const { reviewed, kyc_verified } = record
-  const token = typeof record.kyc_token === 'string' && record.kyc_token.trim().length > 0
+  const inProgress = hasDiditVerificationInProgress(record)
 
-  if (kyc_verified) return 'verified'
+  if (reviewed && kyc_verified) return 'verified'
   if (reviewed && !kyc_verified) return 'rejected'
-  if (token) return 'pending'
+  if (inProgress || kyc_verified) return 'pending'
   return 'not_started'
 }
 
@@ -72,22 +71,21 @@ export async function fetchInvestorKycRecord(accessToken: string | null | undefi
     headers: authHeaders(accessToken),
   })
   const raw = await parseJsonResponse<{ message: string; kyc_record: InvestorKycRecord }>(res)
-  const record = raw.kyc_record;
+  const record = raw.kyc_record
 
   if (!record) {
-    throw new Error('Investor KYC response was missing a valid `id` or was not a JSON object.')
+    throw new Error('Investor KYC response was missing a valid record payload.')
   }
   return record
 }
 
 /**
- * Upload identity document and receive a Sumsub WebSDK access token.
- * POSTs to the same path as GET (`/api/kyc/investor`). Multipart file field: `document`.
+ * Upload identity document and receive a Didit verification URL.
  */
-export async function postInvestorKycIdentityForSumsub(
+export async function postInvestorKycIdentity(
   accessToken: string,
   file: File,
-): Promise<{ sumsubAccessToken: string }> {
+): Promise<{ verificationUrl: string }> {
   const base = requireApiBaseUrl()
   const form = new FormData()
   form.append('document', file)
@@ -100,5 +98,5 @@ export async function postInvestorKycIdentityForSumsub(
     throw await parseApiErrorResponse(res)
   }
   const body: unknown = await res.json()
-  return { sumsubAccessToken: sumsubTokenFromKycPostResponse(body) }
+  return { verificationUrl: verificationUrlFromKycPostResponse(body) }
 }

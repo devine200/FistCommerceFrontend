@@ -13,7 +13,7 @@ import {
   resolveAdminLoanMonitoringBackTarget,
 } from '@/components/admin/loan-monitoring'
 import { AdminPageFrame } from '@/components/admin/primitives'
-import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFullPageLoading'
+import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useCancellableThunkDispatch } from '@/hooks/useCancellableThunkDispatch'
 import {
@@ -135,35 +135,17 @@ const AdminLoanMonitoringDetailPage = () => {
     return <Navigate to={ADMIN_LOAN_MONITORING_LIST_PATH} replace />
   }
 
-  if (detailLoading) {
-    return (
-      <div className="fixed inset-0 z-75">
-        <DashboardFullPageLoading label="Loading loan details…" />
-      </div>
-    )
-  }
-
-  if (!detail) {
-    return (
-      <AdminPageFrame>
-        <div className="w-full max-w-[1280px] mx-auto pb-10">
-          <button
-            type="button"
-            onClick={handleBack}
-            aria-label="Go back"
-            className="h-10 w-10 rounded-[8px] flex items-center justify-center text-[#4D5D80] hover:bg-black/5"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
-        </div>
-      </AdminPageFrame>
-    )
-  }
-
   return (
     <AdminPageFrame>
+      <DashboardRequestFeedbackLayer
+        phase={detailLoading ? 'loading' : 'idle'}
+        loadingTitle="Loading loan details"
+        loadingDescription="Fetching loan monitoring details…"
+        errorTitle="Unable to load loan details"
+        onDismiss={() => {}}
+        onCancelLoading={() => {}}
+      />
+
       {showActionFeedback ? (
         <PrivilegedActionFeedbackLayer
           phase={actionPhase}
@@ -181,17 +163,32 @@ const AdminLoanMonitoringDetailPage = () => {
         />
       ) : null}
 
-      <AdminLoanMonitoringDetailView
-        detail={detail}
-        onBack={handleBack}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        onFund={handleFund}
-        onMarkDefaulted={handleMarkDefaulted}
-        onWriteOffShortfall={handleWriteOffShortfall}
-        actionLoading={actionLoading}
-        actionKind={actionKind}
-      />
+      {detail ? (
+        <AdminLoanMonitoringDetailView
+          detail={detail}
+          onBack={handleBack}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onFund={handleFund}
+          onMarkDefaulted={handleMarkDefaulted}
+          onWriteOffShortfall={handleWriteOffShortfall}
+          actionLoading={actionLoading}
+          actionKind={actionKind}
+        />
+      ) : !detailLoading ? (
+        <div className="w-full max-w-[1280px] mx-auto pb-10">
+          <button
+            type="button"
+            onClick={handleBack}
+            aria-label="Go back"
+            className="h-10 w-10 rounded-[8px] flex items-center justify-center text-[#4D5D80] hover:bg-black/5"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+        </div>
+      ) : null}
     </AdminPageFrame>
   )
 }

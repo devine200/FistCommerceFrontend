@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 
+import { toUserFacingError } from '@/api/client'
 import {
   fetchMultisigProposalDetail,
   fetchMultisigSigningPayload,
@@ -62,7 +63,7 @@ export function useGovernanceSignAndSubmit() {
           signingNote: payload.signingNote,
         }
       } catch (e) {
-        const message = e instanceof Error ? e.message : 'Could not sign proposal.'
+        const message = toUserFacingError(e, 'Could not sign proposal.')
         setError(message)
         return null
       } finally {

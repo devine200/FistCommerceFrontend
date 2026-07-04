@@ -1,5 +1,7 @@
 import { useEffect, type MouseEvent } from 'react'
 
+import { toUserFacingError } from '@/api/client'
+
 const overlayClass =
   'fixed inset-0 z-[70] flex items-center justify-center bg-black/25 backdrop-blur-[2px] p-5'
 
@@ -125,6 +127,11 @@ export default function AdminActionFeedbackModal({
         ? 'border-t-4 border-t-[#22C55E]'
         : 'border-t-4 border-t-[#195EBC]'
 
+  const safeDescription =
+    variant === 'error'
+      ? toUserFacingError(description, 'Something went wrong. Please try again.')
+      : description?.trim() || ''
+
   return (
     <div
       className={overlayClass}
@@ -147,7 +154,7 @@ export default function AdminActionFeedbackModal({
             {title}
           </h2>
           <p id={descId} className="mt-2 text-sm leading-relaxed text-[#6B7280] whitespace-pre-line">
-            {description}
+            {safeDescription}
           </p>
           {canCancelLoading ? (
             <p className="mt-3 text-xs text-[#9CA3AF]">Click outside or press Esc to cancel</p>

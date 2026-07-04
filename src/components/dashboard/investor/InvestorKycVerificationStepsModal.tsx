@@ -14,9 +14,12 @@ type VerificationStep = {
 
 interface InvestorKycVerificationStepsModalProps {
   walletConnected: boolean
-  /** True when GET `kyc_token` is non-empty — in-progress list shows identity only. */
+  /** True when GET `verification_url` is non-empty — in-progress list shows identity only. */
   hasKycToken: boolean
+  /** Fully verified (`reviewed` + `kyc_verified`). */
   kycVerified: boolean
+  /** Identity passed Didit but on-chain finalize is still pending — lock re-upload. */
+  kycUploadLocked: boolean
   kycRejected: boolean
   onVerifyIdentityClick: () => void
 }
@@ -25,6 +28,7 @@ const InvestorKycVerificationStepsModal = ({
   walletConnected,
   hasKycToken,
   kycVerified,
+  kycUploadLocked,
   kycRejected,
   onVerifyIdentityClick,
 }: InvestorKycVerificationStepsModalProps) => {
@@ -33,11 +37,15 @@ const InvestorKycVerificationStepsModal = ({
         {
           id: 'verify-identity',
           iconSrc: Frame2,
-          topic: 'Verify Your Identity',
+          topic: 'KYC & AML Verification',
           description:
-            'Upload a valid government ID and complete Sumsub verification to confirm your identity.',
-          isDone: kycVerified || (Boolean(hasKycToken) && !kycVerified && !kycRejected),
-          isPendingVerification: Boolean(hasKycToken && !kycVerified && !kycRejected),
+            'Upload a valid government ID and complete Didit KYC and AML screening to confirm your identity.',
+          isDone:
+            kycVerified ||
+            kycUploadLocked ||
+            (Boolean(hasKycToken) && !kycVerified && !kycUploadLocked && !kycRejected),
+          isPendingVerification:
+            kycUploadLocked || Boolean(hasKycToken && !kycVerified && !kycUploadLocked && !kycRejected),
         },
       ]
     : [
@@ -52,9 +60,9 @@ const InvestorKycVerificationStepsModal = ({
         {
           id: 'verify-identity',
           iconSrc: Frame2,
-          topic: 'Verify Your Identity',
+          topic: 'KYC & AML Verification',
           description:
-            'Upload a valid government ID and complete Sumsub verification to confirm your identity.',
+            'Upload a valid government ID and complete Didit KYC and AML screening to confirm your identity.',
           isDone: kycVerified,
           isPendingVerification: false,
         },
@@ -85,7 +93,11 @@ const InvestorKycVerificationStepsModal = ({
       <div className="flex flex-col gap-4">
         {steps.map((step) => {
           const isCardDisabled =
-            step.id === 'connect-wallet' ? walletConnected : step.id === 'verify-identity' ? kycVerified : false
+            step.id === 'connect-wallet'
+              ? walletConnected
+              : step.id === 'verify-identity'
+                ? kycVerified || kycUploadLocked
+                : false
 
           return (
             <button
@@ -113,7 +125,9 @@ const InvestorKycVerificationStepsModal = ({
                 {step.isDone && !step.isPendingVerification ? (
                   <KycCheckIcon />
                 ) : step.isPendingVerification && step.isDone ? (
-                  <span className="text-[#F59E0B] text-[20px] font-medium text-right leading-tight">Pending Verification</span>
+                  <span className="text-[#F59E0B] text-[14px] sm:text-[16px] font-medium text-right leading-tight">
+                    {kycUploadLocked ? 'Pending on-chain approval' : 'Pending Verification'}
+                  </span>
                 ) : (
                   <KycArrowRightIcon />
                 )}

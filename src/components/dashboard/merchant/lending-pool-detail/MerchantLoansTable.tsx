@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import MerchantLoanDetailsModal from '@/components/dashboard/merchant/lending-pool-detail/MerchantLoanDetailsModal'
 import type { MerchantLoanDetailExtended, MerchantLoanTableRowData } from '@/components/dashboard/merchant/lending-pool-detail/types'
 import type { MerchantReceivablesStatus } from '@/store/slices/merchantReceivablesSlice'
+import { toUserFacingError } from '@/api/client'
 import caretRightIcon from '@/assets/caret-right.png'
 
 const DESKTOP_COLUMN_COUNT = 8
@@ -21,9 +22,12 @@ function resolveTableBodyContent(
   if (status === 'loading') {
     return { kind: 'message', message: LOADING_MESSAGE, variant: 'loading' }
   }
-  const errorMessage = status === 'failed' ? error?.trim() : ''
-  if (errorMessage) {
-    return { kind: 'message', message: errorMessage, variant: 'error' }
+  if (status === 'failed') {
+    return {
+      kind: 'message',
+      message: toUserFacingError(error, 'Could not load merchant loans. Please try again.'),
+      variant: 'error',
+    }
   }
   if (status === 'succeeded' && loans.length === 0) {
     return { kind: 'message', message: EMPTY_MESSAGE, variant: 'empty' }

@@ -13,7 +13,7 @@ import {
   filterInvestmentLineItems,
   type ActivityFilterValue,
 } from '@/components/admin/investors/profile'
-import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFullPageLoading'
+import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import profileAvatarImage from '@/assets/Ellipse 5.png'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { refreshAdminInvestorProfile, selectInvestorProfile } from '@/store/slices/adminInvestorsSlice'
@@ -76,79 +76,82 @@ const AdminInvestorProfilePage = () => {
 
   const panelsLoading = profileStatus === 'loading' && !profile
 
-  if (!investorId) {
-    return <Navigate to={INVESTORS_LIST_PATH} replace />
-  }
-
-  if (profileLoading) {
-    return (
-      <div className="fixed inset-0 z-75">
-        <DashboardFullPageLoading label="Loading investor profile…" />
-      </div>
-    )
-  }
-
-  if (!profile) {
-    return <AdminPageFrame>{null}</AdminPageFrame>
-  }
-
-  const { statColumns } = buildInvestorProfileStatColumns(profile)
+  const { statColumns } = profile ? buildInvestorProfileStatColumns(profile) : { statColumns: [] }
   const activeSearchActive = activeSearchInput.trim().length > 0
   const historySearchActive = historySearchInput.trim().length > 0
   const activityFilterActive = activityFilter !== 'all' || activitySearchInput.trim().length > 0
 
+  if (!investorId) {
+    return <Navigate to={INVESTORS_LIST_PATH} replace />
+  }
+
   return (
     <AdminPageFrame>
-      <AdminProfileKycReviewBar
-        userId={Number(profile.id)}
-        kycId={profile.kycId}
-        wallet={profile.wallet}
-        displayName={profile.displayName}
-        userType="investor"
-        kycLabel={profile.kycLabel}
-        pendingMultisigProposalId={profile.pendingMultisigProposalId}
-        onReviewComplete={refreshProfile}
-      />
-      <AdminInvestorProfileSummary
-        avatarSrc={profileAvatarImage}
-        displayName={profile.displayName}
-        walletLabel={profile.walletLabel}
-        statColumns={statColumns}
+      <DashboardRequestFeedbackLayer
+        phase={profileLoading ? 'loading' : 'idle'}
+        loadingTitle="Loading investor profile"
+        loadingDescription="Fetching investor profile, investments, and activity…"
+        errorTitle="Unable to load investor profile"
+        onDismiss={() => {}}
+        onCancelLoading={() => {}}
       />
 
-      <AdminInvestorInvestmentListPanel
-        investorId={investorId}
-        title="Active Investments"
-        items={filteredActiveInvestments}
-        titleCountOverride={activeSearchActive ? filteredActiveInvestments.length : profile.activeInvestmentsCount}
-        searchValue={activeSearchInput}
-        onSearchChange={setActiveSearchInput}
-        searchAriaLabel="Search active investments"
-        loading={panelsLoading}
-      />
+      {profile ? (
+        <>
+          <AdminProfileKycReviewBar
+            userId={Number(profile.id)}
+            kycId={profile.kycId}
+            wallet={profile.wallet}
+            displayName={profile.displayName}
+            userType="investor"
+            kycLabel={profile.kycLabel}
+            kycVerified={profile.kycVerified}
+            reviewed={profile.reviewed}
+            pendingMultisigProposalId={profile.pendingMultisigProposalId}
+            onReviewComplete={refreshProfile}
+          />
+          <AdminInvestorProfileSummary
+            avatarSrc={profileAvatarImage}
+            displayName={profile.displayName}
+            walletLabel={profile.walletLabel}
+            statColumns={statColumns}
+          />
 
-      <AdminInvestorInvestmentListPanel
-        investorId={investorId}
-        title="Investment History"
-        items={filteredInvestmentHistory}
-        titleCountOverride={historySearchActive ? filteredInvestmentHistory.length : profile.investmentHistoryCount}
-        searchValue={historySearchInput}
-        onSearchChange={setHistorySearchInput}
-        searchAriaLabel="Search investment history"
-        loading={panelsLoading}
-      />
+          <AdminInvestorInvestmentListPanel
+            investorId={investorId}
+            title="Active Investments"
+            items={filteredActiveInvestments}
+            titleCountOverride={activeSearchActive ? filteredActiveInvestments.length : profile.activeInvestmentsCount}
+            searchValue={activeSearchInput}
+            onSearchChange={setActiveSearchInput}
+            searchAriaLabel="Search active investments"
+            loading={panelsLoading}
+          />
 
-      <AdminInvestorActivityPanel
-        investorId={investorId}
-        items={filteredActivity}
-        titleCountOverride={activityFilterActive ? filteredActivity.length : profile.activityCount}
-        searchValue={activitySearchInput}
-        onSearchChange={setActivitySearchInput}
-        activityFilter={activityFilter}
-        onActivityFilterChange={setActivityFilter}
-        filterTabs={[...ACTIVITY_FILTER_TABS]}
-        loading={panelsLoading}
-      />
+          <AdminInvestorInvestmentListPanel
+            investorId={investorId}
+            title="Investment History"
+            items={filteredInvestmentHistory}
+            titleCountOverride={historySearchActive ? filteredInvestmentHistory.length : profile.investmentHistoryCount}
+            searchValue={historySearchInput}
+            onSearchChange={setHistorySearchInput}
+            searchAriaLabel="Search investment history"
+            loading={panelsLoading}
+          />
+
+          <AdminInvestorActivityPanel
+            investorId={investorId}
+            items={filteredActivity}
+            titleCountOverride={activityFilterActive ? filteredActivity.length : profile.activityCount}
+            searchValue={activitySearchInput}
+            onSearchChange={setActivitySearchInput}
+            activityFilter={activityFilter}
+            onActivityFilterChange={setActivityFilter}
+            filterTabs={[...ACTIVITY_FILTER_TABS]}
+            loading={panelsLoading}
+          />
+        </>
+      ) : null}
     </AdminPageFrame>
   )
 }

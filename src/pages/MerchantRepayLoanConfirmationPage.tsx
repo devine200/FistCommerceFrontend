@@ -6,7 +6,7 @@ import {
   merchantRepayBreadcrumbs,
   merchantRepayPaths,
 } from '@/components/dashboard/merchant/repay/repayFlowConfig'
-import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFullPageLoading'
+import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import {
   useMerchantRepayLoanContext,
   type MerchantRepayLocationState,
@@ -34,6 +34,8 @@ const MerchantRepayLoanConfirmationPage = () => {
     receivableName: state.receivableName ?? repayContext.receivableName,
   })
 
+  const submitBusy = submit.phase !== 'idle'
+
   if (!repayContext.isValid) {
     return <Navigate to="/dashboard/merchant/receivables" replace />
   }
@@ -59,7 +61,13 @@ const MerchantRepayLoanConfirmationPage = () => {
   if (repayContext.isLoading) {
     return (
       <DashboardLayout dashboardBasePath="/dashboard/merchant" topBarBreadcrumbs={breadcrumbs}>
-        <DashboardFullPageLoading label="Loading repayment details…" />
+        <DashboardRequestFeedbackLayer
+          phase="loading"
+          loadingTitle="Loading repayment details"
+          loadingDescription="Fetching loan balance and repayment information…"
+          errorTitle="Unable to load repayment details"
+          onDismiss={() => {}}
+        />
       </DashboardLayout>
     )
   }
@@ -68,6 +76,15 @@ const MerchantRepayLoanConfirmationPage = () => {
 
   return (
     <DashboardLayout dashboardBasePath="/dashboard/merchant" topBarBreadcrumbs={breadcrumbs}>
+      <DashboardRequestFeedbackLayer
+        phase={submitBusy ? 'loading' : submit.error ? 'failed' : 'idle'}
+        loadingTitle="Submitting repayment"
+        loadingDescription={submit.statusMessage || 'Confirm the transaction in your wallet…'}
+        errorTitle="Unable to submit repayment"
+        errorDescription={submit.error ?? undefined}
+        onDismiss={() => submit.clearError()}
+        onRetry={() => void submit.submit()}
+      />
       <div className="max-w-[860px] w-full mx-auto pt-8 pb-6 flex flex-col gap-6">
         <button
           type="button"

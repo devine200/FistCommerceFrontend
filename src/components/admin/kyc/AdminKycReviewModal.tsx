@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { toUserFacingError } from '@/api/client'
 import type { KycReviewStatus, KycReviewUserType } from '@/api/adminKycReview'
 import {
   PrivilegedActionFeedbackLayer,
@@ -83,7 +84,7 @@ export function AdminKycReviewModal({
         setPhase('idle')
         return
       }
-      setError(e instanceof Error ? e.message : 'Could not submit KYC review.')
+      setError(toUserFacingError(e, 'Could not submit KYC review.'))
       setPhase('failed')
     } finally {
       if (abortRef.current === controller) {

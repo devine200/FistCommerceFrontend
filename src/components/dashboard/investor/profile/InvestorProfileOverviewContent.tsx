@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { toUserFacingError } from '@/api/client'
 import { fetchInvestorProfile, type InvestorProfileInfo } from '@/api/onboardingProfile'
 import InvestorProfileHero from '@/components/dashboard/investor/profile/InvestorProfileHero'
 import InvestorProfileStatsGrid from '@/components/dashboard/investor/profile/InvestorProfileStatsGrid'
@@ -8,11 +9,14 @@ import {
   buildInvestorProfileStatsFromApi,
   INVESTOR_PROFILE_TABS,
 } from '@/components/dashboard/investor/profile/profileConfig'
-import { useAppSelector } from '@/store/hooks'
+import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { refreshInvestorDashboard } from '@/store/slices/investorDashboardSlice'
 
 type ProfileLoadState = 'idle' | 'loading' | 'ready' | 'error'
 
 const InvestorProfileOverviewContent = () => {
+  const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const authUserEmail = useAppSelector((s) => s.auth.user?.email?.trim())
   const investorMetrics = useAppSelector((s) => s.investorDashboard.investorMetrics)
@@ -22,36 +26,32 @@ const InvestorProfileOverviewContent = () => {
   const [profileLoad, setProfileLoad] = useState<ProfileLoadState>('idle')
   const [profileError, setProfileError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!accessToken?.trim()) {
+  const loadProfile = useCallback(() => {
+    const token = accessToken?.trim()
+    if (!token) {
       setProfile(null)
       setProfileLoad('idle')
       setProfileError(null)
       return
     }
 
-    let cancelled = false
     setProfileLoad('loading')
     setProfileError(null)
-
-    void (async () => {
-      try {
-        const data = await fetchInvestorProfile(accessToken)
-        if (cancelled) return
+    void fetchInvestorProfile(token)
+      .then((data) => {
         setProfile(data)
         setProfileLoad('ready')
-      } catch (e) {
-        if (cancelled) return
+      })
+      .catch((e) => {
         setProfile(null)
         setProfileLoad('error')
-        setProfileError(e instanceof Error ? e.message : 'Could not load profile')
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
+        setProfileError(toUserFacingError(e, 'Could not load profile'))
+      })
   }, [accessToken])
+
+  useEffect(() => {
+    loadProfile()
+  }, [loadProfile])
 
   const displayName = useMemo(() => {
     if (profileLoad === 'loading') return 'Loading profile…'
@@ -79,14 +79,21 @@ const InvestorProfileOverviewContent = () => {
         ? 'Portfolio metrics are not available yet.'
         : null
 
+  const feedbackPhase = profileLoad === 'loading' ? 'loading' : profileLoad === 'error' ? 'failed' : 'idle'
+
   return (
     <div className="flex flex-col gap-4 pb-8">
+      <DashboardRequestFeedbackLayer
+        phase={feedbackPhase}
+        loadingTitle="Loading profile"
+        loadingDescription="Fetching your investor profile…"
+        errorTitle="Unable to load profile"
+        errorDescription={profileError ?? undefined}
+        onDismiss={() => setProfileLoad(profile ? 'ready' : 'idle')}
+        onRetry={loadProfile}
+      />
+
       <InvestorProfileHero name={displayName} email={displayEmail} />
-      {profileError ? (
-        <p className="text-[#B91C1C] text-[14px] px-1" role="alert">
-          {profileError}
-        </p>
-      ) : null}
       {metricsSyncHint ? (
         <p className="text-[#6B7488] text-[13px] px-1" role="status">
           {metricsSyncHint}
@@ -94,6 +101,15 @@ const InvestorProfileOverviewContent = () => {
       ) : null}
       <InvestorProfileStatsGrid stats={stats} />
       <InvestorProfileTabs tabs={INVESTOR_PROFILE_TABS} />
+      {dashboardMetricsStatus === 'failed' ? (
+        <button
+          type="button"
+          onClick={() => void dispatch(refreshInvestorDashboard())}
+          className="text-[#195EBC] text-[13px] font-semibold w-fit hover:underline"
+        >
+          Retry portfolio metrics sync
+        </button>
+      ) : null}
     </div>
   )
 }

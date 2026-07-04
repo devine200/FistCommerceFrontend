@@ -7,7 +7,7 @@ import {
   type AdminTransactionRow,
   type AdminTransactionsSummary,
 } from '@/api/adminTransactions'
-import { ApiRequestError } from '@/api/client'
+import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
 import {
   adminTransactionListsEqual,
   adminTransactionsListCacheKey,
@@ -106,7 +106,7 @@ export const refreshAdminTransactions = createAsyncThunk(
       }
     } catch (e) {
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }

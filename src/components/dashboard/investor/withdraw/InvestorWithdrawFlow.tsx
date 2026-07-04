@@ -15,7 +15,7 @@ import WithdrawCompletedStep from '@/components/dashboard/investor/withdraw/step
 import WithdrawFinalConfirmationStep from '@/components/dashboard/investor/withdraw/steps/WithdrawFinalConfirmationStep'
 import WithdrawMethodConfirmationStep from '@/components/dashboard/investor/withdraw/steps/WithdrawMethodConfirmationStep'
 import { WithdrawalStep } from '@/components/dashboard/investor/withdraw/types'
-import FlowFailureStep from '@/components/dashboard/shared/FlowFailureStep'
+import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useAppSelector } from '@/store/hooks'
 import { formatFlowFailureMessage } from '@/utils/formatFlowFailureMessage'
@@ -37,6 +37,8 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
   const [amount, setAmount] = useState(0)
   const [flowFailure, setFlowFailure] = useState<WithdrawFlowFailure | null>(null)
   const [withdrawSubmitting, setWithdrawSubmitting] = useState(false)
+  const [feedbackPhase, setFeedbackPhase] = useState<'idle' | 'loading' | 'failed'>('idle')
+  const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const [internalStep, setInternalStep] = useState<WithdrawalStep>(WithdrawalStep.AmountEntry)
   const withdrawalStep = step ?? internalStep
 
@@ -69,12 +71,11 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
   }, [withdrawalStep])
 
   const openFlowFailure = (source: unknown, returnStep: WithdrawalStep, showChangeAmount: boolean) => {
-    setFlowFailure({
-      message: formatFlowFailureMessage(source),
-      returnStep,
-      showChangeAmount,
-    })
-    setWithdrawalStep(WithdrawalStep.FlowFailure)
+    const message = formatFlowFailureMessage(source)
+    setFlowFailure({ message, returnStep, showChangeAmount })
+    setFeedbackError(message)
+    setFeedbackPhase('failed')
+    setWithdrawalStep(returnStep)
   }
 
   const withdrawOnChainHint = useMemo(() => {
@@ -120,8 +121,11 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
 
   const handleWithdrawConfirm = async () => {
     setWithdrawSubmitting(true)
+    setFeedbackPhase('loading')
+    setFeedbackError(null)
     try {
       await contracts.requestFundingPoolWithdraw(displayAmount)
+      setFeedbackPhase('idle')
       setWithdrawalStep(WithdrawalStep.WithdrawalCompleted)
     } catch (e) {
       openFlowFailure(e, WithdrawalStep.FinalConfirmation, true)
@@ -130,30 +134,11 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
     }
   }
 
+  const activeFeedbackPhase =
+    withdrawSubmitting || contracts.isWritePending ? 'loading' : feedbackPhase
+
   const renderWithdrawalStep = () => {
     switch (withdrawalStep) {
-      case WithdrawalStep.FlowFailure:
-        return (
-          <FlowFailureStep
-            title="We couldn't submit your withdrawal"
-            message={flowFailure?.message ?? 'Something went wrong. Please try again.'}
-            onPrimary={() => {
-              const back = flowFailure?.returnStep ?? WithdrawalStep.AmountEntry
-              setFlowFailure(null)
-              setWithdrawalStep(back)
-            }}
-            secondaryLabel={flowFailure?.showChangeAmount ? 'Change amount' : undefined}
-            onSecondary={
-              flowFailure?.showChangeAmount
-                ? () => {
-                    setFlowFailure(null)
-                    setWithdrawalStep(WithdrawalStep.AmountEntry)
-                  }
-                : undefined
-            }
-          />
-        )
-
       case WithdrawalStep.MethodConfirmation:
         return (
           <WithdrawMethodConfirmationStep
@@ -211,7 +196,32 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
     }
   }
 
-  return <>{renderWithdrawalStep()}</>
+  return (
+    <>
+      <DashboardRequestFeedbackLayer
+        phase={activeFeedbackPhase}
+        loadingTitle="Submitting withdrawal"
+        loadingDescription="Confirm the withdrawal request in your wallet…"
+        errorTitle="Unable to submit withdrawal"
+        errorDescription={feedbackError ?? flowFailure?.message}
+        onDismiss={() => {
+          setFeedbackPhase('idle')
+          setFeedbackError(null)
+          setFlowFailure(null)
+        }}
+        onRetry={() => {
+          setFeedbackPhase('idle')
+          setFeedbackError(null)
+          if (flowFailure?.returnStep === WithdrawalStep.FinalConfirmation) {
+            void handleWithdrawConfirm()
+            return
+          }
+          if (flowFailure?.returnStep) setWithdrawalStep(flowFailure.returnStep)
+        }}
+      />
+      {renderWithdrawalStep()}
+    </>
+  )
 }
 
 export default InvestorWithdrawFlow

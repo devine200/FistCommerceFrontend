@@ -1,14 +1,13 @@
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
 import { parseApiErrorResponse, parseJsonResponse, requireApiBaseUrl } from '@/api/client'
-import { sumsubTokenFromKycPostResponse } from '@/api/kycSumsubTokens'
+import {
+  hasDiditVerificationInProgress,
+  verificationUrlFromKycPostResponse,
+} from '@/api/kycDiditVerification'
 import type { KycStatus } from '@/store/slices/kycSlice'
 
 const MERCHANT_KYC_PATH = '/api/kyc/merchant'
 
-/**
- * Shape returned by `KYCReviewSerializer` for `AccountVerificationKYC`.
- * Merchant payload is expected to mirror investor shape.
- */
 export type MerchantKycRecord = {
   id: string
   user: number | string
@@ -16,9 +15,9 @@ export type MerchantKycRecord = {
   reviewed: boolean
   kyc_verified: boolean
   insurance_verified: boolean
-  /** When non-empty, user has started Sumsub-backed KYC (in progress on dashboard). */
-  kyc_token?: string | null
-  /** Present when a document has been uploaded (server-side hash). */
+  verification_url?: string | null
+  didit_session_id?: string | null
+  didit_status?: string | null
   document_hash?: string | null
   pending_multisig_proposal_id?: string | null
   created_at: string
@@ -36,11 +35,11 @@ export function deriveKycStatusFromMerchantRecord(record: MerchantKycRecord | nu
   if (pendingProposal) return 'pending'
 
   const { reviewed, kyc_verified, insurance_verified } = record
-  const token = typeof record.kyc_token === 'string' && record.kyc_token.trim().length > 0
+  const inProgress = hasDiditVerificationInProgress(record)
 
   if (reviewed && kyc_verified && insurance_verified) return 'verified'
   if (reviewed && !(kyc_verified && insurance_verified)) return 'rejected'
-  if (token || kyc_verified || insurance_verified) return 'pending'
+  if (inProgress || kyc_verified || insurance_verified) return 'pending'
   return 'not_started'
 }
 
@@ -76,16 +75,10 @@ export async function fetchMerchantKycRecord(accessToken: string | null | undefi
   return record
 }
 
-
-type KycIdentityResponse = {
-  kyc_token: string;
-}
-
-/** Multipart POST to same path as GET (`/api/kyc/merchant`); response shape matches investor (`kyc_record.kyc_token`). */
-async function postMerchantKycDocumentsForSumsub(
+async function postMerchantKycDocuments(
   accessToken: string,
   form: FormData,
-): Promise<{ sumsubAccessToken: string }> {
+): Promise<{ verificationUrl: string }> {
   const base = requireApiBaseUrl()
   const res = await fetchWithAuthRecovery(`${base}${MERCHANT_KYC_PATH}`, {
     method: 'POST',
@@ -95,32 +88,24 @@ async function postMerchantKycDocumentsForSumsub(
   if (!res.ok) {
     throw await parseApiErrorResponse(res)
   }
-  const body: KycIdentityResponse = await res.json()
-  console.log({body})
-  return { sumsubAccessToken: sumsubTokenFromKycPostResponse(body) }
+  const body: unknown = await res.json()
+  return { verificationUrl: verificationUrlFromKycPostResponse(body) }
 }
 
-/**
- * Merchant identity — same request shape as investor: multipart field `document` only.
- */
-export async function postMerchantKycIdentityForSumsub(
+export async function postMerchantKycIdentity(
   accessToken: string,
   file: File,
-): Promise<{ sumsubAccessToken: string }> {
+): Promise<{ verificationUrl: string }> {
   const form = new FormData()
   form.append('document', file)
-  return postMerchantKycDocumentsForSumsub(accessToken, form)
+  return postMerchantKycDocuments(accessToken, form)
 }
 
-/**
- * Merchant insurance — same request shape as investor (`document` only); backend distinguishes leg by account state.
- */
-export async function postMerchantKycInsuranceForSumsub(
+export async function postMerchantKycInsurance(
   accessToken: string,
   file: File,
-): Promise<{ sumsubAccessToken: string }> {
+): Promise<{ verificationUrl: string }> {
   const form = new FormData()
   form.append('document', file)
-  return postMerchantKycDocumentsForSumsub(accessToken, form)
+  return postMerchantKycDocuments(accessToken, form)
 }
-

@@ -96,6 +96,7 @@ export function useMerchantRepaySubmit({
     submit,
     phase,
     error,
+    clearError: () => setError(null),
     disabled,
     buttonLabel: merchantRepaySubmitButtonLabel(phase, needsApproval),
     statusMessage: merchantRepaySubmitStatusMessage(phase, needsApproval),

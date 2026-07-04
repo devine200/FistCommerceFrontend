@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import AdminActionFeedbackModal from '@/components/admin/AdminActionFeedbackModal'
 import type { AdminContactSocialLinks } from '@/api/adminContactSocialLinks'
+import { toUserFacingError } from '@/api/client'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import {
   clearAdminContactSocialLinksSaveError,
@@ -131,7 +132,7 @@ const AdminSupportDisputeInfoPage = () => {
         open: true,
         variant: 'error' as const,
         title: 'Unable to save settings',
-        description: saveError?.trim() || 'Could not save contact and social link settings.',
+        description: toUserFacingError(saveError, 'Could not save contact and social link settings.'),
         primaryLabel: 'OK',
         onPrimary: handleDismissSaveFeedback,
       }
@@ -142,7 +143,7 @@ const AdminSupportDisputeInfoPage = () => {
         open: true,
         variant: 'error' as const,
         title: 'Unable to load settings',
-        description: error?.trim() || 'Could not load contact and social link settings.',
+        description: toUserFacingError(error, 'Could not load contact and social link settings.'),
         primaryLabel: 'Try again',
         onPrimary: handleRetryLoad,
       }

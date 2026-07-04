@@ -107,6 +107,8 @@ export function mapAdminInvestorProfileToDetail(detail: AdminInvestorProfileResu
     email: '',
     accountStatus: profile.accountStatusLabel === 'Inactive' ? 'Inactive' : 'Active',
     kycLabel: profile.kycStatusLabel,
+    kycVerified: profile.kycVerified,
+    reviewed: profile.reviewed,
     pendingMultisigProposalId: profile.pendingMultisigProposalId,
     dateJoined: formatIsoDateForDisplay(profile.dateJoined),
     totalInvested: formatAdminInvestorMoney(summary.totalInvestedAmount),

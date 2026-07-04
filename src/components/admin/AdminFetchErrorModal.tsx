@@ -5,7 +5,6 @@ import { GOVERNANCE_FULL_LIST_FILTER, governanceListCacheKey } from '@/admin/gov
 import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
 import DashboardErrorModal from '@/components/dashboard/shared/DashboardErrorModal'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
-import { refreshAdminDashboard } from '@/store/slices/adminDashboardSlice'
 import { refreshAdminInvestorProfile, refreshAdminInvestors } from '@/store/slices/adminInvestorsSlice'
 import {
   clearAdminLoanMonitoringActionError,
@@ -17,7 +16,6 @@ import {
   refreshAdminMerchants,
 } from '@/store/slices/adminMerchantsSlice'
 import {
-  clearAdminMultisigActionError,
   refreshMultisigProposalDetail,
   refreshMultisigProposals,
 } from '@/store/slices/adminMultisigSlice'
@@ -75,7 +73,6 @@ export default function AdminFetchErrorModal() {
     loanId?: string
   }>()
 
-  const dashboard = useAppSelector((s) => s.adminDashboard)
   const merchants = useAppSelector((s) => s.adminMerchants)
   const investors = useAppSelector((s) => s.adminInvestors)
   const payoutWithdrawals = useAppSelector((s) => s.adminPayoutWithdrawals)
@@ -88,20 +85,6 @@ export default function AdminFetchErrorModal() {
   const [dismissedKey, setDismissedKey] = useState<string | null>(null)
 
   const context = useMemo((): AdminFetchErrorContext | null => {
-    if (pathname === '/dashboard/admin/overview' || pathname === '/dashboard/admin') {
-      if (dashboard.status !== 'failed') return null
-      return {
-        open: true,
-        title: 'Unable to load dashboard',
-        message:
-          dashboard.error?.trim() ||
-          'Platform overview sync failed. Please check your connection and try again.',
-        onRetry: () => {
-          void dispatch(refreshAdminDashboard())
-        },
-      }
-    }
-
     if (pathname === '/dashboard/admin/merchants') {
       if (merchants.status !== 'failed') return null
       return {
@@ -202,16 +185,6 @@ export default function AdminFetchErrorModal() {
     }
 
     if (pathname.startsWith('/dashboard/admin/governance/') && proposalId) {
-      if (multisig.actionStatus === 'failed' && multisig.actionProposalId === proposalId) {
-        return {
-          open: true,
-          title: 'Governance action failed',
-          message: multisig.actionError?.trim() || 'Could not complete governance action.',
-          onRetry: () => {
-            void dispatch(refreshMultisigProposalDetail(proposalId))
-          },
-        }
-      }
       if (multisig.detailStatus !== 'failed' || multisig.detailProposalId !== proposalId) return null
       return {
         open: true,
@@ -333,7 +306,6 @@ export default function AdminFetchErrorModal() {
     merchantId,
     investorId,
     loanId,
-    dashboard,
     merchants,
     investors,
     payoutWithdrawals,
@@ -378,9 +350,6 @@ export default function AdminFetchErrorModal() {
         }
         if (pathname === '/dashboard/admin/payout-withdrawals' && payoutWithdrawals.actionStatus === 'failed') {
           dispatch(clearAdminPayoutWithdrawalsActionError())
-        }
-        if (pathname.startsWith('/dashboard/admin/governance/') && multisig.actionStatus === 'failed') {
-          dispatch(clearAdminMultisigActionError())
         }
       }}
     />

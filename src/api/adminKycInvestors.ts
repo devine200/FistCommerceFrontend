@@ -44,6 +44,8 @@ export type AdminInvestorProfileHeader = {
   wallet: string
   kycStatus: AdminInvestorListStatus
   kycStatusLabel: string
+  kycVerified: boolean
+  reviewed: boolean
   dateJoined: string | null
   accountStatus: string
   accountStatusLabel: string
@@ -134,6 +136,14 @@ function pickNumber(record: Record<string, unknown>, ...keys: string[]): number 
     }
   }
   return null
+}
+
+function pickBool(record: Record<string, unknown>, ...keys: string[]): boolean {
+  for (const key of keys) {
+    const v = record[key]
+    if (typeof v === 'boolean') return v
+  }
+  return false
 }
 
 function normalizeListStatus(raw: string): AdminInvestorListStatus {
@@ -278,6 +288,8 @@ function normalizeProfileHeader(raw: unknown): AdminInvestorProfileHeader | null
       pickStr(r, 'kycStatusLabel', 'kyc_status_label') ||
       pickStr(r, 'status') ||
       'Pending',
+    kycVerified: pickBool(r, 'kycVerified', 'kyc_verified'),
+    reviewed: pickBool(r, 'reviewed'),
     dateJoined: pickNullableStr(r, 'dateJoined', 'date_joined'),
     accountStatus: pickStr(r, 'accountStatus', 'account_status') || 'active',
     accountStatusLabel: pickStr(r, 'accountStatusLabel', 'account_status_label') || 'Active',

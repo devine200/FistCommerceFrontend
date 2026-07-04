@@ -1,45 +1,46 @@
 import { useCallback, useEffect, useState } from 'react'
 
+import { toUserFacingError } from '@/api/client'
 import { fetchPublicContactSocialLinks } from '@/api/adminContactSocialLinks'
 import { LANDING_CONTACT_EMAIL } from '@/components/landing'
 import { FooterSocialLink } from '@/components/landing/FooterSocialLink'
 import DashboardBorderedPanel from '@/components/dashboard/shared/DashboardBorderedPanel'
+import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import { contactSocialLinkItems } from '@/utils/contactSocialLinks'
 
 export function SupportContactContent() {
   const [email, setEmail] = useState(LANDING_CONTACT_EMAIL)
-  const [socialLinks, setSocialLinks] = useState(() => contactSocialLinkItems({
-    email: LANDING_CONTACT_EMAIL,
-    telegram: 'https://t.me/',
-    linkedin: 'https://www.linkedin.com/',
-    instagram: 'https://www.instagram.com/',
-    facebook: 'https://www.facebook.com/',
-  }))
-  const [loading, setLoading] = useState(true)
+  const [socialLinks, setSocialLinks] = useState(() =>
+    contactSocialLinkItems({
+      email: LANDING_CONTACT_EMAIL,
+      telegram: 'https://t.me/',
+      linkedin: 'https://www.linkedin.com/',
+      instagram: 'https://www.instagram.com/',
+      facebook: 'https://www.facebook.com/',
+    }),
+  )
+  const [phase, setPhase] = useState<'idle' | 'loading' | 'failed'>('loading')
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
+  const loadLinks = useCallback(() => {
+    setPhase('loading')
     setError(null)
     void fetchPublicContactSocialLinks()
       .then((links) => {
-        if (cancelled) return
         if (links.email?.trim()) setEmail(links.email.trim())
         setSocialLinks(contactSocialLinkItems(links))
+        setPhase('idle')
       })
       .catch((e) => {
-        if (cancelled) return
-        setError(e instanceof Error ? e.message : 'Could not load support contact information.')
+        setError(toUserFacingError(e, 'Could not load support contact information.'))
+        setPhase('failed')
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
   }, [])
+
+  useEffect(() => {
+    loadLinks()
+  }, [loadLinks])
 
   const copyEmail = useCallback(async () => {
     try {
@@ -53,21 +54,21 @@ export function SupportContactContent() {
 
   return (
     <div className="flex flex-col gap-4">
+      <DashboardRequestFeedbackLayer
+        phase={phase}
+        loadingTitle="Loading support information"
+        loadingDescription="Fetching contact email and social links…"
+        errorTitle="Unable to load support information"
+        errorDescription={error ?? undefined}
+        onDismiss={() => setPhase('idle')}
+        onRetry={loadLinks}
+      />
+
       <DashboardBorderedPanel title="Support & disputes" panelClassName="p-5 sm:p-6">
         <p className="text-[#6B7488] text-[14px] leading-relaxed -mt-2">
           Reach our support team for help with your account, transactions, KYC, or dispute inquiries.
           We typically respond by email within one business day.
         </p>
-
-        {loading ? (
-          <p className="text-[#6B7488] text-[14px]">Loading contact information…</p>
-        ) : null}
-
-        {error ? (
-          <p className="text-[#DC2626] text-[14px]" role="alert">
-            {error}
-          </p>
-        ) : null}
 
         <div className="flex flex-col gap-2">
           <span className="text-[13px] font-medium text-[#6B7488]">Support email</span>

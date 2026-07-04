@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 
-import DashboardErrorModal from '@/components/dashboard/shared/DashboardErrorModal'
-import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFullPageLoading'
+import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import DashboardSessionGuard from '@/components/session/DashboardSessionGuard'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
@@ -17,11 +16,14 @@ export default function MerchantDashboardSessionLayout() {
   const status = useAppSelector((s) => s.merchantDashboard.status)
   const error = useAppSelector((s) => s.merchantDashboard.error)
   const isKycVerified = useAppSelector(selectIsKycVerified)
-  const [errorOpen, setErrorOpen] = useState(false)
+  const [errorDismissed, setErrorDismissed] = useState(false)
+  const [loadingDismissed, setLoadingDismissed] = useState(false)
   const didKickoffRef = useRef(false)
 
   useEffect(() => {
     didKickoffRef.current = false
+    setErrorDismissed(false)
+    setLoadingDismissed(false)
   }, [accessToken, role])
 
   useEffect(() => {
@@ -47,28 +49,34 @@ export default function MerchantDashboardSessionLayout() {
   }, [dispatch, isKycVerified])
 
   useEffect(() => {
-    if (status === 'failed') setErrorOpen(true)
+    if (status === 'failed') setErrorDismissed(false)
+    if (status === 'loading') setLoadingDismissed(false)
+    if (status === 'succeeded') setLoadingDismissed(false)
   }, [status])
 
-  const errorMessage = useMemo(() => {
-    const msg = error?.trim()
-    return msg?.length ? msg : 'Dashboard sync failed. Please check your connection and try again.'
-  }, [error])
+  const feedbackPhase =
+    status === 'loading' && !loadingDismissed
+      ? 'loading'
+      : status === 'failed' && !errorDismissed
+        ? 'failed'
+        : 'idle'
 
   return (
     <>
       <DashboardSessionGuard />
-      <DashboardErrorModal
-        open={errorOpen && status === 'failed'}
-        message={errorMessage}
-        onClose={() => setErrorOpen(false)}
-        onRetry={() => void dispatch(refreshMerchantDashboard())}
+      <DashboardRequestFeedbackLayer
+        phase={feedbackPhase}
+        loadingTitle="Syncing merchant dashboard"
+        loadingDescription="Fetching the latest data for your account…"
+        errorTitle="Unable to load dashboard"
+        errorDescription={error ?? undefined}
+        onDismiss={() => setErrorDismissed(true)}
+        onRetry={() => {
+          setErrorDismissed(false)
+          void dispatch(refreshMerchantDashboard())
+        }}
+        onCancelLoading={() => setLoadingDismissed(true)}
       />
-      {status === 'loading' ? (
-        <div className="fixed inset-0 z-75">
-          <DashboardFullPageLoading label="Syncing merchant dashboard…" />
-        </div>
-      ) : null}
       <Outlet />
     </>
   )

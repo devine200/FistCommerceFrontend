@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 
-import DashboardErrorModal from '@/components/dashboard/shared/DashboardErrorModal'
-import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFullPageLoading'
+import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import DashboardSessionGuard from '@/components/session/DashboardSessionGuard'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { refreshInvestorDashboard, setInvestorWalletDisplay } from '@/store/slices/investorDashboardSlice'
@@ -20,18 +19,19 @@ export default function InvestorDashboardSessionLayout() {
   const status = useAppSelector((s) => s.investorDashboard.status)
   const error = useAppSelector((s) => s.investorDashboard.error)
   const { isConnected, address } = useActiveWallet()
-  const [errorOpen, setErrorOpen] = useState(false)
+  const [errorDismissed, setErrorDismissed] = useState(false)
+  const [loadingDismissed, setLoadingDismissed] = useState(false)
   const didKickoffRef = useRef(false)
 
-  /** Keep dashboard top-bar wallet in sync with Privy-selected active wallet. */
   useEffect(() => {
     if (!isConnected || !address) return
     dispatch(setInvestorWalletDisplay(topBarWalletFromAddress(address)))
   }, [dispatch, isConnected, address])
 
   useEffect(() => {
-    // When the session changes (reload / login / logout), allow a new kickoff.
     didKickoffRef.current = false
+    setErrorDismissed(false)
+    setLoadingDismissed(false)
   }, [accessToken, role])
 
   useEffect(() => {
@@ -44,28 +44,34 @@ export default function InvestorDashboardSessionLayout() {
   }, [dispatch, status, accessToken, role])
 
   useEffect(() => {
-    if (status === 'failed') setErrorOpen(true)
+    if (status === 'failed') setErrorDismissed(false)
+    if (status === 'loading') setLoadingDismissed(false)
+    if (status === 'succeeded') setLoadingDismissed(false)
   }, [status])
 
-  const errorMessage = useMemo(() => {
-    const msg = error?.trim()
-    return msg?.length ? msg : 'Dashboard sync failed. Please check your connection and try again.'
-  }, [error])
+  const feedbackPhase =
+    status === 'loading' && !loadingDismissed
+      ? 'loading'
+      : status === 'failed' && !errorDismissed
+        ? 'failed'
+        : 'idle'
 
   return (
     <>
       <DashboardSessionGuard />
-      <DashboardErrorModal
-        open={errorOpen && status === 'failed'}
-        message={errorMessage}
-        onClose={() => setErrorOpen(false)}
-        onRetry={() => void dispatch(refreshInvestorDashboard())}
+      <DashboardRequestFeedbackLayer
+        phase={feedbackPhase}
+        loadingTitle="Syncing investor dashboard"
+        loadingDescription="Fetching the latest data for your account…"
+        errorTitle="Unable to load dashboard"
+        errorDescription={error ?? undefined}
+        onDismiss={() => setErrorDismissed(true)}
+        onRetry={() => {
+          setErrorDismissed(false)
+          void dispatch(refreshInvestorDashboard())
+        }}
+        onCancelLoading={() => setLoadingDismissed(true)}
       />
-      {status === 'loading' ? (
-        <div className="fixed inset-0 z-75">
-          <DashboardFullPageLoading label="Syncing investor dashboard…" />
-        </div>
-      ) : null}
       <Outlet />
     </>
   )

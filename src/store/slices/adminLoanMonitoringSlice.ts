@@ -13,7 +13,7 @@ import {
   type AdminLoanMonitoringRow,
   type AdminLoanMonitoringTabFilter,
 } from '@/api/adminLoanMonitoring'
-import { ApiRequestError } from '@/api/client'
+import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
 import type {
   AdminLoanMonitoringActionKind,
   LoanMonitoringDetailView,
@@ -156,7 +156,7 @@ export const refreshAdminLoanMonitoring = createAsyncThunk(
       }
     } catch (e) {
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }
@@ -185,7 +185,7 @@ export const refreshAdminLoanMonitoringDetail = createAsyncThunk(
       }
     } catch (e) {
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }
@@ -215,7 +215,7 @@ export const approveAdminLoanMonitoringLoan = createAsyncThunk(
         throw e
       }
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }
@@ -245,7 +245,7 @@ export const rejectAdminLoanMonitoringLoan = createAsyncThunk(
         throw e
       }
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }
@@ -277,7 +277,7 @@ export const fundAdminLoanMonitoringLoan = createAsyncThunk(
         throw e
       }
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }
@@ -307,7 +307,7 @@ export const markAdminLoanMonitoringLoanDefaulted = createAsyncThunk(
         throw e
       }
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }
@@ -337,7 +337,7 @@ export const writeOffAdminLoanMonitoringShortfall = createAsyncThunk(
         throw e
       }
       if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(e.message)
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
       }
       throw e
     }

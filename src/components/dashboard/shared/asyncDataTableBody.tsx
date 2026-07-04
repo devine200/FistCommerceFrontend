@@ -1,4 +1,5 @@
 import type { MerchantReceivablesStatus } from '@/store/slices/merchantReceivablesSlice'
+import { toUserFacingError } from '@/api/client'
 
 export type AsyncTableBodyVariant = 'loading' | 'error' | 'empty'
 
@@ -18,9 +19,12 @@ export function resolveAsyncTableBodyState(
   if (status === 'loading') {
     return { kind: 'message', message: options.loadingMessage, variant: 'loading' }
   }
-  const errorMessage = status === 'failed' ? error?.trim() : ''
-  if (errorMessage) {
-    return { kind: 'message', message: errorMessage, variant: 'error' }
+  if (status === 'failed') {
+    return {
+      kind: 'message',
+      message: toUserFacingError(error, 'Could not load data. Please try again.'),
+      variant: 'error',
+    }
   }
   if (status === 'succeeded' && !options.hasRows) {
     return { kind: 'message', message: options.emptyMessage, variant: 'empty' }

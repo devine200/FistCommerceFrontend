@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 
 import { AdminProfileKycReviewBar } from '@/components/admin/kyc/AdminProfileKycReviewBar'
+import { AdminMerchantInsuranceReviewBar } from '@/components/admin/kyc/AdminMerchantInsuranceReviewBar'
+import { isAdminKycReviewFinalized } from '@/components/admin/kyc/adminKycReviewEligibility'
 import { AdminMerchantProfileView } from '@/components/admin/merchants'
 import { AdminPageFrame } from '@/components/admin/primitives'
-import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFullPageLoading'
+import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import profileAvatarImage from '@/assets/Ellipse 5.png'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { refreshAdminMerchantProfile, selectMerchantProfile } from '@/store/slices/adminMerchantsSlice'
@@ -51,30 +53,42 @@ const AdminMerchantProfilePage = () => {
     return <Navigate to={MERCHANTS_LIST_PATH} replace />
   }
 
-  if (profileLoading) {
-    return (
-      <div className="fixed inset-0 z-75">
-        <DashboardFullPageLoading label="Loading merchant profile…" />
-      </div>
-    )
-  }
-
-  if (!profile) {
-    return <AdminPageFrame>{null}</AdminPageFrame>
-  }
-
   return (
     <AdminPageFrame>
-      <AdminProfileKycReviewBar
-        userId={Number(profile.id)}
-        kycId={profile.kycId}
-        wallet={profile.wallet}
-        displayName={profile.displayName}
-        userType="merchant"
-        kycLabel={profile.kycLabel}
-        pendingMultisigProposalId={profile.pendingMultisigProposalId}
-        onReviewComplete={refreshProfile}
+      <DashboardRequestFeedbackLayer
+        phase={profileLoading ? 'loading' : 'idle'}
+        loadingTitle="Loading merchant profile"
+        loadingDescription="Fetching merchant profile, receivables, and KYC status…"
+        errorTitle="Unable to load merchant profile"
+        onDismiss={() => {}}
+        onCancelLoading={() => {}}
       />
+
+      {profile ? (
+        <>
+          <AdminProfileKycReviewBar
+            userId={Number(profile.id)}
+            kycId={profile.kycId}
+            wallet={profile.wallet}
+            displayName={profile.displayName}
+            userType="merchant"
+            kycLabel={profile.kycLabel}
+            kycVerified={profile.kycVerified}
+            insuranceVerified={profile.insuranceVerified}
+            reviewed={isAdminKycReviewFinalized(profile.kycLabel)}
+            pendingMultisigProposalId={profile.pendingMultisigProposalId}
+            onReviewComplete={refreshProfile}
+          />
+          <AdminMerchantInsuranceReviewBar
+            userId={Number(profile.id)}
+            wallet={profile.wallet}
+            kycId={profile.kycId}
+            kycVerified={profile.kycVerified}
+            insuranceVerified={profile.insuranceVerified}
+            diditStatus={profile.diditStatus}
+            reviewed={isAdminKycReviewFinalized(profile.kycLabel)}
+            onReviewComplete={refreshProfile}
+          />
       <AdminMerchantProfileView
         avatarSrc={profileAvatarImage}
         profile={profile}
@@ -84,6 +98,8 @@ const AdminMerchantProfilePage = () => {
         onAllSearchChange={setAllSearchInput}
         receivablesLoading={profileStatus === 'loading' && !profile}
       />
+        </>
+      ) : null}
     </AdminPageFrame>
   )
 }

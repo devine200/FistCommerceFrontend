@@ -20,6 +20,7 @@ interface MerchantKycVerificationStepsModalProps {
   walletConnected: boolean
   hasKycToken: boolean
   kycVerified: boolean
+  kycUploadLocked: boolean
   insuranceVerified: boolean
   kycRejected: boolean
   onVerifyIdentityClick: () => void
@@ -29,6 +30,7 @@ const MerchantKycVerificationStepsModal = ({
   walletConnected,
   hasKycToken,
   kycVerified,
+  kycUploadLocked,
   insuranceVerified,
   kycRejected,
   onVerifyIdentityClick,
@@ -38,11 +40,15 @@ const MerchantKycVerificationStepsModal = ({
         {
           id: 'verify-identity',
           iconSrc: Frame2,
-          topic: 'Verify Your Identity',
+          topic: 'KYB Lite Verification',
           description:
-            'Upload a valid government ID and complete Sumsub verification for your business representative.',
-          isDone: kycVerified || (Boolean(hasKycToken) && !kycVerified && !kycRejected),
-          isPendingVerification: Boolean(hasKycToken && !kycVerified && !kycRejected),
+            'Upload a valid government ID for your business representative and complete Didit KYB Lite verification.',
+          isDone:
+            kycVerified ||
+            kycUploadLocked ||
+            (Boolean(hasKycToken) && !kycVerified && !kycUploadLocked && !kycRejected),
+          isPendingVerification:
+            kycUploadLocked || Boolean(hasKycToken && !kycVerified && !kycUploadLocked && !kycRejected),
         },
         {
           id: 'insurance-verification',
@@ -65,9 +71,9 @@ const MerchantKycVerificationStepsModal = ({
         {
           id: 'verify-identity',
           iconSrc: Frame2,
-          topic: 'Verify Your Identity',
+          topic: 'KYB Lite Verification',
           description:
-            'Upload a valid government ID and complete Sumsub verification for your business representative.',
+            'Upload a valid government ID for your business representative and complete Didit KYB Lite verification.',
           isDone: kycVerified,
           isPendingVerification: false,
         },
@@ -144,7 +150,7 @@ const MerchantKycVerificationStepsModal = ({
             step.id === 'connect-wallet'
               ? walletConnected
               : step.id === 'verify-identity'
-                ? kycVerified
+                ? kycVerified || kycUploadLocked
                 : false
 
           return (
@@ -173,7 +179,9 @@ const MerchantKycVerificationStepsModal = ({
                 {step.isDone && !step.isPendingVerification ? (
                   <KycCheckIcon />
                 ) : step.isPendingVerification && step.isDone ? (
-                  <span className="text-[#F59E0B] text-[20px] font-medium text-right leading-tight">Pending Verification</span>
+                  <span className="text-[#F59E0B] text-[14px] sm:text-[16px] font-medium text-right leading-tight">
+                    {kycUploadLocked ? 'Pending on-chain approval' : 'Pending Verification'}
+                  </span>
                 ) : (
                   <KycArrowRightIcon />
                 )}

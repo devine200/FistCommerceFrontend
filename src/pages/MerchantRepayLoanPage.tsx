@@ -9,7 +9,7 @@ import {
   merchantRepayBreadcrumbs,
   merchantRepayPaths,
 } from '@/components/dashboard/merchant/repay/repayFlowConfig'
-import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFullPageLoading'
+import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import {
   useMerchantRepayLoanContext,
   type MerchantRepayLocationState,
@@ -69,16 +69,16 @@ const MerchantRepayLoanPage = () => {
     })
   }
 
-  if (repayContext.isLoading) {
-    return (
-      <DashboardLayout dashboardBasePath="/dashboard/merchant" topBarBreadcrumbs={breadcrumbs}>
-        <DashboardFullPageLoading label="Loading repayment details…" />
-      </DashboardLayout>
-    )
-  }
-
   return (
     <DashboardLayout dashboardBasePath="/dashboard/merchant" topBarBreadcrumbs={breadcrumbs}>
+      <DashboardRequestFeedbackLayer
+        phase={repayContext.isLoading ? 'loading' : 'idle'}
+        loadingTitle="Loading repayment details"
+        loadingDescription="Fetching loan balance and repayment information…"
+        errorTitle="Unable to load repayment details"
+        onDismiss={() => {}}
+        onCancelLoading={() => {}}
+      />
       <div className="max-w-[820px] w-full mx-auto pt-8 pb-6 flex flex-col gap-6">
         <div>
           <h1 className="text-[#0B1220] font-bold text-[28px] leading-tight">Repay Loan</h1>
