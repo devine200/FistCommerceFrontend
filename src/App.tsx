@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react'
 
+import {
+  DashboardOverviewRoute,
+  DashboardRoleFallbackRedirect,
+  DashboardRoleIndexRedirect,
+} from '@/components/session/DashboardOverviewRoute'
 import InvestorDashboardSessionLayout from '@/components/session/InvestorDashboardSessionLayout'
 import KycFinancialRoutesGuard from '@/components/session/KycFinancialRoutesGuard'
 import MerchantDashboardSessionLayout from '@/components/session/MerchantDashboardSessionLayout'
@@ -232,11 +237,11 @@ const router = createBrowserRouter([
         children: [
           {
             index: true,
-            element: <Navigate to="overview" replace />,
+            element: <DashboardRoleIndexRedirect role="investor" />,
           },
           {
             path: 'overview',
-            element: <DashboardPage />,
+            element: <DashboardOverviewRoute role="investor" />,
           },
           {
             path: 'opportunities',
@@ -298,7 +303,7 @@ const router = createBrowserRouter([
           },
           {
             path: '*',
-            element: <Navigate to="/dashboard/investor/overview" replace />,
+            element: <DashboardRoleFallbackRedirect role="investor" />,
           },
         ],
       },
@@ -413,11 +418,11 @@ const router = createBrowserRouter([
         children: [
           {
             index: true,
-            element: <Navigate to="overview" replace />,
+            element: <DashboardRoleIndexRedirect role="merchant" />,
           },
           {
             path: 'overview',
-            element: <MerchantDashboardPage />,
+            element: <DashboardOverviewRoute role="merchant" />,
           },
           {
             path: 'opportunities',
@@ -511,7 +516,7 @@ const router = createBrowserRouter([
           },
           {
             path: '*',
-            element: <Navigate to="/dashboard/merchant/overview" replace />,
+            element: <DashboardRoleFallbackRedirect role="merchant" />,
           },
         ],
       },

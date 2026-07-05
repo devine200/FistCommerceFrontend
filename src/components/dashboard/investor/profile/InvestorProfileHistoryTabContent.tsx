@@ -1,14 +1,16 @@
 import activityArrowIcon from '@/assets/arrow.png'
 import activityTrendIcon from '@/assets/Vector.png'
 import { ListPagination } from '@/components/shared/ListPagination'
-import { usePaginatedListItems } from '@/hooks/usePaginatedListItems'
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
-import { fetchInvestorTransactions, type InvestorTransactionApi } from '@/api/metrics'
+import { fetchInvestorTransactionsList, type InvestorTransactionApi } from '@/api/metrics'
 import { blockExplorerTxUrl, getDefaultArbitrumSepoliaBlockExplorerBase } from '@/api/payout'
+import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
+import { useListPageState } from '@/hooks/useListPageState'
 import { useAppSelector } from '@/store/hooks'
 import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
+import { getListPaginationMeta, listPaginationOffset } from '@/utils/listPagination'
 
 type ActivityItem = {
   id: string
@@ -51,97 +53,90 @@ const iconClass = (t: ActivityItem['transactionType']) => (t === 'withdrawal' ? 
 const iconForType = (t: ActivityItem['transactionType']) =>
   t === 'withdrawal' ? activityTrendIcon : activityArrowIcon
 
-const searchableText = (item: ActivityItem) => {
-  const amountDigits = item.amount.replace(/\D/g, '')
-  const typeKeywords =
-    item.transactionType === 'deposit'
-      ? 'deposit deposits invest invested investing'
-      : 'withdraw withdrawal withdrawing earned earnings'
-  return [item.titlePrefix, item.poolName, item.date, item.amount, amountDigits, item.transactionType, typeKeywords]
-    .join(' ')
-    .toLowerCase()
+function filterToApiType(filter: ActivityFilter): 'all' | 'deposit' | 'withdrawal' {
+  if (filter === 'deposits') return 'deposit'
+  if (filter === 'withdrawals') return 'withdrawal'
+  return 'all'
 }
 
-const itemMatchesQuery = (haystack: string, query: string) => {
-  const tokens = query.split(/\s+/).filter(Boolean)
-  return tokens.every((token) => {
-    if (haystack.includes(token)) return true
-    const tokenDigits = token.replace(/\D/g, '')
-    if (tokenDigits.length > 0) {
-      const haystackDigits = haystack.replace(/\D/g, '')
-      if (haystackDigits.includes(tokenDigits)) return true
-    }
-    return false
-  })
+function mapInvestorTransactionToActivity(tx: InvestorTransactionApi, idx: number): ActivityItem {
+  const poolName = 'Fist Commerce Pool'
+  const explorerBase = getDefaultArbitrumSepoliaBlockExplorerBase()
+  const rawType = String(tx.transaction_type ?? '').trim().toLowerCase()
+  const txType: ActivityItem['transactionType'] =
+    rawType.includes('deposit') ? 'deposit' : rawType.includes('withdraw') ? 'withdrawal' : 'deposit'
+
+  const titlePrefix = txType === 'deposit' ? 'Invested in' : 'Earned from'
+
+  const dt = new Date(tx.timestamp)
+  const date = Number.isNaN(dt.getTime())
+    ? String(tx.timestamp ?? '').trim() || '—'
+    : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+  const baseAmount = formatUsdWholeFloorTowardZero(String(tx.amount ?? ''))
+  const positive = txType === 'withdrawal'
+  const amount = positive ? `+${baseAmount}` : baseAmount
+
+  const explorerHref =
+    explorerBase && tx.transaction_hash ? blockExplorerTxUrl(explorerBase, tx.transaction_hash) : null
+
+  return {
+    id: tx.transaction_hash?.trim() || `tx-${idx}`,
+    transactionType: txType,
+    titlePrefix,
+    poolName,
+    date,
+    amount,
+    positive,
+    explorerHref,
+  }
 }
 
 const InvestorProfileHistoryTabContent = () => {
   const [filter, setFilter] = useState<ActivityFilter>('all')
-  const [searchTerm, setSearchTerm] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [searchDebounced, setSearchDebounced] = useState('')
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const isKycVerified = useAppSelector(selectIsKycVerified)
+  const [page, setPage] = useListPageState([filter, searchDebounced])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearchDebounced(searchInput.trim()), 350)
+    return () => window.clearTimeout(timer)
+  }, [searchInput])
+
+  const apiType = filterToApiType(filter)
+  const offset = listPaginationOffset(page)
 
   const txQuery = useQuery({
-    queryKey: ['investor-transactions', accessToken, isKycVerified],
+    queryKey: ['investor-transactions', accessToken, isKycVerified, filter, searchDebounced, page],
     enabled: Boolean(accessToken?.trim()) && isKycVerified,
     staleTime: 15_000,
-    queryFn: async () => await fetchInvestorTransactions(accessToken),
+    queryFn: async () =>
+      await fetchInvestorTransactionsList(accessToken, {
+        limit: DASHBOARD_LIST_PAGE_SIZE,
+        offset,
+        type: apiType,
+        search: searchDebounced || undefined,
+      }),
   })
 
-  const items = useMemo((): ActivityItem[] => {
-    const poolName = 'Fist Commerce Pool'
-    const explorerBase = getDefaultArbitrumSepoliaBlockExplorerBase()
-    const txs = (txQuery.data ?? []) as InvestorTransactionApi[]
+  const pageItems = useMemo(
+    () => (txQuery.data?.transactions ?? []).map(mapInvestorTransactionToActivity),
+    [txQuery.data?.transactions],
+  )
 
-    return txs
-      .map((tx, idx) => {
-        const rawType = String(tx.transaction_type ?? '').trim().toLowerCase()
-        const txType: ActivityItem['transactionType'] =
-          rawType.includes('deposit') ? 'deposit' : rawType.includes('withdraw') ? 'withdrawal' : 'deposit'
+  const meta = useMemo(
+    () => getListPaginationMeta(txQuery.data?.total ?? 0, page),
+    [txQuery.data?.total, page],
+  )
 
-        const titlePrefix = txType === 'deposit' ? 'Invested in' : 'Earned from'
-
-        const dt = new Date(tx.timestamp)
-        const date = Number.isNaN(dt.getTime())
-          ? String(tx.timestamp ?? '').trim() || '—'
-          : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-
-        const baseAmount = formatUsdWholeFloorTowardZero(String(tx.amount ?? ''))
-        const positive = txType === 'withdrawal'
-        const amount = positive ? `+${baseAmount}` : baseAmount
-
-        const explorerHref =
-          explorerBase && tx.transaction_hash ? blockExplorerTxUrl(explorerBase, tx.transaction_hash) : null
-
-        return {
-          id: tx.transaction_hash?.trim() || `tx-${idx}`,
-          transactionType: txType,
-          titlePrefix,
-          poolName,
-          date,
-          amount,
-          positive,
-          explorerHref,
-        }
-      })
-      .filter(Boolean)
-  }, [txQuery.data])
-
-  const filteredItems = useMemo(() => {
-    const byType =
-      filter === 'withdrawals'
-        ? items.filter((item) => item.transactionType === 'withdrawal')
-        : filter === 'deposits'
-          ? items.filter((item) => item.transactionType === 'deposit')
-          : items
-
-    const normalizedQuery = searchTerm.trim().toLowerCase()
-    if (!normalizedQuery) return byType
-
-    return byType.filter((item) => itemMatchesQuery(searchableText(item), normalizedQuery))
-  }, [filter, searchTerm])
-
-  const { pageItems, meta, setPage } = usePaginatedListItems(filteredItems, [filter, searchTerm])
+  const tableLoading = txQuery.isPending && pageItems.length === 0
+  const emptyMessage = searchDebounced
+    ? 'No activities match your search.'
+    : filter !== 'all'
+      ? 'No activities in this filter yet.'
+      : 'No activities yet.'
 
   return (
     <section className="rounded-[8px] border border-[#E6E8EC] bg-white p-4 sm:p-5">
@@ -150,8 +145,8 @@ const InvestorProfileHistoryTabContent = () => {
         <div className="h-[46px] w-full sm:w-[330px] rounded-[6px] border border-[#D5DAE2] px-4 text-[14px] text-[#8B92A3] flex items-center">
           <input
             type="text"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
             placeholder="Search for a receivable"
             className="w-full bg-transparent outline-none text-[#4D5D80] placeholder:text-[#B0B7C4]"
             aria-label="Search receivables"
@@ -190,7 +185,7 @@ const InvestorProfileHistoryTabContent = () => {
       </div>
 
       <div className="mt-4">
-        {txQuery.isPending ? (
+        {tableLoading ? (
           <div className="border-t border-[#EDF0F4] py-8 text-center text-[#8B92A3] text-[14px]">
             Loading activities…
           </div>
@@ -237,12 +232,18 @@ const InvestorProfileHistoryTabContent = () => {
             </div>
           </article>
         ))}
-        {!txQuery.isPending && !txQuery.isError && filteredItems.length === 0 ? (
+        {!tableLoading && !txQuery.isError && pageItems.length === 0 ? (
           <div className="border-t border-[#EDF0F4] py-8 text-center text-[#8B92A3] text-[14px]">
-            No activities found for this receivable.
+            {emptyMessage}
           </div>
         ) : null}
-        <ListPagination meta={meta} onPageChange={setPage} variant="dashboard" className="border-t border-[#EDF0F4]" />
+        <ListPagination
+          meta={meta}
+          onPageChange={setPage}
+          loading={txQuery.isFetching}
+          variant="dashboard"
+          className="border-t border-[#EDF0F4]"
+        />
       </div>
     </section>
   )

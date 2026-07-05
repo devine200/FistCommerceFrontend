@@ -9,3 +9,8 @@ export function parseUserRole(value: unknown): UserRole | null {
 export function dashboardOverviewPath(role: UserRole): string {
   return `/dashboard/${role}/overview`
 }
+
+/** Primary dashboard landing path: opportunities once KYC is verified, otherwise overview. */
+export function dashboardHomePath(role: UserRole, isKycVerified = false): string {
+  return `/dashboard/${role}/${isKycVerified ? 'opportunities' : 'overview'}`
+}

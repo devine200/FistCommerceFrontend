@@ -1,5 +1,11 @@
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
 import { parseJsonResponse, requireApiBaseUrl } from '@/api/client'
+import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
+import {
+  normalizeDashboardTransactionsListResponse,
+  type DashboardTransactionsListParams,
+  type DashboardTransactionsListResult,
+} from '@/utils/dashboardTransactionsList'
 
 /** `GET /api/metrics/investor/` — monetary fields are pre-formatted strings from the API. */
 export type InvestorMetrics = {
@@ -338,21 +344,54 @@ export type InvestorTransactionsResponse = {
   transactions: InvestorTransactionApi[]
 }
 
-export const convertTimestampToDate = (timestamp: string): string => {
-  const date = new Date(timestamp)
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+export type FetchInvestorTransactionsParams = DashboardTransactionsListParams & {
+  type?: 'all' | 'deposit' | 'withdrawal'
+}
+
+function mapInvestorTransactionRow(raw: unknown): InvestorTransactionApi | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const transaction_type = pickStringField(row, 'transaction_type', 'transactionType')
+  const amount = pickStringField(row, 'amount')
+  const timestamp = pickStringField(row, 'timestamp', 'created_at', 'createdAt')
+  const transaction_hash = pickStringField(row, 'transaction_hash', 'transactionHash', 'tx_hash', 'hash')
+  if (!transaction_type && !amount && !timestamp && !transaction_hash) return null
+  return {
+    transaction_type,
+    amount,
+    timestamp,
+    transaction_hash,
+  }
+}
+
+export async function fetchInvestorTransactionsList(
+  accessToken: string | null | undefined,
+  params?: FetchInvestorTransactionsParams,
+): Promise<DashboardTransactionsListResult<InvestorTransactionApi>> {
+  const base = apiBaseUrl()
+  const limit = Math.min(Math.max(params?.limit ?? DASHBOARD_LIST_PAGE_SIZE, 1), 200)
+  const offset = Math.max(params?.offset ?? 0, 0)
+  const q = new URLSearchParams()
+  q.set('limit', String(limit))
+  q.set('offset', String(offset))
+  const type = params?.type?.trim()
+  if (type && type !== 'all') q.set('type', type)
+  const search = params?.search?.trim()
+  if (search) q.set('search', search)
+
+  const res = await fetchWithAuthRecovery(`${base}/api/metrics/investor/transactions?${q.toString()}`, {
+    method: 'GET',
+    headers: authHeaders(accessToken),
+  })
+  const raw = await parseJsonResponse<unknown>(res)
+  return normalizeDashboardTransactionsListResponse(raw, { offset, limit }, mapInvestorTransactionRow)
 }
 
 export async function fetchInvestorTransactions(
   accessToken: string | null | undefined,
 ): Promise<InvestorTransactionApi[]> {
-  const base = apiBaseUrl()
-  const res = await fetchWithAuthRecovery(`${base}/api/metrics/investor/transactions`, {
-    method: 'GET',
-    headers: authHeaders(accessToken),
-  })
-  const data = await parseJsonResponse<InvestorTransactionsResponse>(res)
-  return data.transactions ? data.transactions : []
+  const data = await fetchInvestorTransactionsList(accessToken)
+  return data.transactions
 }
 
 /** `GET /api/metrics/merchant/transactions` */
@@ -369,16 +408,61 @@ export type MerchantTransactionsResponse = {
   transactions: MerchantTransactionApi[]
 }
 
-export async function fetchMerchantTransactions(
+export type FetchMerchantTransactionsParams = DashboardTransactionsListParams & {
+  type?: 'all' | 'loan' | 'withdrawal' | 'repayment'
+}
+
+function mapMerchantTransactionRow(raw: unknown): MerchantTransactionApi | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const transaction_type = pickStringField(row, 'transaction_type', 'transactionType')
+  const amount = pickStringField(row, 'amount')
+  const timestamp = pickStringField(row, 'timestamp', 'created_at', 'createdAt')
+  const transaction_hash = pickStringField(row, 'transaction_hash', 'transactionHash', 'tx_hash', 'hash')
+  const receivable_id = pickStringField(row, 'receivable_id', 'receivableId')
+  if (!transaction_type && !amount && !timestamp && !transaction_hash) return null
+  return {
+    transaction_type,
+    amount,
+    timestamp,
+    transaction_hash,
+    receivable_id,
+  }
+}
+
+export async function fetchMerchantTransactionsList(
   accessToken: string | null | undefined,
-): Promise<MerchantTransactionApi[]> {
+  params?: FetchMerchantTransactionsParams,
+): Promise<DashboardTransactionsListResult<MerchantTransactionApi>> {
   const base = apiBaseUrl()
-  const res = await fetchWithAuthRecovery(`${base}/api/metrics/merchant/transactions`, {
+  const limit = Math.min(Math.max(params?.limit ?? DASHBOARD_LIST_PAGE_SIZE, 1), 200)
+  const offset = Math.max(params?.offset ?? 0, 0)
+  const q = new URLSearchParams()
+  q.set('limit', String(limit))
+  q.set('offset', String(offset))
+  const type = params?.type?.trim()
+  if (type && type !== 'all') q.set('type', type)
+  const search = params?.search?.trim()
+  if (search) q.set('search', search)
+
+  const res = await fetchWithAuthRecovery(`${base}/api/metrics/merchant/transactions?${q.toString()}`, {
     method: 'GET',
     headers: authHeaders(accessToken),
   })
-  const data = await parseJsonResponse<MerchantTransactionsResponse>(res)
-  return Array.isArray(data.transactions) ? data.transactions : []
+  const raw = await parseJsonResponse<unknown>(res)
+  return normalizeDashboardTransactionsListResponse(raw, { offset, limit }, mapMerchantTransactionRow)
+}
+
+export async function fetchMerchantTransactions(
+  accessToken: string | null | undefined,
+): Promise<MerchantTransactionApi[]> {
+  const data = await fetchMerchantTransactionsList(accessToken)
+  return data.transactions
+}
+
+export const convertTimestampToDate = (timestamp: string): string => {
+  const date = new Date(timestamp)
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 /** `GET /api/metrics/admin/` — protocol-wide metrics (admin only). */

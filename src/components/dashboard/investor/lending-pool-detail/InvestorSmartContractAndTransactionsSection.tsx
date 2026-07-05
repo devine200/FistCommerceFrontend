@@ -2,12 +2,17 @@ import { useCallback, useState } from 'react'
 
 import type { ContractField, RecentTx } from '@/components/dashboard/investor/lending-pool-detail/types'
 import { POOL_SECTION_TITLE } from '@/components/dashboard/shared/poolDetailTypography'
+import { ListPagination } from '@/components/shared/ListPagination'
+import type { ListPaginationMeta } from '@/utils/listPagination'
 
 interface InvestorSmartContractAndTransactionsSectionProps {
   contractRows: ContractField[]
   transactions: RecentTx[]
   /** Full URL to the pool contract on Arbitrum Sepolia (or API-provided explorer). */
   contractExplorerHref?: string | null
+  paginationMeta: ListPaginationMeta
+  onPageChange: (page: number) => void
+  loading?: boolean
 }
 
 function ExternalLinkGlyph({ className }: { className?: string }) {
@@ -31,6 +36,8 @@ function ExternalLinkGlyph({ className }: { className?: string }) {
   )
 }
 
+const EMPTY_TRANSACTIONS_MESSAGE = 'No recent transactions yet.'
+
 const amountClass = (tone: RecentTx['amountTone']) => {
   if (tone === 'positive') return 'text-[#16A34A] font-bold text-[15px] tabular-nums'
   if (tone === 'negative') return 'text-[#0B1220] font-bold text-[15px] tabular-nums'
@@ -41,6 +48,9 @@ const InvestorSmartContractAndTransactionsSection = ({
   contractRows,
   transactions,
   contractExplorerHref,
+  paginationMeta,
+  onPageChange,
+  loading = false,
 }: InvestorSmartContractAndTransactionsSectionProps) => {
   const [copied, setCopied] = useState(false)
 
@@ -106,37 +116,50 @@ const InvestorSmartContractAndTransactionsSection = ({
         </div>
 
         <div className="rounded-[10px] border border-[#E6E8EC] overflow-hidden bg-white">
-          <ul className="divide-y divide-[#E6E8EC]">
-            {transactions.map((tx) => (
-              <li key={tx.id}>
-                <div className="flex flex-col gap-3 py-3 px-4 sm:flex-row sm:items-center sm:gap-8">
-                  <div className="min-w-0 flex-1 flex flex-col gap-1.5">
-                    {tx.walletExplorerHref ? (
-                      <a
-                        href={tx.walletExplorerHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex w-fit max-w-full rounded-[6px] border border-[#E8EBF0] bg-[#F4F7F9] px-2.5 py-1 text-[#195EBC] text-[13px] font-medium tracking-tight hover:bg-[#E8EFFB]"
-                      >
-                        {tx.walletShort}
-                      </a>
-                    ) : (
-                      <span className="inline-flex w-fit max-w-full rounded-[6px] border border-[#E8EBF0] bg-[#F4F7F9] px-2.5 py-1 text-[#195EBC] text-[13px] font-medium tracking-tight">
-                        {tx.walletShort}
-                      </span>
-                    )}
-                    <span className="text-[#0B1220] font-bold text-[15px] leading-tight">{tx.type}</span>
+          {loading ? (
+            <p className="px-4 py-8 text-[#6B7488] text-[14px]">Loading recent transactions…</p>
+          ) : transactions.length === 0 ? (
+            <p className="px-4 py-8 text-[#6B7488] text-[14px]">{EMPTY_TRANSACTIONS_MESSAGE}</p>
+          ) : (
+            <ul className="divide-y divide-[#E6E8EC]">
+              {transactions.map((tx) => (
+                <li key={tx.id}>
+                  <div className="flex flex-col gap-3 py-3 px-4 sm:flex-row sm:items-center sm:gap-8">
+                    <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+                      {tx.walletExplorerHref ? (
+                        <a
+                          href={tx.walletExplorerHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex w-fit max-w-full rounded-[6px] border border-[#E8EBF0] bg-[#F4F7F9] px-2.5 py-1 text-[#195EBC] text-[13px] font-medium tracking-tight hover:bg-[#E8EFFB]"
+                        >
+                          {tx.walletShort}
+                        </a>
+                      ) : (
+                        <span className="inline-flex w-fit max-w-full rounded-[6px] border border-[#E8EBF0] bg-[#F4F7F9] px-2.5 py-1 text-[#195EBC] text-[13px] font-medium tracking-tight">
+                          {tx.walletShort}
+                        </span>
+                      )}
+                      <span className="text-[#0B1220] font-bold text-[15px] leading-tight">{tx.type}</span>
+                    </div>
+                    <div className="flex flex-row items-center justify-between gap-6 sm:justify-end sm:shrink-0 sm:min-w-56">
+                      <p className={`text-left sm:text-right sm:flex-1 ${amountClass(tx.amountTone)}`}>{tx.amount}</p>
+                      <p className="text-[#8B92A3] text-[13px] text-right whitespace-nowrap sm:min-w-22">
+                        {tx.timeAgo}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex flex-row items-center justify-between gap-6 sm:justify-end sm:shrink-0 sm:min-w-56">
-                    <p className={`text-left sm:text-right sm:flex-1 ${amountClass(tx.amountTone)}`}>{tx.amount}</p>
-                    <p className="text-[#8B92A3] text-[13px] text-right whitespace-nowrap sm:min-w-22">
-                      {tx.timeAgo}
-                    </p>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          )}
+          <ListPagination
+            meta={paginationMeta}
+            onPageChange={onPageChange}
+            loading={loading}
+            variant="dashboard"
+            className="border-t border-[#E6E8EC]"
+          />
         </div>
       </div>
     </section>

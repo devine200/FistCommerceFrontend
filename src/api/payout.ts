@@ -1,11 +1,13 @@
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
 import { parseJsonResponse, requireApiBaseUrl } from '@/api/client'
 import { displayDashboardMetricString } from '@/api/metrics'
+import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
 import {
   FUNDING_POOL_ADDRESS,
 } from '@/contract_config/deployment'
 import { isLocalContractNetwork } from '@/contract_config/contractNetwork'
 import type { RecentTx } from '@/components/dashboard/investor/lending-pool-detail/types'
+import { resolvePaginatedListTotal } from '@/utils/listPagination'
 
 const RECENT_TRANSACTIONS_PATH = '/api/payout/recent-transactions/'
 
@@ -219,7 +221,7 @@ function mapStrictApiRow(tx: RecentTxApi, index: number, explorerBase: string | 
   }
 }
 
-function parseStrictRecentTxResponse(json: RecentTxResponse): RecentPayoutBundle {
+function parseStrictRecentTxResponse(json: RecentTxResponse, total: number): RecentPayoutBundle {
   const envelope = extractContractAndExplorer(json)
   const explorerBase = envelope.explorerBaseUrl || getDefaultBlockExplorerBase()
 
@@ -234,6 +236,7 @@ function parseStrictRecentTxResponse(json: RecentTxResponse): RecentPayoutBundle
     transactions,
     contractAddress,
     explorerBaseUrl: explorerBase,
+    total,
   }
 }
 
@@ -318,11 +321,51 @@ export type RecentPayoutBundle = {
   transactions: RecentTx[]
   contractAddress: string | null
   explorerBaseUrl: string | null
+  total: number
 }
 
-export function parseRecentPayoutResponse(json: unknown): RecentPayoutBundle {
+export type FetchRecentPayoutTransactionsParams = {
+  limit?: number
+  offset?: number
+}
+
+function pickNumber(record: Record<string, unknown>, ...keys: string[]): number | null {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number(value)
+      if (Number.isFinite(parsed)) return parsed
+    }
+  }
+  return null
+}
+
+function resolveRecentPayoutTotal(
+  json: unknown,
+  transactionsLength: number,
+  params: { offset: number; limit: number },
+): number {
+  const record = asRecord(json)
+  const apiTotal = record ? pickNumber(record, 'total', 'count') : null
+  return (
+    apiTotal ??
+    resolvePaginatedListTotal({
+      apiTotal,
+      offset: params.offset,
+      pageSize: params.limit,
+      resultsLength: transactionsLength,
+    })
+  )
+}
+
+export function parseRecentPayoutResponse(json: unknown, params?: FetchRecentPayoutTransactionsParams): RecentPayoutBundle {
+  const limit = Math.min(Math.max(params?.limit ?? DASHBOARD_LIST_PAGE_SIZE, 1), 200)
+  const offset = Math.max(params?.offset ?? 0, 0)
+
   if (isRecentTxResponseShape(json)) {
-    return parseStrictRecentTxResponse(json)
+    const total = resolveRecentPayoutTotal(json, json.transactions.length, { offset, limit })
+    return parseStrictRecentTxResponse(json, total)
   }
 
   const rows = extractTransactionRows(json)
@@ -336,10 +379,13 @@ export function parseRecentPayoutResponse(json: unknown): RecentPayoutBundle {
     if (tx) transactions.push(tx)
   })
 
+  const total = resolveRecentPayoutTotal(json, transactions.length, { offset, limit })
+
   return {
     transactions,
     contractAddress,
     explorerBaseUrl: explorerBase,
+    total,
   }
 }
 
@@ -352,14 +398,23 @@ function authHeaders(accessToken: string | null | undefined): HeadersInit {
   }
 }
 
-export async function fetchRecentPayoutTransactions(accessToken: string | null | undefined): Promise<RecentPayoutBundle> {
+export async function fetchRecentPayoutTransactions(
+  accessToken: string | null | undefined,
+  params?: FetchRecentPayoutTransactionsParams,
+): Promise<RecentPayoutBundle> {
   const base = requireApiBaseUrl()
-  const res = await fetchWithAuthRecovery(`${base}${RECENT_TRANSACTIONS_PATH}`, {
+  const limit = Math.min(Math.max(params?.limit ?? DASHBOARD_LIST_PAGE_SIZE, 1), 200)
+  const offset = Math.max(params?.offset ?? 0, 0)
+  const q = new URLSearchParams()
+  q.set('limit', String(limit))
+  q.set('offset', String(offset))
+
+  const res = await fetchWithAuthRecovery(`${base}${RECENT_TRANSACTIONS_PATH}?${q.toString()}`, {
     method: 'GET',
     headers: authHeaders(accessToken),
   })
   const json = await parseJsonResponse<unknown>(res)
-  return parseRecentPayoutResponse(json)
+  return parseRecentPayoutResponse(json, { limit, offset })
 }
 
 /** @deprecated Use {@link fetchAdminLatestRepayments} from `@/api/adminLoan`. */

@@ -11,13 +11,13 @@ import { useSession } from '@/state/useSession'
 
 const MerchantDashboardPage = () => {
   const { pathname } = useLocation()
+  const { kycVerified: isKycVerified } = useSession()
 
   const topBarBreadcrumbs = useMemo(
-    (): DashboardBreadcrumbItem[] => buildDashboardHomeBreadcrumbs(pathname, '/dashboard/merchant'),
-    [pathname],
+    (): DashboardBreadcrumbItem[] =>
+      buildDashboardHomeBreadcrumbs(pathname, '/dashboard/merchant', isKycVerified),
+    [pathname, isKycVerified],
   )
-
-  const { kycVerified: isKycVerified } = useSession()
   const walletDisplay = useAppSelector((s) => s.merchantDashboard.walletDisplay)
 
   const verifiedContent = pathname.includes('/receivables') ? (

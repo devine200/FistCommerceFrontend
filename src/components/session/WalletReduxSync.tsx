@@ -2,9 +2,12 @@ import { useEffect, useRef } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 
 import { resetUserSession } from '@/session/resetUserSession'
+import { logoutAdminSession } from '@/session/logoutAdminSession'
 import {
   ADMIN_LOGIN_PATH,
+  isAdminDashboardPath,
   isAdminLoginPath,
+  isAdminSession,
   shouldRedirectToAdminLogin,
 } from '@/auth/adminSession'
 import { store } from '@/store'
@@ -48,16 +51,21 @@ type Eip1193Emitter = {
   removeListener?: (event: string, handler: (...args: unknown[]) => void) => void
 }
 
-/** Admins and admin login are not part of the investor/merchant onboarding wallet flow. */
+/** Wallet disconnect / Privy logout routing for admin vs investor/merchant flows. */
 function resetWalletAppSessionAndRedirect(dispatch: AppDispatch) {
   const { sessionKind, accessToken } = store.getState().auth
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
 
-  // Persisted admin API session — wallet/Privy disconnect must not clear staff auth.
-  if (sessionKind === 'admin') return
-
   // Admin sign-in screen: disconnect/reconnect is expected; stay on `/admin/login`.
   if (isAdminLoginPath(pathname)) return
+
+  const onAdminDashboard = Boolean(pathname && isAdminDashboardPath(pathname))
+  if (sessionKind === 'admin' || (onAdminDashboard && isAdminSession(accessToken, sessionKind))) {
+    void logoutAdminSession(dispatch).catch(() => {
+      window.location.assign(ADMIN_LOGIN_PATH)
+    })
+    return
+  }
 
   if (shouldRedirectToAdminLogin({ accessToken, sessionKind, pathname })) {
     resetUserSession(dispatch)

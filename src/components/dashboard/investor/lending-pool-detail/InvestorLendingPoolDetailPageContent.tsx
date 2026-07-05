@@ -4,13 +4,23 @@ import InvestorMyStatsSection from '@/components/dashboard/investor/lending-pool
 import InvestorPoolPerformanceSection from '@/components/dashboard/investor/lending-pool-detail/InvestorPoolPerformanceSection'
 import InvestorPoolStrategySection from '@/components/dashboard/investor/lending-pool-detail/InvestorPoolStrategySection'
 import InvestorSmartContractAndTransactionsSection from '@/components/dashboard/investor/lending-pool-detail/InvestorSmartContractAndTransactionsSection'
+import type { ListPaginationMeta } from '@/utils/listPagination'
 
 interface InvestorLendingPoolDetailPageContentProps {
   config: InvestorPoolDetailConfig
   poolSlug: string
+  transactionsPaginationMeta: ListPaginationMeta
+  onTransactionsPageChange: (page: number) => void
+  transactionsLoading?: boolean
 }
 
-const InvestorLendingPoolDetailPageContent = ({ config, poolSlug }: InvestorLendingPoolDetailPageContentProps) => {
+const InvestorLendingPoolDetailPageContent = ({
+  config,
+  poolSlug,
+  transactionsPaginationMeta,
+  onTransactionsPageChange,
+  transactionsLoading = false,
+}: InvestorLendingPoolDetailPageContentProps) => {
   const howItWorksTo = `/dashboard/investor/lending-pool/${poolSlug}/how-it-works`
   const investTo = `/dashboard/investor/lending-pool/${poolSlug}/invest`
   const withdrawTo = `/dashboard/investor/lending-pool/${poolSlug}/withdraw`
@@ -30,6 +40,9 @@ const InvestorLendingPoolDetailPageContent = ({ config, poolSlug }: InvestorLend
         contractRows={config.contractRows}
         transactions={config.transactions}
         contractExplorerHref={config.contractExplorerHref}
+        paginationMeta={transactionsPaginationMeta}
+        onPageChange={onTransactionsPageChange}
+        loading={transactionsLoading}
       />
     </div>
   )

@@ -6,21 +6,22 @@ import type { DashboardBasePath, DashboardBreadcrumbItem } from './types'
 export function buildDashboardHomeBreadcrumbs(
   pathname: string,
   basePath: DashboardBasePath,
+  isKycVerified = false,
 ): DashboardBreadcrumbItem[] {
-  const overviewTo = `${basePath}/overview`
+  const homeTo = `${basePath}/${isKycVerified ? 'opportunities' : 'overview'}`
 
   if (pathname.includes('/receivables')) {
     return [{ label: 'All Receivables' }]
   }
   if (pathname.includes('/opportunities')) {
     return [
-      { label: 'Explore Lending Pools', to: overviewTo },
+      { label: 'Explore Lending Pools', to: homeTo },
       { label: 'Opportunities' },
     ]
   }
   if (pathname.includes('/profile')) {
     return [
-      { label: 'Explore Lending Pools', to: overviewTo },
+      { label: 'Explore Lending Pools', to: homeTo },
       { label: 'Profile' },
     ]
   }

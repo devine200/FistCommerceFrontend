@@ -11,8 +11,10 @@ import collapseArrowIcon from '@/assets/CollapseArrow.svg'
 import supportNavIcon from '@/assets/mobile-notification.png'
 
 import { logoutUserSession } from '@/session/logoutUserSession'
-import { useAppDispatch } from '@/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
+import { dashboardHomePath } from '@/utils/userRole'
 
 import type { DashboardBasePath, DashboardSideNavItem, DashboardSideNavProps } from './types'
 
@@ -52,6 +54,7 @@ const DashboardSideNav = ({
   onRequestClose,
 }: DashboardSideNavProps) => {
   const dispatch = useAppDispatch()
+  const isKycVerified = useAppSelector(selectIsKycVerified)
   const { logout } = useLogout()
   const { wallet } = useActiveWallet()
   const [loggingOut, setLoggingOut] = useState(false)
@@ -71,25 +74,39 @@ const DashboardSideNav = ({
   const investorPoolDetail = base === '/dashboard/investor' && isPoolDetailOnly
   const investorPoolAction = base === '/dashboard/investor' && isPoolNested && !isPoolHowItWorks
   const merchantPoolDetail = base === '/dashboard/merchant' && isPoolDetailOnly
+  const role = base === '/dashboard/merchant' ? 'merchant' : 'investor'
+  const homePath = dashboardHomePath(role, isKycVerified)
+
+  const overviewNavItem: DashboardSideNavItem = {
+    path: `${base}/overview`,
+    label: 'Dashboard',
+    icon: squaresFourIcon,
+    isActive:
+      pathname === base ||
+      pathname === `${base}/` ||
+      pathname.startsWith(`${base}/overview`) ||
+      investorHowItWorks ||
+      merchantPoolDetail,
+  }
+
+  const opportunitiesNavItem: DashboardSideNavItem = {
+    path: `${base}/opportunities`,
+    label: 'Opportunities',
+    icon: coinIcon,
+    isActive: isKycVerified
+      ? pathname.startsWith(`${base}/opportunities`) ||
+        investorPoolDetail ||
+        investorPoolAction ||
+        investorHowItWorks ||
+        merchantPoolDetail ||
+        pathname === base ||
+        pathname === `${base}/`
+      : pathname.startsWith(`${base}/opportunities`) || investorPoolDetail || investorPoolAction,
+  }
 
   const navItems: DashboardSideNavItem[] = [
-    {
-      path: `${base}/overview`,
-      label: 'Dashboard',
-      icon: squaresFourIcon,
-      isActive:
-        pathname === base ||
-        pathname === `${base}/` ||
-        pathname.startsWith(`${base}/overview`) ||
-        investorHowItWorks ||
-        merchantPoolDetail,
-    },
-    {
-      path: `${base}/opportunities`,
-      label: 'Opportunities',
-      icon: coinIcon,
-      isActive: pathname.startsWith(`${base}/opportunities`) || investorPoolDetail || investorPoolAction,
-    },
+    ...(isKycVerified ? [] : [overviewNavItem]),
+    opportunitiesNavItem,
     {
       path: `${base}/profile/overview`,
       label: 'Profile',
@@ -117,7 +134,9 @@ const DashboardSideNav = ({
     isActive: pathname === `${base}/support` || pathname.startsWith(`${base}/support/`),
   }
 
-  const allNavItems = [...navItems.slice(0, 2), ...merchantExtraItems, ...navItems.slice(2), supportItem]
+  const allNavItems = isKycVerified
+    ? [opportunitiesNavItem, ...merchantExtraItems, navItems[navItems.length - 1], supportItem]
+    : [...navItems.slice(0, 2), ...merchantExtraItems, ...navItems.slice(2), supportItem]
 
   const handleLogout = () => {
     if (loggingOut) return
@@ -165,7 +184,7 @@ const DashboardSideNav = ({
         ) : null}
 
         <Link
-          to={`${base}/overview`}
+          to={homePath}
           onClick={() => onRequestClose?.()}
           className={[
             'flex items-center gap-3 w-full px-2 py-1 rounded-[6px] mt-1',

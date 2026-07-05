@@ -3,17 +3,21 @@ import { useLocation } from 'react-router-dom'
 import { SupportContactContent } from '@/components/dashboard/shared/SupportContactContent'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 import { useAppSelector } from '@/store/hooks'
+import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
+import { dashboardHomePath } from '@/utils/userRole'
 
 const DashboardSupportContactPage = () => {
   const { pathname } = useLocation()
   const isMerchant = pathname.startsWith('/dashboard/merchant')
   const dashboardBasePath = isMerchant ? '/dashboard/merchant' : '/dashboard/investor'
+  const isKycVerified = useAppSelector(selectIsKycVerified)
+  const role = isMerchant ? 'merchant' : 'investor'
   const walletDisplay = useAppSelector((s) =>
     isMerchant ? s.merchantDashboard.walletDisplay : s.investorDashboard.walletDisplay,
   )
 
   const topBarBreadcrumbs: DashboardBreadcrumbItem[] = [
-    { label: 'Dashboard', to: `${dashboardBasePath}/overview` },
+    { label: 'Dashboard', to: dashboardHomePath(role, isKycVerified) },
     { label: 'Support' },
   ]
 

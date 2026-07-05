@@ -12,6 +12,7 @@ import {
 import { toUserFacingError } from '@/api/client'
 import { deriveKycStatusFromInvestorRecord, fetchInvestorKycRecord } from '@/api/kycInvestor'
 import { fetchRecentPayoutTransactions, type RecentPayoutBundle } from '@/api/payout'
+import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
 import { patchAuth, type UserRole } from '@/store/slices/authSlice'
 import { setInvestorKycRecord, setKycStatus } from '@/store/slices/kycSlice'
 import { setRecentPayoutBundle } from '@/store/slices/recentTransactionsSlice'
@@ -98,6 +99,7 @@ const emptyRecentPayout: RecentPayoutBundle = {
   transactions: [],
   contractAddress: null,
   explorerBaseUrl: null,
+  total: 0,
 }
 
 export const refreshInvestorDashboard = createAsyncThunk(
@@ -127,12 +129,21 @@ export const refreshInvestorDashboard = createAsyncThunk(
         ? await Promise.all([
             fetchPoolMetrics(accessToken),
             fetchInvestorMetrics(accessToken),
-            fetchRecentPayoutTransactions(accessToken).catch(() => emptyRecentPayout),
+            fetchRecentPayoutTransactions(accessToken, {
+              limit: DASHBOARD_LIST_PAGE_SIZE,
+              offset: 0,
+            }).catch(() => emptyRecentPayout),
           ])
         : ([null, null, emptyRecentPayout] as const)
 
       const refreshedAt = Date.now()
-      thunkApi.dispatch(setRecentPayoutBundle({ bundle: recentPayout, fetchedAt: refreshedAt }))
+      thunkApi.dispatch(
+        setRecentPayoutBundle({
+          bundle: recentPayout,
+          fetchedAt: refreshedAt,
+          filter: { limit: DASHBOARD_LIST_PAGE_SIZE, offset: 0 },
+        }),
+      )
 
       return { refreshedAt, poolMetrics, investorMetrics }
     } catch (e) {

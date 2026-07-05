@@ -83,7 +83,7 @@ export function investorMetricsToMyStats(inv: InvestorMetrics): PoolStatItem[] {
 }
 
 /**
- * Keeps static strategy, contracts, transactions, and pool performance copy from `staticBase`,
+ * Keeps static strategy, contracts, and pool performance copy from `staticBase`,
  * while replacing hero / my-stats and title area from live metrics + dashboard card.
  */
 export function mergeInvestorPoolDetailWithMetrics(
@@ -135,7 +135,10 @@ export function mergeInvestorPoolPayoutIntoConfig(
   payout: RecentPayoutBundle | null,
 ): InvestorPoolDetailConfig {
   if (!payout) {
-    return config.contractExplorerHref == null ? config : { ...config, contractExplorerHref: null }
+    const withoutDemoTransactions = { ...config, transactions: [] as InvestorPoolDetailConfig['transactions'] }
+    return config.contractExplorerHref == null
+      ? withoutDemoTransactions
+      : { ...withoutDemoTransactions, contractExplorerHref: null }
   }
 
   const explorerBase =
@@ -145,8 +148,7 @@ export function mergeInvestorPoolPayoutIntoConfig(
   const contractExplorerHref =
     explorerBase && contractOk && contract ? blockExplorerAddressUrl(explorerBase, contract) : null
 
-  const useLiveTx = payout.transactions.length > 0
-  const transactions = useLiveTx ? payout.transactions : config.transactions
+  const transactions = payout.transactions
   const contractRows = contractOk && contract ? patchSmartContractAddressRow(config.contractRows, contract) : config.contractRows
 
   const nextHref = contractExplorerHref ?? null

@@ -10,13 +10,13 @@ import { useSession } from '@/state/useSession'
 
 const InvestorDashboardPage = () => {
   const { pathname } = useLocation()
+  const { kycVerified: isKycVerified } = useSession()
 
   const topBarBreadcrumbs = useMemo(
-    (): DashboardBreadcrumbItem[] => buildDashboardHomeBreadcrumbs(pathname, '/dashboard/investor'),
-    [pathname],
+    (): DashboardBreadcrumbItem[] =>
+      buildDashboardHomeBreadcrumbs(pathname, '/dashboard/investor', isKycVerified),
+    [pathname, isKycVerified],
   )
-
-  const { kycVerified: isKycVerified } = useSession()
   const walletDisplay = useAppSelector((s) => s.investorDashboard.walletDisplay)
 
   return (

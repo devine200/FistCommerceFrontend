@@ -2,12 +2,19 @@ import activityArrowIcon from '@/assets/arrow.png'
 import repayIcon from '@/assets/repay Icon (5).png'
 import primeChevronRight from '@/assets/prime_chevron-right.png'
 import { ListPagination } from '@/components/shared/ListPagination'
-import { usePaginatedListItems } from '@/hooks/usePaginatedListItems'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { convertTimestampToDate, type MerchantTransactionApi } from '@/api/metrics'
-import { useAppSelector } from '@/store/hooks'
+import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
+import { useListPageState } from '@/hooks/useListPageState'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
+import {
+  merchantTransactionsListCacheKey,
+  refreshMerchantTransactions,
+} from '@/store/slices/merchantTransactionsSlice'
+import { getListPaginationMeta, listPaginationOffset } from '@/utils/listPagination'
 
 type MerchantActivityKind = 'withdrawal' | 'repayment' | 'loan'
 
@@ -79,6 +86,13 @@ function mapMerchantTransactionToActivity(tx: MerchantTransactionApi, poolName: 
 
 type ActivityFilter = 'all' | 'loans' | 'withdrawals' | 'repayments'
 
+function filterToApiType(filter: ActivityFilter): 'all' | 'loan' | 'withdrawal' | 'repayment' {
+  if (filter === 'loans') return 'loan'
+  if (filter === 'withdrawals') return 'withdrawal'
+  if (filter === 'repayments') return 'repayment'
+  return 'all'
+}
+
 const amountClass = (item: MerchantActivityItem) =>
   item.amountTone === 'negative' ? 'text-[#EA580C]' : 'text-[#0B1220]'
 
@@ -88,79 +102,70 @@ const iconWrapClass = (kind: MerchantActivityKind) => {
   return 'bg-[#FEE2E2]'
 }
 
-const searchableText = (item: MerchantActivityItem) => {
-  const amountDigits = item.amount.replace(/\D/g, '')
-  const phraseDigits = [item.withdrawalAmountPhrase, item.repaymentAmountPhrase]
-    .filter(Boolean)
-    .map((s) => s!.replace(/\D/g, ''))
-    .join(' ')
-  const kindKeywords =
-    item.kind === 'withdrawal'
-      ? 'withdraw withdrawal wallet'
-      : item.kind === 'repayment'
-        ? 'repay repaid repayment'
-        : 'loan borrow borrowed borrowing'
-  const parts = [
-    item.date,
-    item.amount,
-    amountDigits,
-    phraseDigits,
-    item.kind,
-    kindKeywords,
-    item.poolName,
-    item.withdrawalToLabel,
-    item.withdrawalAmountPhrase,
-    item.repaymentAmountPhrase,
-    item.receivableId,
-    item.id,
-  ]
-  return parts.filter(Boolean).join(' ').toLowerCase()
-}
-
-const itemMatchesQuery = (haystack: string, query: string) => {
-  const tokens = query.split(/\s+/).filter(Boolean)
-  return tokens.every((token) => {
-    if (haystack.includes(token)) return true
-    const tokenDigits = token.replace(/\D/g, '')
-    if (tokenDigits.length > 0) {
-      const haystackDigits = haystack.replace(/\D/g, '')
-      if (haystackDigits.includes(tokenDigits)) return true
-    }
-    return false
-  })
-}
-
 const MerchantProfileActivitiesTabContent = () => {
+  const dispatch = useAppDispatch()
   const [filter, setFilter] = useState<ActivityFilter>('all')
-  const [searchTerm, setSearchTerm] = useState('')
-
+  const [searchInput, setSearchInput] = useState('')
+  const [searchDebounced, setSearchDebounced] = useState('')
+  const accessToken = useAppSelector((s) => s.auth.accessToken)
+  const isKycVerified = useAppSelector(selectIsKycVerified)
   const txStatus = useAppSelector((s) => s.merchantTransactions.status)
   const txError = useAppSelector((s) => s.merchantTransactions.error)
   const txItems = useAppSelector((s) => s.merchantTransactions.items)
+  const txTotal = useAppSelector((s) => s.merchantTransactions.total)
+  const resultsCache = useAppSelector((s) => s.merchantTransactions.resultsCache)
   const poolName = useAppSelector((s) => s.merchantDashboard.lendingPools.poolTitle) || 'Fist Commerce Pool'
+  const [page, setPage] = useListPageState([filter, searchDebounced])
 
-  const activities = useMemo(
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearchDebounced(searchInput.trim()), 350)
+    return () => window.clearTimeout(timer)
+  }, [searchInput])
+
+  const apiType = filterToApiType(filter)
+  const offset = listPaginationOffset(page)
+  const pageQuery = useMemo(
+    () => ({
+      type: apiType,
+      search: searchDebounced || undefined,
+      limit: DASHBOARD_LIST_PAGE_SIZE,
+      offset,
+    }),
+    [apiType, searchDebounced, offset],
+  )
+  const pageCacheKey = merchantTransactionsListCacheKey(pageQuery)
+  const hasPageCache = Object.prototype.hasOwnProperty.call(resultsCache, pageCacheKey)
+
+  const refreshPage = useCallback(
+    (background: boolean) => {
+      void dispatch(
+        refreshMerchantTransactions({
+          ...pageQuery,
+          background,
+        }),
+      )
+    },
+    [dispatch, pageQuery],
+  )
+
+  useEffect(() => {
+    if (!accessToken?.trim() || !isKycVerified) return
+    refreshPage(hasPageCache)
+  }, [accessToken, isKycVerified, refreshPage, hasPageCache])
+
+  const pageItems = useMemo(
     () => txItems.map((tx) => mapMerchantTransactionToActivity(tx, poolName)),
     [txItems, poolName],
   )
 
-  const filteredItems = useMemo(() => {
-    const byKind =
-      filter === 'loans'
-        ? activities.filter((i) => i.kind === 'loan')
-        : filter === 'withdrawals'
-          ? activities.filter((i) => i.kind === 'withdrawal')
-          : filter === 'repayments'
-            ? activities.filter((i) => i.kind === 'repayment')
-            : activities
+  const meta = useMemo(() => getListPaginationMeta(txTotal, page), [txTotal, page])
 
-    const normalizedQuery = searchTerm.trim().toLowerCase()
-    if (!normalizedQuery) return byKind
-
-    return byKind.filter((item) => itemMatchesQuery(searchableText(item), normalizedQuery))
-  }, [activities, filter, searchTerm])
-
-  const { pageItems, meta, setPage } = usePaginatedListItems(filteredItems, [filter, searchTerm])
+  const tableLoading = txStatus === 'loading' && pageItems.length === 0 && !hasPageCache
+  const emptyMessage = searchDebounced
+    ? 'No activities match your search.'
+    : filter !== 'all'
+      ? 'No activities in this filter yet.'
+      : 'No activities yet.'
 
   const renderTitle = (item: MerchantActivityItem) => {
     if (item.kind === 'withdrawal') {
@@ -215,8 +220,8 @@ const MerchantProfileActivitiesTabContent = () => {
           </svg>
           <input
             type="text"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
             placeholder="Search for a receivable"
             className="w-full min-w-0 bg-transparent outline-none text-[#4D5D80] placeholder:text-[#B0B7C4]"
             aria-label="Search receivables"
@@ -248,7 +253,7 @@ const MerchantProfileActivitiesTabContent = () => {
       </div>
 
       <div className="mt-5">
-        {txStatus === 'loading' ? (
+        {tableLoading ? (
           <div className="border-t border-[#EDF0F4] py-10 text-center text-[#8B92A3] text-[14px]" role="status">
             Loading activities…
           </div>
@@ -283,12 +288,18 @@ const MerchantProfileActivitiesTabContent = () => {
             </button>
           </article>
         ))}
-        {txStatus !== 'loading' && txStatus !== 'failed' && filteredItems.length === 0 ? (
+        {!tableLoading && txStatus !== 'failed' && pageItems.length === 0 ? (
           <div className="border-t border-[#EDF0F4] py-10 text-center text-[#8B92A3] text-[14px]">
-            No activities found for this receivable.
+            {emptyMessage}
           </div>
         ) : null}
-        <ListPagination meta={meta} onPageChange={setPage} variant="dashboard" className="border-t border-[#EDF0F4]" />
+        <ListPagination
+          meta={meta}
+          onPageChange={setPage}
+          loading={txStatus === 'loading'}
+          variant="dashboard"
+          className="border-t border-[#EDF0F4]"
+        />
       </div>
     </section>
   )
