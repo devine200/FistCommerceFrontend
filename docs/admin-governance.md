@@ -23,8 +23,26 @@ Admin actions that mutate protocol state on testnet/prod flow through multisig u
 - **Withdrawals** — `POST …/withdrawals/{key}/approve/` → same outcome flow
 - **Risk tiers** — `POST /multisig/proposals/risk-tier/` per changed tier
 - **Protocol pause** — `POST /multisig/proposals/protocol-pause/` with `{ "paused": true|false }`; read state via `GET /api/multisig/protocol-safety/` — see [protocol-pause-integration.md](./protocol-pause-integration.md)
+- **Multisig owners** — Settings → Multisig owners panel; prefer `POST /multisig/proposals/multisig-signer-rotation/` for add/remove/threshold changes. Single-op endpoints: `multisig-add-signers/`, `multisig-remove-signers/`, `multisig-set-threshold/`.
 
 Explicit create endpoints (`withdrawal-approve/`, `kyc-status/`) are available in `proposals.ts` for retry tooling; business APIs are the default path.
+
+## Multisig owner management (Settings)
+
+1. Open **Admin → Settings → Multisig owners**.
+2. Review on-chain signers and threshold (`GET /api/multisig/config/`).
+3. Use the **rotation wizard** to add/remove owners and optionally change threshold, then **Apply rotation**.
+4. Owners sign via governance queue or proposal detail; **Execute** when threshold is met.
+5. After execute, if `postExecuteSync.multisigSignerMgmt.backendKeyAlignment` reports misaligned keys, update server `.env` `ADMIN` / `SERVICER` wallet keys to match on-chain owners.
+
+| Endpoint | Body |
+|----------|------|
+| `POST /api/multisig/proposals/multisig-signer-rotation/` | `{ add_addresses?, remove_addresses?, threshold? }` |
+| `POST /api/multisig/proposals/multisig-add-signers/` | `{ addresses: string[] }` |
+| `POST /api/multisig/proposals/multisig-remove-signers/` | `{ addresses: string[] }` |
+| `POST /api/multisig/proposals/multisig-set-threshold/` | `{ threshold: number }` |
+
+Signer-management proposals always require multisig (no local bypass).
 
 ## Rules
 

@@ -1,8 +1,10 @@
 import type {
+  BackendKeyAlignment,
   MultisigConfig,
   MultisigPrecondition,
   MultisigProposalCall,
   MultisigProposalSignature,
+  MultisigSignerMgmtSync,
   OperationType,
   ProposalDetail,
   ProposalListRow,
@@ -77,6 +79,10 @@ function normalizeOperationType(raw: string): OperationType {
   if (t === 'payout_router_accepted_token' || t === 'payout-router-accepted-token') {
     return 'payout_router_accepted_token'
   }
+  if (t === 'multisig_add_signers' || t === 'multisig-add-signers') return 'multisig_add_signers'
+  if (t === 'multisig_remove_signers' || t === 'multisig-remove-signers') return 'multisig_remove_signers'
+  if (t === 'multisig_set_threshold' || t === 'multisig-set-threshold') return 'multisig_set_threshold'
+  if (t === 'multisig_signer_rotation' || t === 'multisig-signer-rotation') return 'multisig_signer_rotation'
   return 'withdrawal_approve'
 }
 
@@ -139,6 +145,34 @@ export function normalizeMultisigConfig(raw: unknown): MultisigConfig {
     signers,
     handoffCompleted: pickBool(r, 'handoffCompleted', 'handoff_completed') || undefined,
     servicerAddress: pickStr(r, 'servicerAddress', 'servicer_address') || undefined,
+  }
+}
+
+function normalizeStringArray(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((s) => s.trim())
+}
+
+function normalizeBackendKeyAlignment(raw: unknown): BackendKeyAlignment {
+  const r = asRecord(raw)
+  return {
+    alignedBackendKeys: normalizeStringArray(r.alignedBackendKeys ?? r.aligned_backend_keys),
+    misalignedBackendKeys: normalizeStringArray(r.misalignedBackendKeys ?? r.misaligned_backend_keys),
+    allAligned: pickBool(r, 'allAligned', 'all_aligned'),
+  }
+}
+
+export function normalizeMultisigSignerMgmtSync(raw: unknown): MultisigSignerMgmtSync | null {
+  const r = asRecord(raw)
+  const mgmt = asRecord(r.multisigSignerMgmt ?? r.multisig_signer_mgmt)
+  if (!Object.keys(mgmt).length) return null
+  const configRaw = mgmt.multisigConfig ?? mgmt.multisig_config
+  if (!configRaw) return null
+  return {
+    multisigConfig: normalizeMultisigConfig(configRaw),
+    backendKeyAlignment: normalizeBackendKeyAlignment(
+      mgmt.backendKeyAlignment ?? mgmt.backend_key_alignment,
+    ),
   }
 }
 
@@ -273,6 +307,14 @@ export function operationTypeLabel(type: OperationType): string {
       return 'KYC status'
     case 'risk_tier':
       return 'Risk tier'
+    case 'multisig_add_signers':
+      return 'Add multisig owner'
+    case 'multisig_remove_signers':
+      return 'Remove multisig owner'
+    case 'multisig_set_threshold':
+      return 'Change multisig threshold'
+    case 'multisig_signer_rotation':
+      return 'Rotate multisig owners'
     default:
       return 'Withdrawal approval'
   }

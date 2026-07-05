@@ -3,6 +3,7 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import type { AdminWriteOutcome } from '@/api/adminActionResponse'
 import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
 import { fetchMultisigConfig } from '@/api/multisig/config'
+import { normalizeMultisigSignerMgmtSync } from '@/api/multisig/normalize'
 import {
   fetchMultisigProposalDetail,
   fetchMultisigProposals,
@@ -160,6 +161,7 @@ export const executeMultisigProposal = createAsyncThunk(
     try {
       const result = await postMultisigProposalExecute(accessToken, proposalId)
       await thunkApi.dispatch(refreshMultisigProposalDetail(proposalId)).unwrap()
+      await thunkApi.dispatch(refreshMultisigConfig()).unwrap().catch(() => {})
       return { proposalId, result }
     } catch (e) {
       if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
@@ -345,6 +347,12 @@ const adminMultisigSlice = createSlice({
           postExecuteSync: action.payload.result.postExecuteSync,
           raw: {},
         }
+
+        const signerMgmt = normalizeMultisigSignerMgmtSync(action.payload.result.postExecuteSync)
+        if (signerMgmt) {
+          state.config = signerMgmt.multisigConfig
+          state.configStatus = 'succeeded'
+        }
       })
       .addCase(executeMultisigProposal.rejected, (state, action) => {
         state.actionStatus = 'failed'
@@ -386,4 +394,10 @@ export function selectMultisigProposalDetail(
 
 export function hasActiveGovernanceProposals(proposals: ProposalListRow[]): boolean {
   return proposals.some((p) => p.status === 'pending_signatures' || p.status === 'ready')
+}
+
+export function selectIsMultisigSigner(state: AdminMultisigState, address: string | null | undefined): boolean {
+  if (!address?.trim()) return false
+  const low = address.toLowerCase()
+  return (state.config?.signers ?? []).some((s) => s.toLowerCase() === low)
 }

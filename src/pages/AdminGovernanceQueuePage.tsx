@@ -29,6 +29,7 @@ import {
 } from '@/components/admin/primitives'
 import { proposalStatusLabel } from '@/api/multisig/normalize'
 import { getDefaultArbitrumSepoliaBlockExplorerBase, blockExplorerTxUrl } from '@/api/payout'
+import { shortAddress } from '@/components/admin/settings/SettingsPanel'
 import type { ProposalStatus } from '@/api/types/multisig'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import {
@@ -178,8 +179,9 @@ const AdminGovernanceQueuePage = () => {
     <AdminPageFrame>
       {config ? (
         <div className="rounded-[10px] border border-[#E6E8EC] bg-white px-5 py-4 text-[#6B7488] text-[13px]">
-          Multisig {config.multisigAddress || '—'} · threshold {config.threshold} · chain{' '}
-          {config.chainId || '—'}
+          Multisig {config.multisigAddress ? shortAddress(config.multisigAddress) : '—'} ·{' '}
+          {config.threshold}-of-{config.signerCount || config.signers.length} ·{' '}
+          {config.signers.length} signer{config.signers.length === 1 ? '' : 's'} · chain {config.chainId || '—'}
         </div>
       ) : null}
 

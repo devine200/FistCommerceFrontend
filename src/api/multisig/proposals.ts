@@ -225,3 +225,71 @@ export async function postMultisigCreateRiskTierProposal(
   })
   return parseAdminWriteResponse(res)
 }
+
+/** `POST /api/multisig/proposals/multisig-add-signers/` */
+export async function postMultisigCreateAddSignersProposal(
+  accessToken: string | null | undefined,
+  body: { addresses: string[] },
+) {
+  const res = await fetchWithAuthRecovery(apiUrl(`${PROPOSALS_PATH}multisig-add-signers/`), {
+    method: 'POST',
+    headers: jsonAuthHeaders(accessToken),
+    body: JSON.stringify({ addresses: body.addresses.map((a) => a.trim()) }),
+  })
+  return parseAdminWriteResponse(res)
+}
+
+/** `POST /api/multisig/proposals/multisig-remove-signers/` */
+export async function postMultisigCreateRemoveSignersProposal(
+  accessToken: string | null | undefined,
+  body: { addresses: string[] },
+) {
+  const res = await fetchWithAuthRecovery(apiUrl(`${PROPOSALS_PATH}multisig-remove-signers/`), {
+    method: 'POST',
+    headers: jsonAuthHeaders(accessToken),
+    body: JSON.stringify({ addresses: body.addresses.map((a) => a.trim()) }),
+  })
+  return parseAdminWriteResponse(res)
+}
+
+/** `POST /api/multisig/proposals/multisig-set-threshold/` */
+export async function postMultisigCreateSetThresholdProposal(
+  accessToken: string | null | undefined,
+  body: { threshold: number },
+) {
+  const res = await fetchWithAuthRecovery(apiUrl(`${PROPOSALS_PATH}multisig-set-threshold/`), {
+    method: 'POST',
+    headers: jsonAuthHeaders(accessToken),
+    body: JSON.stringify({ threshold: body.threshold }),
+  })
+  return parseAdminWriteResponse(res)
+}
+
+export type MultisigSignerRotationBody = {
+  add_addresses?: string[]
+  remove_addresses?: string[]
+  threshold?: number
+}
+
+/** `POST /api/multisig/proposals/multisig-signer-rotation/` */
+export async function postMultisigCreateSignerRotationProposal(
+  accessToken: string | null | undefined,
+  body: MultisigSignerRotationBody,
+) {
+  const payload: Record<string, unknown> = {}
+  if (body.add_addresses?.length) {
+    payload.add_addresses = body.add_addresses.map((a) => a.trim())
+  }
+  if (body.remove_addresses?.length) {
+    payload.remove_addresses = body.remove_addresses.map((a) => a.trim())
+  }
+  if (body.threshold != null) {
+    payload.threshold = body.threshold
+  }
+  const res = await fetchWithAuthRecovery(apiUrl(`${PROPOSALS_PATH}multisig-signer-rotation/`), {
+    method: 'POST',
+    headers: jsonAuthHeaders(accessToken),
+    body: JSON.stringify(payload),
+  })
+  return parseAdminWriteResponse(res)
+}

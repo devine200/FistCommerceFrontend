@@ -38,6 +38,14 @@ export function governanceOperationLabel(type: OperationType): string {
       return 'Payout router allocator'
     case 'payout_router_accepted_token':
       return 'Payout router accepted token'
+    case 'multisig_add_signers':
+      return 'Add multisig owner'
+    case 'multisig_remove_signers':
+      return 'Remove multisig owner'
+    case 'multisig_set_threshold':
+      return 'Change multisig threshold'
+    case 'multisig_signer_rotation':
+      return 'Rotate multisig owners'
     default:
       return 'Withdrawal approval'
   }

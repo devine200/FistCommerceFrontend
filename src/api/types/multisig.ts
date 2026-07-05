@@ -17,6 +17,10 @@ export type OperationType =
   | 'payout_router_funding_pool'
   | 'payout_router_allocator'
   | 'payout_router_accepted_token'
+  | 'multisig_add_signers'
+  | 'multisig_remove_signers'
+  | 'multisig_set_threshold'
+  | 'multisig_signer_rotation'
 
 export const MULTISIG_OPERATION_TYPES = [
   'withdrawal_approve',
@@ -30,7 +34,22 @@ export const MULTISIG_OPERATION_TYPES = [
   'payout_router_funding_pool',
   'payout_router_allocator',
   'payout_router_accepted_token',
+  'multisig_add_signers',
+  'multisig_remove_signers',
+  'multisig_set_threshold',
+  'multisig_signer_rotation',
 ] as const satisfies readonly OperationType[]
+
+export type BackendKeyAlignment = {
+  alignedBackendKeys: string[]
+  misalignedBackendKeys: string[]
+  allAligned: boolean
+}
+
+export type MultisigSignerMgmtSync = {
+  multisigConfig: MultisigConfig
+  backendKeyAlignment: BackendKeyAlignment
+}
 
 export type MultisigConfig = {
   chainId: number

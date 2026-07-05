@@ -10,8 +10,14 @@ import {
   type PrivilegedActionPhase,
 } from '@/admin/governance/PrivilegedActionFeedbackLayer'
 import { canUserSignGovernanceProposal, hasGovernanceSignature } from '@/admin/governance/governanceSigner'
+import {
+  formatSignerMgmtCallContent,
+  formatSignerMgmtDecodedArgs,
+  isSignerMgmtOperationType,
+} from '@/admin/governance/formatSignerMgmtDecodedArgs'
 import { useGovernanceSignAndSubmit } from '@/admin/governance/useGovernanceSignAndSubmit'
 import { proposalStatusLabel } from '@/api/multisig/normalize'
+import { normalizeMultisigSignerMgmtSync } from '@/api/multisig/normalize'
 import { getDefaultBlockExplorerBase, blockExplorerTxUrl } from '@/api/payout'
 import { AdminPageFrame, AdminPanel, AdminStatusPill } from '@/components/admin/primitives'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
@@ -36,6 +42,29 @@ function formatDecodedArgs(args?: Record<string, unknown>): string | null {
   } catch {
     return null
   }
+}
+
+function BackendKeyAlignmentWarning({ postExecuteSync }: { postExecuteSync: unknown }) {
+  const signerMgmt = normalizeMultisigSignerMgmtSync(postExecuteSync)
+  if (!signerMgmt || signerMgmt.backendKeyAlignment.allAligned) return null
+  const misaligned = signerMgmt.backendKeyAlignment.misalignedBackendKeys
+  if (!misaligned.length) return null
+
+  return (
+    <div className="rounded-[10px] border border-[#FDE68A] bg-[#FFFBEB] px-5 py-4">
+      <p className="text-[#92400E] text-[14px] font-semibold">Backend key alignment warning</p>
+      <p className="text-[#78350F] text-[13px] mt-1">
+        On-chain owners changed but backend environment keys no longer match. Update server{' '}
+        <span className="font-mono">ADMIN</span> / <span className="font-mono">SERVICER</span> configuration before
+        further governance actions.
+      </p>
+      <ul className="mt-2 space-y-1 font-mono text-[12px] text-[#92400E]">
+        {misaligned.map((key) => (
+          <li key={key}>{key}</li>
+        ))}
+      </ul>
+    </div>
+  )
 }
 
 const AdminGovernanceProposalDetailPage = () => {
@@ -379,6 +408,10 @@ const AdminGovernanceProposalDetailPage = () => {
             </div>
           ) : null}
 
+          {lastExecuteOutcome?.kind === 'completed' && lastExecuteOutcome.postExecuteSync ? (
+            <BackendKeyAlignmentWarning postExecuteSync={lastExecuteOutcome.postExecuteSync} />
+          ) : null}
+
           <AdminPanel>
             <div className="px-5 py-5 flex flex-wrap gap-3">
               <button
@@ -430,7 +463,21 @@ const AdminGovernanceProposalDetailPage = () => {
                 <h3 className="text-[#0B1220] font-semibold text-[16px]">On-chain calls</h3>
                 <div className="mt-4 space-y-4">
                   {detail.calls.map((call, i) => {
+                    const signerMgmtFormatted = detail
+                      ? formatSignerMgmtCallContent(call, {
+                          explorerBase,
+                          signerCount: config?.signerCount ?? config?.signers.length,
+                        })
+                      : null
                     const decoded = formatDecodedArgs(call.decodedArgs)
+                    const envelopeFormatted =
+                      detail && isSignerMgmtOperationType(detail.operationType)
+                        ? formatSignerMgmtDecodedArgs(detail.operationType, call.decodedArgs, {
+                            explorerBase,
+                            signerCount: config?.signerCount ?? config?.signers.length,
+                          })
+                        : null
+                    const formatted = signerMgmtFormatted ?? envelopeFormatted
                     return (
                       <div key={i} className="rounded-[8px] border border-[#E6E8EC] p-4 text-[13px]">
                         {call.contract || call.function ? (
@@ -439,7 +486,9 @@ const AdminGovernanceProposalDetailPage = () => {
                           </p>
                         ) : null}
                         <p className="font-mono text-[#0B1220] break-all mt-1">Target: {call.target}</p>
-                        {decoded ? (
+                        {formatted ? (
+                          <div className="mt-2">{formatted}</div>
+                        ) : decoded ? (
                           <pre className="mt-2 text-[#6B7488] text-[12px] whitespace-pre-wrap">{decoded}</pre>
                         ) : (
                           <p className="font-mono text-[#6B7488] break-all mt-2">Calldata: {call.calldata}</p>
