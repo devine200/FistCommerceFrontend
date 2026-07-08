@@ -1,5 +1,6 @@
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
 import { parseJsonResponse, requireApiBaseUrl } from '@/api/client'
+import { parseAdminWriteResponse, type AdminWriteOutcome } from '@/api/adminActionResponse'
 import { displayDashboardMetricString } from '@/api/metrics'
 import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
 import {
@@ -415,6 +416,80 @@ export async function fetchRecentPayoutTransactions(
   })
   const json = await parseJsonResponse<unknown>(res)
   return parseRecentPayoutResponse(json, { limit, offset })
+}
+
+const PAYOUT_INITIATE_PATH = '/api/payout/initiate/'
+
+export type ReceivablePayoutStatus = {
+  receivableId: string
+  isPaidOut: boolean
+}
+
+function payoutStatusPath(receivableId: string): string {
+  const id = receivableId.trim()
+  if (!id) throw new Error('Missing receivable id.')
+  return `/api/payout/status/${encodeURIComponent(id)}/`
+}
+
+function pickPayoutBool(record: Record<string, unknown>, ...keys: string[]): boolean {
+  for (const key of keys) {
+    const v = record[key]
+    if (typeof v === 'boolean') return v
+  }
+  return false
+}
+
+function normalizeReceivablePayoutStatus(
+  receivableId: string,
+  raw: unknown,
+): ReceivablePayoutStatus {
+  const r = asRecord(raw) ?? {}
+  const nested = asRecord(r.payout ?? r.payout_status ?? r.status) ?? {}
+  const isPaidOut =
+    pickPayoutBool(r, 'is_paid_out', 'isPaidOut', 'paid_out', 'paidOut') ||
+    pickPayoutBool(nested, 'is_paid_out', 'isPaidOut', 'paid_out', 'paidOut')
+  return { receivableId, isPaidOut }
+}
+
+/** `GET /api/payout/status/{receivable_id}/` — whether ERC20 was disbursed to the merchant. */
+export async function fetchReceivablePayoutStatus(
+  accessToken: string | null | undefined,
+  receivableId: string,
+  options?: { signal?: AbortSignal },
+): Promise<ReceivablePayoutStatus> {
+  const id = receivableId.trim()
+  if (!id) throw new Error('Missing receivable id.')
+
+  const base = requireApiBaseUrl()
+  const res = await fetchWithAuthRecovery(`${base}${payoutStatusPath(id)}`, {
+    method: 'GET',
+    headers: authHeaders(accessToken),
+    signal: options?.signal,
+  })
+  const json = await parseJsonResponse<unknown>(res)
+  return normalizeReceivablePayoutStatus(id, json)
+}
+
+/** `POST /api/payout/initiate/` — disburse funded capital to the merchant wallet. */
+export async function postAdminPayoutInitiate(
+  accessToken: string | null | undefined,
+  receivableId: string,
+  options?: { signal?: AbortSignal },
+): Promise<AdminWriteOutcome> {
+  const id = receivableId.trim()
+  if (!id) throw new Error('Missing receivable id.')
+
+  const base = requireApiBaseUrl()
+  const res = await fetchWithAuthRecovery(`${base}${PAYOUT_INITIATE_PATH}`, {
+    method: 'POST',
+    headers: {
+      ...authHeaders(accessToken),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ receivable_id: id }),
+    signal: options?.signal,
+  })
+  return parseAdminWriteResponse(res)
 }
 
 /** @deprecated Use {@link fetchAdminLatestRepayments} from `@/api/adminLoan`. */

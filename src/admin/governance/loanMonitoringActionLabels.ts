@@ -18,10 +18,17 @@ export function loanMonitoringPrivilegedActionLabels(kind: AdminLoanMonitoringAc
       }
     case 'fund':
       return {
+        loadingTitle: 'Approving funding',
+        loadingDescription: 'Allocating capital from the funding pool for this receivable…',
+        errorTitle: 'Unable to approve funding',
+        directSuccessTitle: 'Funding approved',
+      }
+    case 'initiatePayout':
+      return {
         loadingTitle: 'Releasing funds',
-        loadingDescription: 'Submitting fund release. This may create a governance proposal…',
+        loadingDescription: 'Sending allocated capital to the merchant wallet…',
         errorTitle: 'Unable to release funds',
-        directSuccessTitle: 'Funds released',
+        directSuccessTitle: 'Funds released to merchant',
       }
     case 'markDefaulted':
       return {

@@ -5,12 +5,20 @@ export type ActiveWalletSelectionOptions = {
   preferredWalletId?: string | null
 }
 
+function isEmbeddedWallet(w: ConnectedWallet): boolean {
+  return w.walletClientType === 'privy'
+}
+
+function isWalletConnectWallet(w: ConnectedWallet): boolean {
+  return w.walletClientType === 'wallet_connect'
+}
+
 /**
  * Deterministically select an active wallet from Privy wallets.
  *
  * Priority:
  * 1) user-preferred (if present)
- * 2) injected (metamask, phantom)
+ * 2) injected (metamask, phantom, then any other non-WC / non-embedded)
  * 3) wallet_connect
  * 4) privy (embedded)
  * 5) fallback to first
@@ -28,13 +36,16 @@ export function selectActiveWallet(
   }
 
   const injectedPriority = new Set(['metamask', 'phantom'])
-  const injected = wallets.find((w) => injectedPriority.has(w.walletClientType))
-  if (injected) return injected
+  const prioritizedInjected = wallets.find((w) => injectedPriority.has(w.walletClientType))
+  if (prioritizedInjected) return prioritizedInjected
 
-  const wc = wallets.find((w) => w.walletClientType === 'wallet_connect')
+  const anyInjected = wallets.find((w) => !isEmbeddedWallet(w) && !isWalletConnectWallet(w))
+  if (anyInjected) return anyInjected
+
+  const wc = wallets.find((w) => isWalletConnectWallet(w))
   if (wc) return wc
 
-  const embedded = wallets.find((w) => w.walletClientType === 'privy')
+  const embedded = wallets.find((w) => isEmbeddedWallet(w))
   if (embedded) return embedded
 
   return wallets[0] ?? null

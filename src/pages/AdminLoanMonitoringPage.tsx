@@ -211,9 +211,21 @@ const AdminLoanMonitoringPage = () => {
                       </span>
                     </td>
                     <td className="px-5 py-5">
-                      <AdminTableTextLink to={loanMonitoringDetailHref(r.loanId)}>
-                        View Details
-                      </AdminTableTextLink>
+                      <div className="flex flex-col items-start gap-2">
+                        <AdminTableTextLink to={loanMonitoringDetailHref(r.loanId)}>
+                          View Details
+                        </AdminTableTextLink>
+                        {r.canFund && r.receivableId ? (
+                          <AdminTableTextLink to={loanMonitoringDetailHref(r.loanId, 'funding-approval')}>
+                            Approve funding
+                          </AdminTableTextLink>
+                        ) : null}
+                        {r.canInitiatePayout && r.receivableId ? (
+                          <AdminTableTextLink to={loanMonitoringDetailHref(r.loanId, 'funding-payout')}>
+                            Release funds
+                          </AdminTableTextLink>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 )

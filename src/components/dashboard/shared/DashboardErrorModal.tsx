@@ -1,4 +1,4 @@
-import { useEffect, type MouseEvent } from 'react'
+import { useEffect, type MouseEvent, type ReactNode } from 'react'
 
 import { toUserFacingError } from '@/api/client'
 
@@ -31,6 +31,9 @@ export type DashboardErrorModalProps = {
   onSecondary?: () => void
   onClose: () => void
   onRetry?: () => void
+  /** Optional content between message and action buttons (e.g. manual recovery steps). */
+  children?: ReactNode
+  retryDisabled?: boolean
 }
 
 function ErrorIcon() {
@@ -58,6 +61,8 @@ export default function DashboardErrorModal({
   onSecondary,
   onClose,
   onRetry,
+  children,
+  retryDisabled,
 }: DashboardErrorModalProps) {
   const titleId = 'dashboard-error-title'
   const descId = 'dashboard-error-desc'
@@ -93,6 +98,7 @@ export default function DashboardErrorModal({
           <p id={descId} className="mt-2 text-sm leading-relaxed text-[#6B7280] whitespace-pre-wrap">
             {safeMessage}
           </p>
+          {children}
         </div>
 
         <div className="mt-8 flex flex-col gap-3">
@@ -100,7 +106,8 @@ export default function DashboardErrorModal({
             <button
               type="button"
               onClick={onRetry}
-              className="min-h-[48px] w-full rounded-xl text-[15px] font-semibold bg-[#1D61C1] text-white shadow-sm hover:bg-[#1955AD] active:scale-[0.99]"
+              disabled={retryDisabled}
+              className="min-h-[48px] w-full rounded-xl text-[15px] font-semibold bg-[#1D61C1] text-white shadow-sm hover:bg-[#1955AD] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {retryLabel?.trim() ? retryLabel : 'Retry'}
             </button>

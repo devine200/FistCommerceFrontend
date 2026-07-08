@@ -38,6 +38,12 @@ export type AdminLoanMonitoringRow = {
   status: AdminLoanMonitoringStatus
   statusLabel: string
   nextPayment: AdminLoanMonitoringNextPayment
+  /** Present when the monitoring list includes admin/detail hints per row. */
+  receivableId?: string | null
+  canFund?: boolean
+  canInitiatePayout?: boolean
+  isPaidOut?: boolean
+  loanLifecycleStatus?: string
 }
 
 export type AdminLoanMonitoringCounts = {
@@ -87,6 +93,7 @@ export type AdminLoanMonitoringAdminMeta = {
   canApprove: boolean
   canReject: boolean
   canFund: boolean
+  canInitiatePayout: boolean
   canMarkDefaulted: boolean
   canWriteOffShortfall: boolean
   actions: string[]
@@ -147,6 +154,28 @@ function pickBool(record: Record<string, unknown>, ...keys: string[]): boolean {
   return false
 }
 
+function loanLifecycleFundingRank(status: string): number {
+  switch (status.trim().toLowerCase()) {
+    case 'created':
+      return 1
+    case 'verified':
+      return 2
+    case 'funded':
+    case 'approved':
+      return 3
+    case 'paid_out':
+      return 4
+    case 'matured':
+      return 5
+    case 'defaulted':
+      return 6
+    case 'repaid':
+      return 7
+    default:
+      return 0
+  }
+}
+
 function normalizeMonitoringStatus(raw: string): AdminLoanMonitoringStatus {
   const t = raw.trim().toLowerCase()
   if (t === 'active') return 'active'
@@ -180,6 +209,26 @@ export function normalizeLoanMonitoringRow(raw: unknown): AdminLoanMonitoringRow
   const loanId = pickStr(r, 'loanId', 'loan_id')
   if (!loanId) return null
   const status = normalizeMonitoringStatus(pickStr(r, 'status'))
+  const details = asRecord(r.details)
+  const lifecycle = asRecord(details.lifecycle)
+  const receivable = asRecord(details.receivable)
+  const admin = r.admin != null ? normalizeAdminMeta(r.admin) : null
+  const receivableId =
+    pickNullableStr(r, 'receivableId', 'receivable_id') ??
+    pickNullableStr(receivable, 'receivableId', 'receivable_id')
+  const loanLifecycleStatus =
+    pickStr(lifecycle, 'status') || pickStr(r, 'loanLifecycleStatus', 'loan_lifecycle_status') || undefined
+  const lifecycleNorm = loanLifecycleStatus?.trim().toLowerCase() ?? ''
+  const fundingApprovalDone = loanLifecycleFundingRank(lifecycleNorm) >= loanLifecycleFundingRank('funded')
+  const canFund = admin?.canFund ?? pickBool(r, 'canFund', 'can_fund')
+  const canInitiatePayoutFromApi =
+    admin?.canInitiatePayout ?? pickBool(r, 'canInitiatePayout', 'can_initiate_payout')
+  const isPaidOut =
+    pickBool(r, 'isPaidOut', 'is_paid_out', 'paidOut', 'paid_out') || lifecycleNorm === 'paid_out'
+  const canInitiatePayout = Boolean(
+    receivableId?.trim() && !isPaidOut && (canInitiatePayoutFromApi || fundingApprovalDone),
+  )
+
   return {
     loanId,
     receivableName: pickStr(r, 'receivableName', 'receivable_name') || 'Receivable',
@@ -191,6 +240,11 @@ export function normalizeLoanMonitoringRow(raw: unknown): AdminLoanMonitoringRow
       pickStr(r, 'statusLabel', 'status_label') ||
       status.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
     nextPayment: normalizeNextPayment(r.nextPayment ?? r.next_payment),
+    receivableId,
+    canFund,
+    canInitiatePayout,
+    isPaidOut,
+    ...(loanLifecycleStatus ? { loanLifecycleStatus } : {}),
   }
 }
 
@@ -218,11 +272,18 @@ function normalizeAdminMeta(raw: unknown): AdminLoanMonitoringAdminMeta {
       const normalized = a.toLowerCase().replace(/-/g, '_')
       return normalized === 'write_off_shortfall' || normalized === 'write_off'
     })
+  const canInitiatePayout =
+    pickBool(r, 'canInitiatePayout', 'can_initiate_payout') ||
+    actions.some((a) => {
+      const normalized = a.toLowerCase().replace(/-/g, '_')
+      return normalized === 'initiate_payout' || normalized === 'payout' || normalized === 'fund_payout'
+    })
   return {
     uiStatus: pickStr(r, 'uiStatus', 'ui_status'),
     canApprove: pickBool(r, 'canApprove', 'can_approve'),
     canReject: pickBool(r, 'canReject', 'can_reject'),
     canFund: pickBool(r, 'canFund', 'can_fund'),
+    canInitiatePayout,
     canMarkDefaulted: pickBool(r, 'canMarkDefaulted', 'can_mark_defaulted'),
     canWriteOffShortfall,
     actions,
@@ -466,7 +527,7 @@ export async function postAdminWriteOffLoanShortfall(
   return parseAdminWriteResponse(res)
 }
 
-/** `POST /api/loan/admin/fund` — release funds for a verified loan. */
+/** `POST /api/loan/admin/fund` — funding approval: allocate pool capital for a verified receivable. */
 export async function postAdminFundLoan(
   accessToken: string | null | undefined,
   receivableId: string,

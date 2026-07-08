@@ -5,5 +5,6 @@ import { adminLoanMonitoringDetailHref } from '@/components/admin/loan-monitorin
 export function useAdminLoanMonitoringDetailHref() {
   const location = useLocation()
   const returnTo = `${location.pathname}${location.search}`
-  return (loanId: string) => adminLoanMonitoringDetailHref(loanId, returnTo)
+  return (loanId: string, focus?: 'funding-approval' | 'funding-payout') =>
+    adminLoanMonitoringDetailHref(loanId, returnTo, focus)
 }

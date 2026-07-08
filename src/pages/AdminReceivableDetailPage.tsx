@@ -1,21 +1,47 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 
+import {
+  loanMonitoringPrivilegedActionLabels,
+  PrivilegedActionFeedbackLayer,
+  resolveAdminWriteOutcome,
+} from '@/admin/governance'
 import { toUserFacingError } from '@/api/client'
 import { fetchAdminReceivableDetail, type AdminReceivableDetailResult } from '@/api/adminLoan'
+import { adminLoanMonitoringDetailHref } from '@/components/admin/loan-monitoring'
 import { AdminPageFrame, AdminPanel, AdminStatusPill } from '@/components/admin/primitives'
 import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
-import { useAppSelector } from '@/store/hooks'
+import { useCancellableThunkDispatch } from '@/hooks/useCancellableThunkDispatch'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import {
+  clearAdminLoanMonitoringActionError,
+  fundAdminLoanMonitoringLoan,
+  initiateAdminLoanMonitoringPayout,
+  refreshAdminLoanMonitoringDetail,
+  selectLoanMonitoringDetail,
+} from '@/store/slices/adminLoanMonitoringSlice'
 
 const AdminReceivableDetailPage = () => {
   const navigate = useNavigate()
+  const dispatch = useAppDispatch()
+  const { dispatchCancellable, cancelPending } = useCancellableThunkDispatch()
   const { receivableId } = useParams<{ receivableId: string }>()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const sessionKind = useAppSelector((s) => s.auth.sessionKind)
+  const actionStatus = useAppSelector((s) => s.adminLoanMonitoring.actionStatus)
+  const actionKind = useAppSelector((s) => s.adminLoanMonitoring.actionKind)
+  const actionError = useAppSelector((s) => s.adminLoanMonitoring.actionError)
+  const actionLoanId = useAppSelector((s) => s.adminLoanMonitoring.actionLoanId)
+  const lastActionOutcome = useAppSelector((s) => s.adminLoanMonitoring.lastActionOutcome)
 
   const [detail, setDetail] = useState<AdminReceivableDetailResult | null>(null)
   const [phase, setPhase] = useState<'loading' | 'failed' | 'idle'>('loading')
   const [error, setError] = useState<string | null>(null)
+
+  const loanId = detail?.loanId?.trim() ?? ''
+  const monitoringDetail = useAppSelector((s) =>
+    loanId ? selectLoanMonitoringDetail(s.adminLoanMonitoring, loanId) : null,
+  )
 
   const loadDetail = useCallback(() => {
     if (!receivableId?.trim() || !accessToken?.trim() || sessionKind !== 'admin') return
@@ -37,6 +63,74 @@ const AdminReceivableDetailPage = () => {
     loadDetail()
   }, [loadDetail])
 
+  useEffect(() => {
+    if (!loanId || !accessToken?.trim() || sessionKind !== 'admin') return
+    void dispatch(refreshAdminLoanMonitoringDetail({ loanId }))
+  }, [dispatch, loanId, accessToken, sessionKind])
+
+  const receivablesReturnTo = receivableId
+    ? `/dashboard/admin/receivables/${encodeURIComponent(receivableId)}`
+    : '/dashboard/admin/receivables'
+
+  const loanMonitoringHref = loanId
+    ? adminLoanMonitoringDetailHref(loanId, receivablesReturnTo)
+    : '#'
+  const fundingApprovalHref = loanId
+    ? adminLoanMonitoringDetailHref(loanId, receivablesReturnTo, 'funding-approval')
+    : '#'
+
+  const canApproveFunding = Boolean(monitoringDetail?.canApproveFunding)
+  const fundingApprovalDone = Boolean(monitoringDetail?.fundingApprovalDone)
+  const isPaidOut = Boolean(monitoringDetail?.isPaidOut)
+  const canReleaseFunds = Boolean(
+    monitoringDetail?.receivableId?.trim() && fundingApprovalDone && !isPaidOut,
+  )
+
+  const actionLoading = actionStatus === 'loading'
+  const actionPhase = actionStatus === 'idle' ? 'idle' : actionStatus
+  const showActionFeedback = Boolean(loanId && actionLoanId === loanId && actionPhase !== 'idle')
+
+  const resolvedActionOutcome = useMemo(
+    () => (lastActionOutcome ? resolveAdminWriteOutcome(lastActionOutcome) : null),
+    [lastActionOutcome],
+  )
+
+  const actionLabels = useMemo(
+    () => loanMonitoringPrivilegedActionLabels(actionKind),
+    [actionKind],
+  )
+
+  const handleDismissActionFeedback = useCallback(() => {
+    dispatch(clearAdminLoanMonitoringActionError())
+  }, [dispatch])
+
+  const handleRetryAction = useCallback(() => {
+    if (!loanId || !monitoringDetail?.receivableId) return
+    if (actionKind === 'fund') {
+      dispatchCancellable(
+        fundAdminLoanMonitoringLoan({ loanId, receivableId: monitoringDetail.receivableId }),
+      )
+    } else if (actionKind === 'initiatePayout') {
+      dispatchCancellable(
+        initiateAdminLoanMonitoringPayout({ loanId, receivableId: monitoringDetail.receivableId }),
+      )
+    }
+  }, [dispatchCancellable, loanId, actionKind, monitoringDetail?.receivableId])
+
+  const handleApproveFunding = useCallback(() => {
+    if (!loanId || !monitoringDetail?.receivableId || actionLoading) return
+    dispatchCancellable(
+      fundAdminLoanMonitoringLoan({ loanId, receivableId: monitoringDetail.receivableId }),
+    )
+  }, [dispatchCancellable, loanId, monitoringDetail?.receivableId, actionLoading])
+
+  const handleInitiatePayout = useCallback(() => {
+    if (!loanId || !monitoringDetail?.receivableId || actionLoading) return
+    dispatchCancellable(
+      initiateAdminLoanMonitoringPayout({ loanId, receivableId: monitoringDetail.receivableId }),
+    )
+  }, [dispatchCancellable, loanId, monitoringDetail?.receivableId, actionLoading])
+
   if (!receivableId) {
     return <Navigate to="/dashboard/admin/receivables" replace />
   }
@@ -53,6 +147,21 @@ const AdminReceivableDetailPage = () => {
         onRetry={loadDetail}
         cancelLabel="Back to receivables"
       />
+
+      {showActionFeedback ? (
+        <PrivilegedActionFeedbackLayer
+          phase={actionPhase}
+          resolvedOutcome={actionStatus === 'succeeded' ? resolvedActionOutcome : null}
+          loadingTitle={actionLabels.loadingTitle}
+          loadingDescription={actionLabels.loadingDescription}
+          errorTitle={actionLabels.errorTitle}
+          errorDescription={actionError ?? undefined}
+          directSuccessTitle={actionLabels.directSuccessTitle}
+          onDismiss={handleDismissActionFeedback}
+          onRetry={handleRetryAction}
+          onCancelLoading={cancelPending}
+        />
+      ) : null}
 
       {detail ? (
         <>
@@ -73,6 +182,16 @@ const AdminReceivableDetailPage = () => {
                 </div>
                 <AdminStatusPill variant="underReview">{detail.status.replace('_', ' ')}</AdminStatusPill>
               </div>
+
+              {monitoringDetail ? (
+                <p className="text-[#6B7488] text-[13px]">
+                  {isPaidOut
+                    ? 'Funding disbursed to merchant.'
+                    : fundingApprovalDone
+                      ? 'Funded — payout pending (capital allocated, not yet sent to merchant).'
+                      : 'Funding approval pending.'}
+                </p>
+              ) : null}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[14px]">
                 <div>
@@ -111,11 +230,40 @@ const AdminReceivableDetailPage = () => {
 
               <div className="flex flex-wrap gap-3 pt-2">
                 <Link
-                  to={`/dashboard/admin/loan-monitoring/${detail.loanId}`}
-                  className="h-10 px-5 inline-flex items-center rounded-[4px] bg-[#195EBC] text-white text-[14px] font-semibold"
+                  to={loanMonitoringHref}
+                  className="h-10 px-5 inline-flex items-center rounded-[4px] border border-[#D0D7E3] bg-white text-[#374151] text-[14px] font-semibold hover:bg-[#F9FAFB]"
                 >
                   Open in loan monitoring
                 </Link>
+                {canApproveFunding ? (
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => void handleApproveFunding()}
+                    className="h-10 px-5 inline-flex items-center rounded-[4px] bg-[#195EBC] text-white text-[14px] font-semibold hover:bg-[#154a9a] disabled:opacity-60"
+                  >
+                    {actionLoading && actionKind === 'fund' ? 'Approving…' : 'Approve funding'}
+                  </button>
+                ) : fundingApprovalDone && !isPaidOut ? (
+                  <Link
+                    to={fundingApprovalHref}
+                    className="h-10 px-5 inline-flex items-center rounded-[4px] border border-[#D0D7E3] bg-white text-[#374151] text-[14px] font-semibold hover:bg-[#F9FAFB]"
+                  >
+                    View funding approval
+                  </Link>
+                ) : null}
+                {canReleaseFunds ? (
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => void handleInitiatePayout()}
+                    className="h-10 px-5 inline-flex items-center rounded-[4px] bg-[#195EBC] text-white text-[14px] font-semibold hover:bg-[#154a9a] disabled:opacity-60"
+                  >
+                    {actionLoading && actionKind === 'initiatePayout'
+                      ? 'Releasing…'
+                      : 'Release funds'}
+                  </button>
+                ) : null}
               </div>
             </div>
           </AdminPanel>

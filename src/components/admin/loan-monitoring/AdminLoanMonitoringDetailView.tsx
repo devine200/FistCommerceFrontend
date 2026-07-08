@@ -34,7 +34,8 @@ type AdminLoanMonitoringDetailViewProps = {
   onBack: () => void
   onApprove: () => void
   onReject: () => void
-  onFund: () => void
+  onApproveFunding: () => void
+  onInitiatePayout: () => void
   onMarkDefaulted: () => void
   onWriteOffShortfall: () => void
   actionLoading: boolean
@@ -46,7 +47,8 @@ export function AdminLoanMonitoringDetailView({
   onBack,
   onApprove,
   onReject,
-  onFund,
+  onApproveFunding,
+  onInitiatePayout,
   onMarkDefaulted,
   onWriteOffShortfall,
   actionLoading,
@@ -61,9 +63,14 @@ export function AdminLoanMonitoringDetailView({
     lifecycleCompletedCount,
     repaymentRows,
     maturityBanner,
-    admin,
     receivableId,
+    admin,
     defaultManagement,
+    showFundingApprovalSection,
+    showFundingPayoutSection,
+    fundingApprovalDone,
+    isPaidOut,
+    canApproveFunding,
   } = detail
 
   const [rejectOpen, setRejectOpen] = useState(false)
@@ -97,7 +104,10 @@ export function AdminLoanMonitoringDetailView({
 
   const canReject = admin.canReject && !actionLoading
   const canApprove = admin.canApprove && !actionLoading
-  const canFund = admin.canFund && Boolean(receivableId) && !actionLoading
+  const canFundNow = canApproveFunding && !actionLoading
+  const canPayoutNow =
+    Boolean(receivableId?.trim()) && fundingApprovalDone && !isPaidOut && !actionLoading
+  const showLoanAcceptance = admin.canApprove || admin.canReject
   const canMarkDefaulted =
     admin.canMarkDefaulted && defaultManagement.canMarkDefaulted && !actionLoading
   const canWriteOffShortfall = admin.canWriteOffShortfall && !actionLoading
@@ -180,41 +190,94 @@ export function AdminLoanMonitoringDetailView({
         </div>
       </section>
 
-      <section className="rounded-[12px] border border-[#E6E8EC] bg-white p-6 lg:p-8 shadow-sm">
-        <h2 className="text-[#0B1220] font-bold text-[18px] mb-2">Loan Acceptance</h2>
-        <p className="text-[#6B7488] text-[14px] mb-5">Review this loan request and approve or reject it for funding.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <button
-            type="button"
-            disabled={!canReject}
-            onClick={() => setRejectOpen(true)}
-            className={actionButtonClass(canReject, 'danger')}
-          >
-            {actionLabel(actionLoading, actionKind, 'reject', 'Reject')}
-          </button>
-          <button
-            type="button"
-            disabled={!canApprove}
-            onClick={onApprove}
-            className={actionButtonClass(canApprove, 'primary')}
-          >
-            {actionLabel(actionLoading, actionKind, 'approve', 'Approve')}
-          </button>
-        </div>
-      </section>
+      {showLoanAcceptance ? (
+        <section className="rounded-[12px] border border-[#E6E8EC] bg-white p-6 lg:p-8 shadow-sm">
+          <h2 className="text-[#0B1220] font-bold text-[18px] mb-2">Loan Acceptance</h2>
+          <p className="text-[#6B7488] text-[14px] mb-5">Review this loan request and approve or reject it for funding.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              type="button"
+              disabled={!canReject}
+              onClick={() => setRejectOpen(true)}
+              className={actionButtonClass(canReject, 'danger')}
+            >
+              {actionLabel(actionLoading, actionKind, 'reject', 'Reject')}
+            </button>
+            <button
+              type="button"
+              disabled={!canApprove}
+              onClick={onApprove}
+              className={actionButtonClass(canApprove, 'primary')}
+            >
+              {actionLabel(actionLoading, actionKind, 'approve', 'Approve')}
+            </button>
+          </div>
+        </section>
+      ) : null}
 
-      <section className="rounded-[12px] border border-[#E6E8EC] bg-white p-6 lg:p-8 shadow-sm">
-        <h2 className="text-[#0B1220] font-bold text-[18px] mb-2">Loan Payout</h2>
-        <p className="text-[#6B7488] text-[14px] mb-5">Release funds to the merchant after the loan has been approved.</p>
-        <button
-          type="button"
-          disabled={!canFund}
-          onClick={onFund}
-          className={actionButtonClass(canFund, 'primary')}
+      {showFundingApprovalSection ? (
+        <section
+          id="loan-funding-approval-section"
+          className="rounded-[12px] border border-[#E6E8EC] bg-white p-6 lg:p-8 shadow-sm"
         >
-          {actionLabel(actionLoading, actionKind, 'fund', 'Release funds')}
-        </button>
-      </section>
+          <h2 className="text-[#0B1220] font-bold text-[18px] mb-2">Funding approval</h2>
+          <p className="text-[#6B7488] text-[14px] mb-5">
+            Approve funding to allocate capital from the lending pool for this receivable. This does not
+            send tokens to the merchant yet.
+          </p>
+          {fundingApprovalDone ? (
+            <p className="text-[#16A34A] text-[14px] font-medium">
+              {isPaidOut ? 'Funding approved' : 'Funded — payout pending'}
+            </p>
+          ) : (
+            <button
+              type="button"
+              disabled={!canFundNow}
+              onClick={onApproveFunding}
+              className={actionButtonClass(canFundNow, 'primary')}
+            >
+              {actionLabel(actionLoading, actionKind, 'fund', 'Approve funding')}
+            </button>
+          )}
+          {!fundingApprovalDone && !canFundNow ? (
+            <p className="mt-3 text-[#8B92A3] text-[13px] leading-relaxed">
+              Available after loan acceptance when the receivable is verified on-chain.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {showFundingPayoutSection ? (
+        <section
+          id="loan-funding-payout-section"
+          className="rounded-[12px] border border-[#E6E8EC] bg-white p-6 lg:p-8 shadow-sm"
+        >
+          <h2 className="text-[#0B1220] font-bold text-[18px] mb-2">Funding payout</h2>
+          <p className="text-[#6B7488] text-[14px] mb-5">
+            Release funds to the merchant wallet after funding approval. This sends ERC20 to the
+            merchant on-chain.
+          </p>
+          {isPaidOut ? (
+            <p className="text-[#16A34A] text-[14px] font-medium">Funds released to merchant</p>
+          ) : (
+            <button
+              type="button"
+              disabled={!canPayoutNow}
+              onClick={onInitiatePayout}
+              className={actionButtonClass(canPayoutNow, 'primary')}
+            >
+              {actionLabel(actionLoading, actionKind, 'initiatePayout', 'Release funds')}
+            </button>
+          )}
+          {!isPaidOut && !canPayoutNow ? (
+            <p className="mt-3 text-[#8B92A3] text-[13px] leading-relaxed">
+              {fundingApprovalDone
+                ? 'Add the on-chain receivable id to release funds.'
+                : 'Complete funding approval first.'}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="rounded-[12px] border border-[#E6E8EC] bg-white p-6 lg:p-8 shadow-sm">
         <h2 className="text-[#0B1220] font-bold text-[18px] mb-2">{defaultManagement.title}</h2>

@@ -13,6 +13,7 @@ import {
   type AdminLoanMonitoringRow,
   type AdminLoanMonitoringTabFilter,
 } from '@/api/adminLoanMonitoring'
+import { fetchReceivablePayoutStatus, postAdminPayoutInitiate } from '@/api/payout'
 import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
 import type {
   AdminLoanMonitoringActionKind,
@@ -179,9 +180,30 @@ export const refreshAdminLoanMonitoringDetail = createAsyncThunk(
 
     try {
       const detail = await fetchAdminLoanMonitoringDetail(accessToken, loanId)
+      const receivableRaw = detail.details?.receivable
+      const receivableObj =
+        receivableRaw && typeof receivableRaw === 'object' && !Array.isArray(receivableRaw)
+          ? (receivableRaw as Record<string, unknown>)
+          : null
+      const receivableId =
+        (typeof receivableObj?.receivableId === 'string' && receivableObj.receivableId.trim()) ||
+        (typeof receivableObj?.receivable_id === 'string' && receivableObj.receivable_id.trim()) ||
+        ''
+
+      let payoutStatus = null
+      if (receivableId) {
+        try {
+          payoutStatus = await fetchReceivablePayoutStatus(accessToken, receivableId, {
+            signal: thunkApi.signal,
+          })
+        } catch {
+          payoutStatus = null
+        }
+      }
+
       return {
         loanId,
-        detail: mapAdminLoanMonitoringDetailToView(detail),
+        detail: mapAdminLoanMonitoringDetailToView(detail, { payoutStatus }),
       }
     } catch (e) {
       if (e instanceof ApiRequestError) {
@@ -258,7 +280,7 @@ export const fundAdminLoanMonitoringLoan = createAsyncThunk(
     const state = thunkApi.getState() as RefreshAdminAuth
     const accessToken = state.auth?.accessToken
     if (!accessToken?.trim()) {
-      throw new Error('Sign in to release funds.')
+      throw new Error('Sign in to approve funding for this loan.')
     }
 
     const loanId = params.loanId.trim()
@@ -270,6 +292,38 @@ export const fundAdminLoanMonitoringLoan = createAsyncThunk(
       return await runLoanPrivilegedAction(
         loanId,
         (signal) => postAdminFundLoan(accessToken, receivableId, { signal }),
+        thunkApi,
+      )
+    } catch (e) {
+      if (thunkApi.signal.aborted || isAbortError(e)) {
+        throw e
+      }
+      if (e instanceof ApiRequestError) {
+        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
+      }
+      throw e
+    }
+  },
+)
+
+export const initiateAdminLoanMonitoringPayout = createAsyncThunk(
+  'adminLoanMonitoring/initiatePayout',
+  async (params: AdminLoanMonitoringFundActionParams, thunkApi) => {
+    const state = thunkApi.getState() as RefreshAdminAuth
+    const accessToken = state.auth?.accessToken
+    if (!accessToken?.trim()) {
+      throw new Error('Sign in to disburse funding to the merchant.')
+    }
+
+    const loanId = params.loanId.trim()
+    const receivableId = params.receivableId.trim()
+    if (!loanId) throw new Error('Missing loan id.')
+    if (!receivableId) throw new Error('Missing receivable id.')
+
+    try {
+      return await runLoanPrivilegedAction(
+        loanId,
+        (signal) => postAdminPayoutInitiate(accessToken, receivableId, { signal }),
         thunkApi,
       )
     } catch (e) {
@@ -518,6 +572,26 @@ const adminLoanMonitoringSlice = createSlice({
         state.lastActionOutcome = action.payload.outcome
       })
       .addCase(fundAdminLoanMonitoringLoan.rejected, (state, action) => {
+        if (resetLoanActionOnAbort(state, action)) return
+        state.actionStatus = 'failed'
+        state.actionError =
+          (typeof action.payload === 'string' ? action.payload : null) ??
+          action.error.message ??
+          'Could not complete loan action.'
+      })
+      .addCase(initiateAdminLoanMonitoringPayout.pending, (state, action) => {
+        state.actionStatus = 'loading'
+        state.actionError = null
+        state.actionLoanId = action.meta.arg.loanId
+        state.actionKind = 'initiatePayout'
+        state.lastActionOutcome = null
+      })
+      .addCase(initiateAdminLoanMonitoringPayout.fulfilled, (state, action) => {
+        state.actionStatus = 'succeeded'
+        state.actionError = null
+        state.lastActionOutcome = action.payload.outcome
+      })
+      .addCase(initiateAdminLoanMonitoringPayout.rejected, (state, action) => {
         if (resetLoanActionOnAbort(state, action)) return
         state.actionStatus = 'failed'
         state.actionError =

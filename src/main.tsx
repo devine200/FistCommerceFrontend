@@ -54,11 +54,12 @@ const privyConfig: PrivyClientConfig = {
   appearance: {
     // Ensure the Privy modal surfaces the wallets you want users to connect.
     walletList: [
-      'metamask',
-      'phantom',
-      'coinbase_wallet',
-      'wallet_connect',
       'detected_ethereum_wallets',
+      'metamask',
+      'coinbase_wallet',
+      'rainbow',
+      'wallet_connect',
+      'phantom',
     ],
   },
 }

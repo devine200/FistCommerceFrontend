@@ -4,6 +4,7 @@ import type {
   AdminLoanMonitoringRow,
   AdminLoanMonitoringStatus,
 } from '@/api/adminLoanMonitoring'
+import type { ReceivablePayoutStatus } from '@/api/payout'
 import { displayDashboardMetricString } from '@/api/metrics'
 import type { AdminPillVariant } from '@/components/admin/primitives/types'
 import type { ReceivableLifecycleStep } from '@/components/dashboard/merchant/receivables/receivableDetailTypes'
@@ -148,13 +149,17 @@ function loanStatusRank(status: string): number {
     case 'verified':
       return 2
     case 'funded':
+    case 'approved':
+      // Admin UI maps both `funded` and early post-fund states to "approved".
       return 3
-    case 'matured':
+    case 'paid_out':
       return 4
-    case 'defaulted':
+    case 'matured':
       return 5
-    case 'repaid':
+    case 'defaulted':
       return 6
+    case 'repaid':
+      return 7
     default:
       return 0
   }
@@ -174,8 +179,8 @@ function buildLifecycleSteps(lifecycle: Record<string, unknown>): ReceivableLife
   const defaultedAt = lifecycle.defaultedAt ?? lifecycle.defaulted_at
 
   const fundedDate = rank >= 3 ? verifiedAt ?? maturedAt : null
-  const defaultedDate = rank >= 5 ? defaultedAt ?? maturedAt : null
-  const repaidDate = rank >= 6 ? maturedAt : null
+  const defaultedDate = rank >= 6 ? defaultedAt ?? maturedAt : null
+  const repaidDate = rank >= 7 ? maturedAt : null
 
   return [
     {
@@ -193,7 +198,8 @@ function buildLifecycleSteps(lifecycle: Record<string, unknown>): ReceivableLife
     },
     {
       label: 'Receivable Funded',
-      description: 'Capital has been disbursed to your account and your receivable facility is now active.',
+      description:
+        'Capital has been allocated from the lending pool. Disbursement to the merchant wallet is a separate funding payout step.',
       date: formatFieldValue(fundedDate),
       variant: 'green',
     },
@@ -288,8 +294,37 @@ function resolveCanMarkDefaulted(loanStatus: string, receivableId: string | null
   return Boolean(receivableId?.trim())
 }
 
+/** Show funding approval UI once the loan is verified or has progressed further. */
+export function shouldShowFundingApprovalSection(loanLifecycleStatus: string): boolean {
+  return loanStatusRank(loanLifecycleStatus) >= loanStatusRank('verified')
+}
+
+export type MapAdminLoanMonitoringDetailOptions = {
+  payoutStatus?: ReceivablePayoutStatus | null
+}
+
+function resolveFundingApprovalDone(
+  loanStatus: string,
+  payoutStatus?: ReceivablePayoutStatus | null,
+): boolean {
+  if (loanStatusRank(loanStatus) >= loanStatusRank('funded')) return true
+  // After funding approval, a payout request exists even if lifecycle lags behind.
+  return payoutStatus != null
+}
+
+function resolveIsPaidOut(
+  loanStatusNorm: string,
+  lifecycle: Record<string, unknown>,
+  payoutStatus?: ReceivablePayoutStatus | null,
+): boolean {
+  if (payoutStatus != null) return payoutStatus.isPaidOut
+  if (loanStatusNorm === 'paid_out') return true
+  return pickBool(lifecycle, 'is_paid_out', 'isPaidOut')
+}
+
 export function mapAdminLoanMonitoringDetailToView(
   payload: AdminLoanMonitoringDetailPayload,
+  options?: MapAdminLoanMonitoringDetailOptions,
 ): LoanMonitoringDetailView {
   const { monitoring, basicInformation, uploadedDocuments, defaultManagement, details } = payload
   const lifecycle = asObj(details.lifecycle)
@@ -297,14 +332,28 @@ export function mapAdminLoanMonitoringDetailToView(
 
   const document = resolveUploadedDocument(uploadedDocuments)
   const loanStatus = pickString(lifecycle, 'status') ?? 'created'
+  const loanStatusNorm = loanStatus.trim().toLowerCase()
   const receivable = asObj(details.receivable)
   const receivableId = pickString(receivable, 'receivableId', 'receivable_id') || null
   const canMarkDefaulted = resolveCanMarkDefaulted(loanStatus, receivableId)
+
+  const isPaidOut = resolveIsPaidOut(loanStatusNorm, lifecycle, options?.payoutStatus)
+  const fundingApprovalDone = resolveFundingApprovalDone(loanStatus, options?.payoutStatus)
+  const canApproveFunding =
+    payload.admin.canFund && Boolean(receivableId) && loanStatusNorm === 'verified'
+  const canInitiatePayout = Boolean(receivableId && fundingApprovalDone && !isPaidOut)
 
   return {
     loanId: monitoring.loanId,
     receivableName: monitoring.receivableName,
     receivableId,
+    loanLifecycleStatus: loanStatus,
+    fundingApprovalDone,
+    isPaidOut,
+    showFundingApprovalSection: shouldShowFundingApprovalSection(loanStatus),
+    showFundingPayoutSection: fundingApprovalDone,
+    canApproveFunding,
+    canInitiatePayout,
     basicInfo: buildBasicInfo(basicInformation),
     documentName: verificationDocumentName(document.name, document.url),
     documentUrl: document.url,
@@ -320,11 +369,20 @@ export function mapAdminLoanMonitoringDetailToView(
       canApprove: payload.admin.canApprove,
       canReject: payload.admin.canReject,
       canFund: payload.admin.canFund,
+      canInitiatePayout: payload.admin.canInitiatePayout,
       canMarkDefaulted,
       canWriteOffShortfall: payload.admin.canWriteOffShortfall,
       uiStatus: payload.admin.uiStatus,
     },
   }
+}
+
+function pickBool(record: Record<string, unknown>, ...keys: string[]): boolean {
+  for (const key of keys) {
+    const v = record[key]
+    if (typeof v === 'boolean') return v
+  }
+  return false
 }
 
 function asObj(value: unknown): Record<string, unknown> {

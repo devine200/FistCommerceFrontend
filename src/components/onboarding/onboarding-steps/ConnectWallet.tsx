@@ -16,6 +16,7 @@ import { setMerchantWalletDisplay } from '@/store/slices/merchantDashboardSlice'
 import { parseUserRole } from '@/utils/userRole'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 import { APP_CHAIN } from '@/wallet/appChain'
+import { isUserRejectedWalletRequest } from '@/wallet/walletChainErrors'
 import { ensureWalletChain, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
 
 function truncateAddress(address: string) {
@@ -24,11 +25,7 @@ function truncateAddress(address: string) {
 }
 
 function isWalletSignRejected(e: unknown): boolean {
-  if (!(e instanceof Error)) return false
-  if (e.name === 'UserRejectedRequestError') return true
-  const code = (e as { code?: number }).code
-  if (code === 4001) return true
-  return /user rejected|denied transaction signature|request rejected/i.test(e.message)
+  return isUserRejectedWalletRequest(e)
 }
 
 interface ConnectWalletProps {

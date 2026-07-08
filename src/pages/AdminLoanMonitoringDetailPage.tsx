@@ -7,7 +7,11 @@ import {
   resolveAdminWriteOutcome,
 } from '@/admin/governance'
 import {
+  ADMIN_LOAN_MONITORING_FUNDING_APPROVAL_FOCUS_VALUE,
+  ADMIN_LOAN_MONITORING_FUNDING_PAYOUT_FOCUS_VALUE,
   ADMIN_LOAN_MONITORING_LIST_PATH,
+  ADMIN_LOAN_MONITORING_PAYOUT_FOCUS_QUERY_KEY,
+  ADMIN_LOAN_MONITORING_PAYOUT_FOCUS_VALUE,
   ADMIN_LOAN_MONITORING_RETURN_QUERY_KEY,
   AdminLoanMonitoringDetailView,
   resolveAdminLoanMonitoringBackTarget,
@@ -20,6 +24,7 @@ import {
   approveAdminLoanMonitoringLoan,
   clearAdminLoanMonitoringActionError,
   fundAdminLoanMonitoringLoan,
+  initiateAdminLoanMonitoringPayout,
   markAdminLoanMonitoringLoanDefaulted,
   refreshAdminLoanMonitoringDetail,
   rejectAdminLoanMonitoringLoan,
@@ -60,6 +65,21 @@ const AdminLoanMonitoringDetailPage = () => {
     void dispatch(refreshAdminLoanMonitoringDetail({ loanId }))
   }, [dispatch, loanId, accessToken, sessionKind])
 
+  useEffect(() => {
+    if (!detail) return
+    const focus = searchParams.get(ADMIN_LOAN_MONITORING_PAYOUT_FOCUS_QUERY_KEY)
+    const targetId =
+      focus === ADMIN_LOAN_MONITORING_FUNDING_APPROVAL_FOCUS_VALUE
+        ? 'loan-funding-approval-section'
+        : focus === ADMIN_LOAN_MONITORING_FUNDING_PAYOUT_FOCUS_VALUE ||
+            focus === ADMIN_LOAN_MONITORING_PAYOUT_FOCUS_VALUE
+          ? 'loan-funding-payout-section'
+          : null
+    if (!targetId) return
+    const el = document.getElementById(targetId)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [detail, searchParams])
+
   const actionLoading = actionStatus === 'loading'
   const actionPhase = actionStatus === 'idle' ? 'idle' : actionStatus
 
@@ -85,6 +105,10 @@ const AdminLoanMonitoringDetailPage = () => {
       dispatchCancellable(rejectAdminLoanMonitoringLoan({ loanId }))
     } else if (actionKind === 'fund' && detail?.receivableId) {
       dispatchCancellable(fundAdminLoanMonitoringLoan({ loanId, receivableId: detail.receivableId }))
+    } else if (actionKind === 'initiatePayout' && detail?.receivableId) {
+      dispatchCancellable(
+        initiateAdminLoanMonitoringPayout({ loanId, receivableId: detail.receivableId }),
+      )
     } else if (actionKind === 'markDefaulted') {
       dispatchCancellable(markAdminLoanMonitoringLoanDefaulted({ loanId }))
     } else if (actionKind === 'writeOffShortfall') {
@@ -102,9 +126,16 @@ const AdminLoanMonitoringDetailPage = () => {
     dispatchCancellable(rejectAdminLoanMonitoringLoan({ loanId }))
   }, [dispatchCancellable, loanId, actionLoading])
 
-  const handleFund = useCallback(() => {
+  const handleApproveFunding = useCallback(() => {
     if (!loanId || !detail?.receivableId || actionLoading) return
     dispatchCancellable(fundAdminLoanMonitoringLoan({ loanId, receivableId: detail.receivableId }))
+  }, [dispatchCancellable, loanId, detail?.receivableId, actionLoading])
+
+  const handleInitiatePayout = useCallback(() => {
+    if (!loanId || !detail?.receivableId || actionLoading) return
+    dispatchCancellable(
+      initiateAdminLoanMonitoringPayout({ loanId, receivableId: detail.receivableId }),
+    )
   }, [dispatchCancellable, loanId, detail?.receivableId, actionLoading])
 
   const handleMarkDefaulted = useCallback(() => {
@@ -169,7 +200,8 @@ const AdminLoanMonitoringDetailPage = () => {
           onBack={handleBack}
           onApprove={handleApprove}
           onReject={handleReject}
-          onFund={handleFund}
+          onApproveFunding={handleApproveFunding}
+          onInitiatePayout={handleInitiatePayout}
           onMarkDefaulted={handleMarkDefaulted}
           onWriteOffShortfall={handleWriteOffShortfall}
           actionLoading={actionLoading}
