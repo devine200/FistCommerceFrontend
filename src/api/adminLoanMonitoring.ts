@@ -221,12 +221,10 @@ export function normalizeLoanMonitoringRow(raw: unknown): AdminLoanMonitoringRow
   const lifecycleNorm = loanLifecycleStatus?.trim().toLowerCase() ?? ''
   const fundingApprovalDone = loanLifecycleFundingRank(lifecycleNorm) >= loanLifecycleFundingRank('funded')
   const canFund = admin?.canFund ?? pickBool(r, 'canFund', 'can_fund')
-  const canInitiatePayoutFromApi =
-    admin?.canInitiatePayout ?? pickBool(r, 'canInitiatePayout', 'can_initiate_payout')
   const isPaidOut =
     pickBool(r, 'isPaidOut', 'is_paid_out', 'paidOut', 'paid_out') || lifecycleNorm === 'paid_out'
   const canInitiatePayout = Boolean(
-    receivableId?.trim() && !isPaidOut && (canInitiatePayoutFromApi || fundingApprovalDone),
+    receivableId?.trim() && fundingApprovalDone && !isPaidOut,
   )
 
   return {

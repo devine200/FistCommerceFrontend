@@ -142,6 +142,11 @@ function resolveUploadedDocument(
   }
 }
 
+/** Lifecycle has reached `funded` or a later post-fund state. */
+export function isLoanLifecycleFundedOrLater(loanStatus: string): boolean {
+  return loanStatusRank(loanStatus) >= loanStatusRank('funded')
+}
+
 function loanStatusRank(status: string): number {
   switch (status.trim().toLowerCase()) {
     case 'created':
@@ -303,13 +308,8 @@ export type MapAdminLoanMonitoringDetailOptions = {
   payoutStatus?: ReceivablePayoutStatus | null
 }
 
-function resolveFundingApprovalDone(
-  loanStatus: string,
-  payoutStatus?: ReceivablePayoutStatus | null,
-): boolean {
-  if (loanStatusRank(loanStatus) >= loanStatusRank('funded')) return true
-  // After funding approval, a payout request exists even if lifecycle lags behind.
-  return payoutStatus != null
+function resolveFundingApprovalDone(loanStatus: string): boolean {
+  return isLoanLifecycleFundedOrLater(loanStatus)
 }
 
 function resolveIsPaidOut(
@@ -338,7 +338,7 @@ export function mapAdminLoanMonitoringDetailToView(
   const canMarkDefaulted = resolveCanMarkDefaulted(loanStatus, receivableId)
 
   const isPaidOut = resolveIsPaidOut(loanStatusNorm, lifecycle, options?.payoutStatus)
-  const fundingApprovalDone = resolveFundingApprovalDone(loanStatus, options?.payoutStatus)
+  const fundingApprovalDone = resolveFundingApprovalDone(loanStatus)
   const canApproveFunding =
     payload.admin.canFund && Boolean(receivableId) && loanStatusNorm === 'verified'
   const canInitiatePayout = Boolean(receivableId && fundingApprovalDone && !isPaidOut)

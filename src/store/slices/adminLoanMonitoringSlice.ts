@@ -19,7 +19,7 @@ import type {
   AdminLoanMonitoringActionKind,
   LoanMonitoringDetailView,
 } from '@/components/admin/loan-monitoring/types'
-import { mapAdminLoanMonitoringDetailToView } from '@/utils/mapAdminLoanMonitoringList'
+import { mapAdminLoanMonitoringDetailToView, isLoanLifecycleFundedOrLater } from '@/utils/mapAdminLoanMonitoringList'
 import {
   adminLoanMonitoringListCacheKey,
   adminLoanMonitoringListsEqual,
@@ -108,6 +108,32 @@ export type AdminLoanMonitoringFundActionParams = {
 
 type RefreshAdminAuth = {
   auth?: { accessToken?: string | null }
+  adminLoanMonitoring?: Pick<AdminLoanMonitoringState, 'detailsByLoanId'>
+}
+
+function lifecycleStatusFromMonitoringDetail(
+  detail: Awaited<ReturnType<typeof fetchAdminLoanMonitoringDetail>>,
+): string {
+  const lifecycle = detail.details?.lifecycle
+  if (lifecycle && typeof lifecycle === 'object' && !Array.isArray(lifecycle)) {
+    const status = (lifecycle as Record<string, unknown>).status
+    if (typeof status === 'string' && status.trim()) return status.trim()
+  }
+  return ''
+}
+
+async function resolveLoanLifecycleStatusForAction(
+  accessToken: string,
+  loanId: string,
+  state: RefreshAdminAuth,
+  signal: AbortSignal,
+): Promise<string> {
+  const cached = state.adminLoanMonitoring?.detailsByLoanId[loanId]?.loanLifecycleStatus?.trim()
+  if (cached) return cached
+
+  const detail = await fetchAdminLoanMonitoringDetail(accessToken, loanId)
+  if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+  return lifecycleStatusFromMonitoringDetail(detail)
 }
 
 function shouldRefreshLoanDetailAfterOutcome(outcome: AdminWriteOutcome): boolean {
@@ -323,7 +349,23 @@ export const initiateAdminLoanMonitoringPayout = createAsyncThunk(
     try {
       return await runLoanPrivilegedAction(
         loanId,
-        (signal) => postAdminPayoutInitiate(accessToken, receivableId, { signal }),
+        async (signal) => {
+          const lifecycleStatus = await resolveLoanLifecycleStatusForAction(
+            accessToken,
+            loanId,
+            state,
+            signal,
+          )
+
+          if (!isLoanLifecycleFundedOrLater(lifecycleStatus)) {
+            const fundOutcome = await postAdminFundLoan(accessToken, receivableId, { signal })
+            if (fundOutcome.kind !== 'completed') {
+              return fundOutcome
+            }
+          }
+
+          return postAdminPayoutInitiate(accessToken, receivableId, { signal })
+        },
         thunkApi,
       )
     } catch (e) {
