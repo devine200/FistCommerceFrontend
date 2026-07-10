@@ -10,6 +10,7 @@ import InvestorLendingPoolDetailPageContent from '@/components/dashboard/investo
 import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
 import { useListPageState } from '@/hooks/useListPageState'
+import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
@@ -35,6 +36,7 @@ const InvestorLendingPoolDetailPage = () => {
   const recentTx = useAppSelector((s) => s.recentTransactions)
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const isKycVerified = useAppSelector(selectIsKycVerified)
+  const { investmentBalanceDisplay } = useInvestorOnChainBalances()
   const [errorDismissed, setErrorDismissed] = useState(false)
   const [loadingDismissed, setLoadingDismissed] = useState(false)
   const [page, setPage] = useListPageState([])
@@ -95,6 +97,7 @@ const InvestorLendingPoolDetailPage = () => {
       investorMetrics,
       walletAddress,
       walletDisplayFallback,
+      onChainPoolPositionDisplay: investmentBalanceDisplay,
     })
     return mergeInvestorPoolPayoutIntoConfig(withMetrics, recentPayout)
   }, [
@@ -105,6 +108,7 @@ const InvestorLendingPoolDetailPage = () => {
     walletAddress,
     walletDisplayFallback,
     recentPayout,
+    investmentBalanceDisplay,
   ])
 
   const poolDataLoading = Boolean(staticBase && !config && status !== 'failed')

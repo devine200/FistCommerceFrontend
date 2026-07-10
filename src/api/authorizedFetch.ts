@@ -3,6 +3,17 @@ import { ADMIN_LOGIN_PATH, shouldRedirectToAdminLogin } from '@/auth/adminSessio
 import type { SessionKind, UserRole } from '@/store/slices/authSlice'
 import { parseUserRole } from '@/utils/userRole'
 
+/** Marks that token refresh already ran for this logical request (prevents refresh loops). */
+const AUTH_RETRIED = Symbol('authRetried')
+
+type AuthRecoveryInit = RequestInit & {
+  [AUTH_RETRIED]?: boolean
+}
+
+function hasAuthRetried(init: RequestInit): boolean {
+  return Boolean((init as AuthRecoveryInit)[AUTH_RETRIED])
+}
+
 /** DRF auth failures are often 401; some gateways or configs surface 403 instead. */
 function isAuthFailureStatus(status: number): boolean {
   return status === 401 || status === 403
@@ -104,14 +115,16 @@ async function logoutHeaderTooLargeAndRedirect(): Promise<void> {
  *   redirect (no network request).
  * - **431 / 413 / narrow 400** (proxy “header too large” body) + `Authorization: Token …`: full
  *   session reset and redirect (no refresh).
- * - **401/403** + `Authorization: Token …`: with refresh token → refresh and retry once; without or
- *   if refresh fails → logout and redirect (admin → `/admin/login`, wallet → connect-wallet or
- *   choose-role).
+ * - **401/403** + `Authorization: Token …`: with refresh token → refresh and retry once; a second
+ *   401/403 on that retry, missing refresh token, or failed refresh → logout and redirect.
  *
  * Uses dynamic `import()` for the Redux store and session refresh so this module does not create a
  * circular dependency with `store/index.ts` (metrics → authorizedFetch → store → slices → metrics).
  */
-export async function fetchWithAuthRecovery(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+export async function fetchWithAuthRecovery(
+  input: RequestInfo | URL,
+  init: AuthRecoveryInit = {},
+): Promise<Response> {
   if (usesDrfTokenAuth(init.headers)) {
     const authLine = authorizationHeaderFromInit(init.headers)
     if (authLine && authLine.length > MAX_AUTHORIZATION_HEADER_CHARS) {
@@ -147,6 +160,11 @@ export async function fetchWithAuthRecovery(input: RequestInfo | URL, init: Requ
     return res
   }
 
+  if (hasAuthRetried(init)) {
+    await logoutAndRedirectAfterAuthFailure()
+    return res
+  }
+
   const { store } = await import('@/store')
   const { refreshToken } = store.getState().auth
   if (!refreshToken?.trim()) {
@@ -162,5 +180,9 @@ export async function fetchWithAuthRecovery(input: RequestInfo | URL, init: Requ
 
   const nextHeaders = new Headers(init.headers)
   nextHeaders.set('Authorization', `Token ${tokens.accessToken.trim()}`)
-  return fetch(input, { ...init, headers: nextHeaders })
+  return fetchWithAuthRecovery(input, {
+    ...init,
+    headers: nextHeaders,
+    [AUTH_RETRIED]: true,
+  })
 }

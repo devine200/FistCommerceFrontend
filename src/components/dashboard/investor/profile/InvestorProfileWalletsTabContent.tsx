@@ -3,6 +3,7 @@ import { useLogout } from '@privy-io/react-auth'
 import { arbitrum, arbitrumSepolia, mainnet } from 'viem/chains'
 
 import walletIcon from '@/assets/Icon (1).png'
+import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { disconnectPrivySession } from '@/session/disconnectPrivySession'
 import { resetUserSession } from '@/session/resetUserSession'
@@ -14,6 +15,8 @@ const CHAIN_LABEL: Record<number, string> = {
   [mainnet.id]: mainnet.name,
   [arbitrumSepolia.id]: arbitrumSepolia.name,
 }
+
+const MINT_QUICK_AMOUNTS = [1_000, 5_000, 10_000, 50_000] as const
 
 function walletClientTypeLabel(walletClientType: string | null | undefined): string {
   if (!walletClientType) return 'Wallet'
@@ -27,6 +30,10 @@ function walletClientTypeLabel(walletClientType: string | null | undefined): str
   return byType[walletClientType] ?? walletClientType
 }
 
+function formatWalletBalanceDisplay(formatted: string): string {
+  return formatted === '—' ? '—' : `$${formatted}`
+}
+
 const InvestorProfileWalletsTabContent = () => {
   const dispatch = useAppDispatch()
   const { logout } = useLogout()
@@ -34,27 +41,36 @@ const InvestorProfileWalletsTabContent = () => {
   const chainId = useAppSelector((s) => s.wallet.chainId)
   const [disconnectPending, setDisconnectPending] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [mintAmount, setMintAmount] = useState(10_000)
+  const [mintDraft, setMintDraft] = useState('10000')
+  const [mintError, setMintError] = useState<string | null>(null)
+  const [mintSuccess, setMintSuccess] = useState<string | null>(null)
+
   const contracts = useTestnetContracts()
+  const { investmentBalanceDisplay, poolPositionLoading } = useInvestorOnChainBalances()
 
-  const walletTokenBalanceLabel = useMemo(() => {
-    if (!contracts.isConnected) return 'Connect your wallet to view on-chain token balance (Arbitrum Sepolia).'
-    if (contracts.isContractsLoading) return 'Loading balance…'
-    const formatted = contracts.mockTokenBalanceFormatted
-    const amountLine = formatted === '—' ? 'Wallet Balance: —' : `Wallet Balance: $${formatted}`
+  const walletBalanceDisplay = useMemo(() => {
+    if (!contracts.isConnected) return '—'
+    if (contracts.isContractsLoading) return 'Loading…'
+    return formatWalletBalanceDisplay(contracts.mockTokenBalanceFormatted)
+  }, [contracts.isConnected, contracts.isContractsLoading, contracts.mockTokenBalanceFormatted])
+
+  const investmentBalanceLabel = useMemo(() => {
+    if (!contracts.isConnected) return 'Connect wallet to view pool position.'
+    if (poolPositionLoading) return 'Loading…'
+    return investmentBalanceDisplay === '—' ? '—' : investmentBalanceDisplay
+  }, [contracts.isConnected, investmentBalanceDisplay, poolPositionLoading])
+
+  const mintDisabledReason = useMemo(() => {
+    if (!contracts.isConnected) return 'Connect your wallet to mint test tokens.'
     if (!contracts.isCorrectNetwork) {
-      return `${amountLine} (off-chain view; switch your wallet to ${contracts.testnetChain.name} for deposits and withdrawals.)`
+      return `Switch your wallet to ${contracts.testnetChain.name} to mint test tokens.`
     }
-    return amountLine
-  }, [
-    contracts.isConnected,
-    contracts.isContractsLoading,
-    contracts.isCorrectNetwork,
-    contracts.mockTokenBalanceFormatted,
-    contracts.testnetChain.name,
-  ])
+    if (mintAmount <= 0) return 'Enter an amount greater than zero.'
+    return null
+  }, [contracts.isConnected, contracts.isCorrectNetwork, contracts.testnetChain.name, mintAmount])
 
-  const chainLabel =
-    chainId != null ? (CHAIN_LABEL[chainId] ?? `Chain ${chainId}`) : '—'
+  const chainLabel = chainId != null ? (CHAIN_LABEL[chainId] ?? `Chain ${chainId}`) : '—'
 
   const copyAddress = useCallback(async () => {
     if (!address) return
@@ -66,6 +82,39 @@ const InvestorProfileWalletsTabContent = () => {
       /* clipboard denied or unavailable */
     }
   }, [address])
+
+  const handleMintDraftChange = (nextRaw: string) => {
+    const cleaned = nextRaw.replace(/[^\d.,]/g, '')
+    setMintDraft(cleaned)
+    const n = Number(cleaned.replace(/,/g, ''))
+    if (Number.isFinite(n) && n > 0) setMintAmount(n)
+    else setMintAmount(0)
+    setMintError(null)
+    setMintSuccess(null)
+  }
+
+  const handleMintQuickSelect = (value: number) => {
+    setMintAmount(value)
+    setMintDraft(String(value))
+    setMintError(null)
+    setMintSuccess(null)
+  }
+
+  const handleMint = async () => {
+    if (mintDisabledReason) {
+      setMintError(mintDisabledReason)
+      return
+    }
+
+    setMintError(null)
+    setMintSuccess(null)
+    try {
+      const hash = await contracts.mintMockTokens(mintAmount)
+      setMintSuccess(`Minted ${mintAmount.toLocaleString()} test tokens. Tx: ${hash.slice(0, 10)}…`)
+    } catch (e) {
+      setMintError(e instanceof Error ? e.message : 'Could not mint test tokens.')
+    }
+  }
 
   const handleDisconnect = async () => {
     setDisconnectPending(true)
@@ -81,67 +130,142 @@ const InvestorProfileWalletsTabContent = () => {
   }
 
   return (
-    <section className="rounded-[8px] border border-[#E6E8EC] bg-white p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[#4D5D80] text-[28px] font-semibold leading-tight">Connected Wallet</h2>
-      </div>
+    <div className="flex flex-col gap-4">
+      <section className="rounded-[8px] border border-[#E6E8EC] bg-white p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-[#4D5D80] text-[28px] font-semibold leading-tight">Connected Wallet</h2>
+        </div>
 
-      {!isConnected ? (
-        <p className="mt-4 text-[#6B7488] text-[14px] leading-relaxed">No wallet connected.</p>
-      ) : (
-        <article className="mt-4 rounded-[6px] border border-[#195EBC] bg-white p-4 sm:p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-3 min-w-0">
-              <div className="h-10 w-10 shrink-0 rounded-[6px] bg-[#EEF2F6] flex items-center justify-center">
-                <img src={walletIcon} alt="" className="h-5 w-5 object-contain" />
-              </div>
-
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-[#0B1220] text-[24px] font-semibold leading-tight">
-                    {walletClientTypeLabel(walletClientType)}
-                  </p>
-                  <span className="rounded-full bg-[#E8EFFB] px-2 py-0.5 text-[11px] text-[#195EBC] font-medium">
-                    Primary
-                  </span>
-                  <span className="text-[#16A34A] text-[11px] font-medium">Connected</span>
+        {!isConnected ? (
+          <p className="mt-4 text-[#6B7488] text-[14px] leading-relaxed">No wallet connected.</p>
+        ) : (
+          <article className="mt-4 rounded-[6px] border border-[#195EBC] bg-white p-4 sm:p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="h-10 w-10 shrink-0 rounded-[6px] bg-[#EEF2F6] flex items-center justify-center">
+                  <img src={walletIcon} alt="" className="h-5 w-5 object-contain" />
                 </div>
 
-                <div className="mt-1 flex flex-wrap items-center gap-2 min-w-0">
-                  <p className="text-[#0B1220] text-[11px] sm:text-[12px] break-all font-mono">{address}</p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-[#0B1220] text-[24px] font-semibold leading-tight">
+                      {walletClientTypeLabel(walletClientType)}
+                    </p>
+                    <span className="rounded-full bg-[#E8EFFB] px-2 py-0.5 text-[11px] text-[#195EBC] font-medium">
+                      Primary
+                    </span>
+                    <span className="text-[#16A34A] text-[11px] font-medium">Connected</span>
+                  </div>
+
+                  <div className="mt-1 flex flex-wrap items-center gap-2 min-w-0">
+                    <p className="text-[#0B1220] text-[11px] sm:text-[12px] break-all font-mono">{address}</p>
+                    <button
+                      type="button"
+                      onClick={() => void copyAddress()}
+                      className="shrink-0 rounded-[4px] border border-[#E6E8EC] bg-white px-2 py-1 text-[11px] font-medium text-[#195EBC] hover:bg-[#F9FAFB] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#195EBC]"
+                      aria-label={copied ? 'Address copied' : 'Copy wallet address'}
+                    >
+                      {copied ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                  <p className="mt-1 text-[#8B92A3] text-[12px]">{chainLabel}</p>
                   <button
                     type="button"
-                    onClick={() => void copyAddress()}
-                    className="shrink-0 rounded-[4px] border border-[#E6E8EC] bg-white px-2 py-1 text-[11px] font-medium text-[#195EBC] hover:bg-[#F9FAFB] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#195EBC]"
-                    aria-label={copied ? 'Address copied' : 'Copy wallet address'}
+                    onClick={() => void handleDisconnect()}
+                    disabled={disconnectPending}
+                    className="mt-2 text-[#DC2626] text-[12px] underline disabled:opacity-50 disabled:no-underline"
                   >
-                    {copied ? 'Copied' : 'Copy'}
+                    {disconnectPending ? 'Disconnecting…' : 'Disconnect'}
                   </button>
                 </div>
-                <p className="mt-1 text-[#8B92A3] text-[12px]">{chainLabel}</p>
               </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch shrink-0 w-full lg:w-auto">
+                <div className="flex-1 min-w-38 rounded-[6px] border border-[#E6E8EC] bg-[#F9FAFB] px-4 py-3">
+                  <p className="text-[#8B92A3] text-[12px]">Wallet balance</p>
+                  <p className="mt-1 text-[#0B1220] text-[22px] sm:text-[24px] font-semibold leading-tight">
+                    {walletBalanceDisplay}
+                  </p>
+                  <p className="mt-1 text-[#8B92A3] text-[11px]">Mock ERC-20 (for deposits)</p>
+                </div>
+                <div className="flex-1 min-w-38 rounded-[6px] border border-[#E6E8EC] bg-[#F9FAFB] px-4 py-3">
+                  <p className="text-[#8B92A3] text-[12px]">Investment balance</p>
+                  <p className="mt-1 text-[#0B1220] text-[22px] sm:text-[24px] font-semibold leading-tight">
+                    {investmentBalanceLabel}
+                  </p>
+                  <p className="mt-1 text-[#8B92A3] text-[11px]">FundingPool position</p>
+                </div>
+              </div>
+            </div>
+          </article>
+        )}
+      </section>
+
+      <section className="rounded-[8px] border border-[#E6E8EC] bg-white p-4 sm:p-5">
+        <h2 className="text-[#4D5D80] text-[22px] font-semibold leading-tight">Testnet token faucet</h2>
+        <p className="mt-2 text-[#6B7488] text-[14px] leading-relaxed">
+          Mint mock ERC-20 tokens to your connected wallet on {contracts.testnetChain.name}. Use these to deposit into
+          the lending pool — your investment balance is tracked separately as pool shares.
+        </p>
+
+        {!isConnected ? (
+          <p className="mt-4 text-[#6B7488] text-[14px]">Connect your wallet to mint test tokens.</p>
+        ) : (
+          <div className="mt-4 rounded-[6px] border border-[#E6E8EC] bg-[#F9FAFB] p-4 sm:p-5">
+            <label className="block text-[#6B7488] text-[13px] font-medium" htmlFor="mint-amount">
+              Amount to mint
+            </label>
+            <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative flex-1 max-w-[280px]">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#667085] text-[16px] font-semibold">
+                  $
+                </span>
+                <input
+                  id="mint-amount"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={mintDraft}
+                  onChange={(e) => handleMintDraftChange(e.target.value)}
+                  className="w-full rounded-[6px] border border-[#D9DEE8] bg-white py-2.5 pl-8 pr-3 text-[#0B1220] text-[16px] font-semibold outline-none focus:border-[#195EBC]"
+                  aria-label="Amount to mint"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleMint()}
+                disabled={Boolean(mintDisabledReason) || contracts.isWritePending}
+                className="rounded-[6px] bg-[#195EBC] px-5 py-2.5 text-white text-[14px] font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#144a96]"
+              >
+                {contracts.isWritePending ? 'Minting…' : 'Mint test tokens'}
+              </button>
             </div>
 
-            <div className="text-left sm:text-right shrink-0">
-              <p className="text-[#8B92A3] text-[12px]">Balance (on-chain)</p>
-              <div className="mt-1 flex flex-col gap-2 sm:items-end">
-                <p className="text-[#0B1220] text-[22px] sm:text-[26px] font-semibold leading-tight max-w-[min(100%,20rem)] sm:max-w-xs">
-                  {walletTokenBalanceLabel}
-                </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {MINT_QUICK_AMOUNTS.map((value) => (
                 <button
+                  key={value}
                   type="button"
-                  onClick={() => void handleDisconnect()}
-                  disabled={disconnectPending}
-                  className="text-[#DC2626] text-[12px] underline disabled:opacity-50 disabled:no-underline"
+                  onClick={() => handleMintQuickSelect(value)}
+                  className={`rounded-[4px] px-3 py-1.5 text-[12px] border ${
+                    mintAmount === value
+                      ? 'border-[#195EBC] bg-[#E8EFFB] text-[#195EBC]'
+                      : 'border-[#E6E8EC] bg-white text-[#8B92A3]'
+                  }`}
                 >
-                  {disconnectPending ? 'Disconnecting…' : 'Disconnect'}
+                  ${value.toLocaleString()}
                 </button>
-              </div>
+              ))}
             </div>
+
+            {mintDisabledReason && !contracts.isWritePending ? (
+              <p className="mt-3 text-[#B45309] text-[13px]">{mintDisabledReason}</p>
+            ) : null}
+            {mintError ? <p className="mt-3 text-[#DC2626] text-[13px]">{mintError}</p> : null}
+            {mintSuccess ? <p className="mt-3 text-[#16A34A] text-[13px]">{mintSuccess}</p> : null}
           </div>
-        </article>
-      )}
-    </section>
+        )}
+      </section>
+    </div>
   )
 }
 

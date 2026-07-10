@@ -70,11 +70,20 @@ export function poolMetricsToHeaderStats(pool: PoolMetrics): PoolStatItem[] {
   ]
 }
 
-export function investorMetricsToMyStats(inv: InvestorMetrics): PoolStatItem[] {
+export function investorMetricsToMyStats(
+  inv: InvestorMetrics,
+  onChainPoolPositionDisplay?: string | null,
+): PoolStatItem[] {
+  const onChainPosition = onChainPoolPositionDisplay?.trim()
+  const positionValue =
+    onChainPosition && onChainPosition !== '—'
+      ? onChainPosition
+      : displayDashboardCompactUsd(inv.current_position_value)
+
   return [
     { label: 'Total deposited', value: displayDashboardCompactUsd(inv.total_deposited) },
     { label: 'Total withdrawn', value: displayDashboardCompactUsd(inv.total_withdrawn) },
-    { label: 'Current position value', value: displayDashboardCompactUsd(inv.current_position_value) },
+    { label: 'Current position value', value: positionValue },
     { label: 'Total interest earned', value: displayDashboardCompactUsd(inv.total_interest_earned) },
     { label: 'Share of pool', value: displayDashboardPercentString(inv.share_of_pool) },
     { label: 'Net deposited', value: displayDashboardCompactUsd(inv.netDeposited) },
@@ -94,9 +103,11 @@ export function mergeInvestorPoolDetailWithMetrics(
     investorMetrics: InvestorMetrics
     walletAddress: string | null | undefined
     walletDisplayFallback: string
+    onChainPoolPositionDisplay?: string | null
   },
 ): InvestorPoolDetailConfig {
-  const { lendingPool, poolMetrics, investorMetrics, walletAddress, walletDisplayFallback } = params
+  const { lendingPool, poolMetrics, investorMetrics, walletAddress, walletDisplayFallback, onChainPoolPositionDisplay } =
+    params
   const wallet = walletTopBar(walletAddress, walletDisplayFallback)
   return {
     ...staticBase,
@@ -107,7 +118,7 @@ export function mergeInvestorPoolDetailWithMetrics(
       showUnreadNotification: staticBase.topBar?.showUnreadNotification,
     },
     headerStats: poolMetricsToHeaderStats(poolMetrics),
-    myStats: investorMetricsToMyStats(investorMetrics),
+    myStats: investorMetricsToMyStats(investorMetrics, onChainPoolPositionDisplay),
   }
 }
 

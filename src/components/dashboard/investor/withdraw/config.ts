@@ -10,17 +10,15 @@ import type { WithdrawalCompletedMetric, WithdrawalReviewRow } from '@/component
 
 export const WITHDRAW_QUICK_AMOUNTS = [500, 1000, 2500, 5000] as const
 
-const INVESTMENT_BALANCE_FALLBACK = '$20,000.00'
-
 export const WITHDRAWAL_METHOD = 'Standard Withdrawal'
 export const WITHDRAWAL_PROCESSING_TIME = '24-48 hrs'
 export const WITHDRAWAL_WARNING =
   "Standard withdrawals are processed within 24-48 hours. You'll receive a confirmation once the transaction is complete."
 
-/** Total position in the pool — shown as “Investment balance” on withdraw. */
-export function getInvestmentBalanceDisplay(investorMetrics: InvestorMetrics | null): string {
-  if (!investorMetrics) return INVESTMENT_BALANCE_FALLBACK
-  return displayDashboardMetricString(investorMetrics.current_position_value)
+/** Total on-chain pool position — shown as “Investment balance”. */
+export function getInvestmentBalanceDisplay(investmentBalanceDisplay: string): string {
+  const trimmed = investmentBalanceDisplay.trim()
+  return trimmed && trimmed !== '—' ? trimmed : '—'
 }
 
 export function buildWithdrawalReviewRows(
@@ -29,6 +27,7 @@ export function buildWithdrawalReviewRows(
   poolName: string,
   poolMetrics: PoolMetrics | null,
   investorMetrics: InvestorMetrics | null,
+  investmentBalanceDisplay: string,
   options?: { gasFeeEstimateDisplay?: string },
 ): WithdrawalReviewRow[] {
   const amountText = formatInvestAmountUsd(amount)
@@ -41,7 +40,7 @@ export function buildWithdrawalReviewRows(
     rows.push({ label: 'Pool APY', value: displayPoolApyPercent(poolMetrics.apy) })
   }
 
-  rows.push({ label: 'Investment balance', value: getInvestmentBalanceDisplay(investorMetrics) })
+  rows.push({ label: 'Investment balance', value: getInvestmentBalanceDisplay(investmentBalanceDisplay) })
 
   const shareOfPoolRaw = investorMetrics?.share_of_pool
   if (shareOfPoolRaw != null && String(shareOfPoolRaw).trim() !== '') {

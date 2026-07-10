@@ -10,6 +10,7 @@ import {
   INVESTOR_PROFILE_TABS,
 } from '@/components/dashboard/investor/profile/profileConfig'
 import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
+import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { refreshInvestorDashboard } from '@/store/slices/investorDashboardSlice'
 
@@ -21,6 +22,7 @@ const InvestorProfileOverviewContent = () => {
   const authUserEmail = useAppSelector((s) => s.auth.user?.email?.trim())
   const investorMetrics = useAppSelector((s) => s.investorDashboard.investorMetrics)
   const dashboardMetricsStatus = useAppSelector((s) => s.investorDashboard.status)
+  const { investmentBalanceDisplay } = useInvestorOnChainBalances()
 
   const [profile, setProfile] = useState<InvestorProfileInfo | null>(null)
   const [profileLoad, setProfileLoad] = useState<ProfileLoadState>('idle')
@@ -70,7 +72,10 @@ const InvestorProfileOverviewContent = () => {
     return '—'
   }, [authUserEmail, profile?.email, profile, profileLoad])
 
-  const stats = useMemo(() => buildInvestorProfileStatsFromApi(investorMetrics), [investorMetrics])
+  const stats = useMemo(
+    () => buildInvestorProfileStatsFromApi(investorMetrics, investmentBalanceDisplay),
+    [investorMetrics, investmentBalanceDisplay],
+  )
 
   const metricsSyncHint =
     dashboardMetricsStatus === 'loading' && !investorMetrics

@@ -9,11 +9,17 @@ import {
   PAYOUT_ROUTER_ADDRESS,
 } from '@/contract_config/deployment'
 import { postMerchantRepaymentSubmit } from '@/api/payout'
+import { displayDashboardMetricString } from '@/api/metrics'
 import { useAppSelector } from '@/store/hooks'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 import { APP_CHAIN } from '@/wallet/appChain'
 import { getBufferedEip1559Fees } from '@/wallet/bufferedEip1559Fees'
 import { ensureWalletChain, getPublicClient, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
+import {
+  computePoolPositionHuman,
+  formatPoolPositionUsdDisplay,
+  isPoolPositionLoading,
+} from '@/utils/fundingPoolPosition'
 
 /** Chain where the active deployment config contracts are deployed. */
 export const APP_CONTRACTS_CHAIN = APP_CHAIN
@@ -202,6 +208,31 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const mockTokenBalanceFormatted = useMemo(
     () => formatTokenHuman(balanceBn, tokenDecimals),
     [balanceBn, tokenDecimals],
+  )
+
+  const poolPositionInputs = useMemo(
+    () => ({
+      userShares: userSharesBn,
+      totalShares: totalSharesBn,
+      totalAssets: totalAssetsBn,
+      tokenDecimals,
+    }),
+    [userSharesBn, totalSharesBn, totalAssetsBn, tokenDecimals],
+  )
+
+  const poolPositionHuman = useMemo(
+    () => computePoolPositionHuman(poolPositionInputs),
+    [poolPositionInputs],
+  )
+
+  const poolPositionUsdDisplay = useMemo(
+    () => formatPoolPositionUsdDisplay(poolPositionInputs),
+    [poolPositionInputs],
+  )
+
+  const poolPositionLoading = useMemo(
+    () => isPoolPositionLoading(poolPositionInputs),
+    [poolPositionInputs],
   )
 
   const nativeSymbol = APP_CONTRACTS_CHAIN.nativeCurrency.symbol
@@ -414,18 +445,31 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       if (!Number.isFinite(humanAmount) || humanAmount <= 0)
         return { ok: false, message: 'Enter an amount greater than zero.' }
       if (userSharesBn === undefined) return { ok: false, message: 'Could not read your pool shares.' }
+      if (poolPositionHuman != null && poolPositionHuman > 0 && humanAmount > poolPositionHuman + 1e-9) {
+        return {
+          ok: false,
+          message: `Amount cannot exceed your investment balance of ${displayDashboardMetricString(poolPositionHuman)}.`,
+        }
+      }
       const assetWei = humanAmountToUnits(humanAmount, tokenDecimals)
       const sharesNeeded = tokenAmountToWithdrawShares(assetWei, totalSharesBn ?? 0n, totalAssetsBn ?? 0n)
       if (sharesNeeded === null || sharesNeeded <= 0n)
         return { ok: false, message: 'Pool has no assets yet; withdrawals are unavailable.' }
-      if (userSharesBn < sharesNeeded)
+      if (userSharesBn < sharesNeeded) {
+        const maxLabel =
+          poolPositionHuman != null && poolPositionHuman > 0
+            ? displayDashboardMetricString(poolPositionHuman)
+            : null
         return {
           ok: false,
-          message: 'Insufficient pool shares for this withdrawal amount. Try a smaller amount.',
+          message: maxLabel
+            ? `Amount cannot exceed your investment balance of ${maxLabel}.`
+            : 'Insufficient pool shares for this withdrawal amount. Try a smaller amount.',
         }
+      }
       return { ok: true }
     },
-    [address, isConnected, isCorrectNetwork, tokenDecimals, totalAssetsBn, totalSharesBn, userSharesBn],
+    [address, isConnected, isCorrectNetwork, poolPositionHuman, tokenDecimals, totalAssetsBn, totalSharesBn, userSharesBn],
   )
 
   const depositFundingPool = useCallback(
@@ -486,6 +530,41 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       tokenDecimals,
       wallet,
     ],
+  )
+
+  const mintMockTokens = useCallback(
+    async (humanAmount: number): Promise<Hash> => {
+      if (!isConnected || !address) throw new Error('Connect your wallet to mint test tokens.')
+      if (!wallet) throw new Error('Wallet required')
+      if (!isCorrectNetwork) {
+        throw new Error(`Switch your wallet to ${APP_CONTRACTS_CHAIN.name} to mint test tokens.`)
+      }
+
+      const amount = humanAmountToUnits(humanAmount, tokenDecimals)
+      if (amount <= 0n) throw new Error('Enter an amount greater than zero.')
+
+      setIsWritePending(true)
+      try {
+        await ensureWalletChain(wallet, APP_CONTRACTS_CHAIN.id)
+        const walletClient = await getWalletClientFromPrivyWallet(wallet)
+        const gasFees = await getBufferedEip1559Fees(publicClient)
+        const mintHash = await walletClient.writeContract({
+          address: MOCK_ERC20_ADDRESS,
+          abi: MOCK_ERC20_ABI,
+          functionName: 'mint',
+          args: [address as `0x${string}`, amount],
+          chain: APP_CONTRACTS_CHAIN,
+          account: address as `0x${string}`,
+          ...gasFees,
+        })
+        await publicClient.waitForTransactionReceipt({ hash: mintHash })
+        await refetchBalances()
+        return mintHash
+      } finally {
+        setIsWritePending(false)
+      }
+    },
+    [address, isConnected, isCorrectNetwork, publicClient, refetchBalances, tokenDecimals, wallet],
   )
 
   const readPayoutRouterAllowance = useCallback(async (): Promise<bigint> => {
@@ -699,6 +778,9 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     userPoolShares: userSharesBn,
     totalPoolShares: totalSharesBn,
     totalPoolAssets: totalAssetsBn,
+    poolPositionHuman,
+    poolPositionUsdDisplay,
+    poolPositionLoading,
     isContractsLoading: readsEnabled && (balanceQuery.isPending || decimalsQuery.isPending),
     isWritePending,
     refetchBalances,
@@ -711,6 +793,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     submitRepayReceivable,
     executeMerchantRepayment,
     depositFundingPool,
+    mintMockTokens,
     repayReceivable,
     requestFundingPoolWithdraw,
     depositGasFeeLabel,

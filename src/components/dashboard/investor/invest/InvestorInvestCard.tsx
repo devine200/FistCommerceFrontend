@@ -16,9 +16,15 @@ import InvestmentConfirmationStep from '@/components/dashboard/investor/invest/s
 import InvestmentPoolSelectionStep from '@/components/dashboard/investor/invest/steps/InvestmentPoolSelectionStep'
 import { InvestmentStep } from '@/components/dashboard/investor/invest/types'
 import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
+import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useAppSelector } from '@/store/hooks'
 import { formatFlowFailureMessage } from '@/utils/formatFlowFailureMessage'
+import {
+  clampToMaxHuman,
+  filterQuickAmountsByMax,
+  validateInvestDepositAmount,
+} from '@/utils/investorFlowAmountLimits'
 
 interface InvestorInvestCardProps {
   walletDisplay?: string
@@ -52,6 +58,14 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
     estimateDepositHumanAmount:
       currentStep === InvestmentStep.InvestmentConfirmation ? displayAmount : undefined,
   })
+  const { investmentBalanceDisplay, walletBalanceDisplay, walletBalanceHuman } = useInvestorOnChainBalances()
+
+  const investQuickAmounts = useMemo(
+    () => filterQuickAmountsByMax(INVEST_QUICK_AMOUNTS, walletBalanceHuman),
+    [walletBalanceHuman],
+  )
+
+  const depositAmountError = validateInvestDepositAmount(displayAmount, walletBalanceHuman)
 
   const poolInfo = useMemo(
     () => buildLiveInvestmentPoolInfo(lendingPool.poolTitle, poolMetrics),
@@ -78,27 +92,48 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
   const walletMockTokenLabel = useMemo(() => {
     if (!contracts.isConnected) return 'Connect your wallet to view token balance (Arbitrum Sepolia).'
     if (contracts.isContractsLoading) return 'Loading balance…'
-    const formatted = contracts.mockTokenBalanceFormatted
-    const amountLine = formatted === '—' ? 'Wallet Balance: —' : `Wallet Balance: $${formatted}`
     if (!contracts.isCorrectNetwork) {
-      return `${amountLine} (off-chain view; switch to ${contracts.testnetChain.name} to deposit.)`
+      return `Switch to ${contracts.testnetChain.name} to deposit. Wallet balance: ${walletBalanceDisplay}.`
     }
-    return amountLine
+    return `Wallet balance: ${walletBalanceDisplay}`
   }, [
     contracts.isConnected,
     contracts.isContractsLoading,
     contracts.isCorrectNetwork,
-    contracts.mockTokenBalanceFormatted,
     contracts.testnetChain.name,
+    walletBalanceDisplay,
   ])
 
   const handlePoolContinue = () => {
+    const uiError = validateInvestDepositAmount(displayAmount, walletBalanceHuman)
+    if (uiError) {
+      openFlowFailure(uiError, InvestmentStep.PoolSelection)
+      return
+    }
     const gate = contracts.canDepositHuman(displayAmount)
     if (!gate.ok) {
       openFlowFailure(gate.message ?? 'Cannot continue', InvestmentStep.PoolSelection)
       return
     }
     setStep(InvestmentStep.InvestmentConfirmation)
+  }
+
+  const handleAmountContinue = () => {
+    const uiError = validateInvestDepositAmount(displayAmount, walletBalanceHuman)
+    if (uiError) {
+      openFlowFailure(uiError, InvestmentStep.AmountEntry)
+      return
+    }
+    const gate = contracts.canDepositHuman(displayAmount)
+    if (!gate.ok) {
+      openFlowFailure(gate.message ?? 'Cannot continue', InvestmentStep.AmountEntry)
+      return
+    }
+    setStep(InvestmentStep.PoolSelection)
+  }
+
+  const handleAmountSelect = (value: number) => {
+    setAmount(clampToMaxHuman(value, walletBalanceHuman))
   }
 
   const handleInvestConfirm = async () => {
@@ -168,9 +203,13 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
           <InvestmentAmountStep
             amount={amount}
             walletDisplay={walletDisplay ?? '0x7A3F...92C1'}
-            quickAmounts={INVEST_QUICK_AMOUNTS}
-            onAmountSelect={setAmount}
-            onContinue={() => setStep(InvestmentStep.PoolSelection)}
+            walletBalanceDisplay={walletBalanceDisplay}
+            investmentBalanceDisplay={investmentBalanceDisplay}
+            maxAmountHuman={walletBalanceHuman}
+            validationError={depositAmountError}
+            quickAmounts={investQuickAmounts}
+            onAmountSelect={handleAmountSelect}
+            onContinue={handleAmountContinue}
           />
         )
     }

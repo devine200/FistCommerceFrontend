@@ -6,16 +6,18 @@ import {
   buildInvestorPortfolioMetricsFromApi,
   INVESTOR_PORTFOLIO,
 } from '@/components/dashboard/investor/profile/profileConfig'
+import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useAppSelector } from '@/store/hooks'
 
 const InvestorProfileOverviewTabContent = () => {
   const investorMetrics = useAppSelector((s) => s.investorDashboard.investorMetrics)
   const poolMetrics = useAppSelector((s) => s.investorDashboard.poolMetrics)
   const lendingPool = useAppSelector((s) => s.investorDashboard.lendingPools)
+  const { investmentBalanceDisplay } = useInvestorOnChainBalances()
 
   const metrics = useMemo(
-    () => buildInvestorPortfolioMetricsFromApi(investorMetrics, poolMetrics),
-    [investorMetrics, poolMetrics],
+    () => buildInvestorPortfolioMetricsFromApi(investorMetrics, poolMetrics, investmentBalanceDisplay),
+    [investorMetrics, poolMetrics, investmentBalanceDisplay],
   )
   
   const poolName = lendingPool.poolTitle?.trim() || INVESTOR_PORTFOLIO.poolName

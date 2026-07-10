@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { formatUnits } from 'viem'
 
 import { formatInvestAmountUsd } from '@/components/dashboard/investor/invest/config'
 import {
   buildWithdrawalCompletedMetrics,
   buildWithdrawalReviewRows,
-  getInvestmentBalanceDisplay,
   WITHDRAWAL_PROCESSING_TIME,
   WITHDRAWAL_WARNING,
   WITHDRAW_QUICK_AMOUNTS,
@@ -16,9 +14,15 @@ import WithdrawFinalConfirmationStep from '@/components/dashboard/investor/withd
 import WithdrawMethodConfirmationStep from '@/components/dashboard/investor/withdraw/steps/WithdrawMethodConfirmationStep'
 import { WithdrawalStep } from '@/components/dashboard/investor/withdraw/types'
 import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
+import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useAppSelector } from '@/store/hooks'
 import { formatFlowFailureMessage } from '@/utils/formatFlowFailureMessage'
+import {
+  clampToMaxHuman,
+  filterQuickAmountsByMax,
+  validateInvestWithdrawAmount,
+} from '@/utils/investorFlowAmountLimits'
 import { shortWalletDisplay } from '@/utils/shortWalletDisplay'
 
 interface InvestorWithdrawFlowProps {
@@ -48,9 +52,16 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
   const walletAddress = useAppSelector((s) => s.wallet.address)
 
   const poolName = lendingPool.poolTitle?.trim() || 'Lending pool'
-  const investmentBalanceDisplay = useMemo(() => getInvestmentBalanceDisplay(investorMetrics), [investorMetrics])
-  const destinationWallet = shortWalletDisplay(walletAddress, walletDisplay ?? '—')
+  const { investmentBalanceDisplay, walletBalanceDisplay, investmentBalanceHuman } = useInvestorOnChainBalances()
   const displayAmount = amount
+
+  const withdrawQuickAmounts = useMemo(
+    () => filterQuickAmountsByMax(WITHDRAW_QUICK_AMOUNTS, investmentBalanceHuman),
+    [investmentBalanceHuman],
+  )
+
+  const withdrawAmountError = validateInvestWithdrawAmount(displayAmount, investmentBalanceHuman)
+  const destinationWallet = shortWalletDisplay(walletAddress, walletDisplay ?? '—')
   const amountDisplay = formatInvestAmountUsd(displayAmount)
 
   const contracts = useTestnetContracts({
@@ -79,44 +90,38 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
   }
 
   const withdrawOnChainHint = useMemo(() => {
-    if (!contracts.isConnected) return 'Connect your wallet to check on-chain pool position (Arbitrum Sepolia).'
-    const { userPoolShares, totalPoolShares, totalPoolAssets, tokenDecimals } = contracts
-    if (userPoolShares === undefined || totalPoolShares === undefined || totalPoolAssets === undefined) {
-      return 'Reading your pool position…'
-    }
-    if (totalPoolShares <= 0n)
-      return 'No pool shares on-chain yet — fund the pool before withdrawing.'
-    const assetWei = (userPoolShares * totalPoolAssets) / totalPoolShares
-    const n = Number(formatUnits(assetWei, tokenDecimals))
-    const position =
-      Number.isFinite(n) ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '—'
-    const wallet =
-      contracts.mockTokenBalanceFormatted === '—'
-        ? 'Wallet Balance: —'
-        : `Wallet Balance: $${contracts.mockTokenBalanceFormatted}`
-    const base = `On-chain pool position (approx.): ${position} token units. ${wallet}.`
+    if (!contracts.isConnected) return 'Connect your wallet on Arbitrum Sepolia to withdraw from the pool.'
     if (!contracts.isCorrectNetwork) {
-      return `${base} Switch your wallet to ${contracts.testnetChain.name} to submit withdrawals.`
+      return `Switch your wallet to ${contracts.testnetChain.name} to submit withdrawals.`
     }
-    return base
+    if (contracts.poolPositionLoading) return 'Reading your on-chain pool position…'
+    if (contracts.poolPositionHuman === null) return 'Could not read pool position.'
+    if (contracts.poolPositionHuman <= 0) return 'No on-chain pool position yet — invest in the pool first.'
+    return null
   }, [
     contracts.isConnected,
     contracts.isCorrectNetwork,
-    contracts.mockTokenBalanceFormatted,
+    contracts.poolPositionHuman,
+    contracts.poolPositionLoading,
     contracts.testnetChain.name,
-    contracts.tokenDecimals,
-    contracts.totalPoolAssets,
-    contracts.totalPoolShares,
-    contracts.userPoolShares,
   ])
 
   const handleAmountContinue = () => {
+    const uiError = validateInvestWithdrawAmount(displayAmount, investmentBalanceHuman)
+    if (uiError) {
+      openFlowFailure(uiError, WithdrawalStep.AmountEntry, false)
+      return
+    }
     const gate = contracts.canWithdrawHuman(displayAmount)
     if (!gate.ok) {
       openFlowFailure(gate.message ?? 'Cannot continue', WithdrawalStep.AmountEntry, false)
       return
     }
     setWithdrawalStep(WithdrawalStep.MethodConfirmation)
+  }
+
+  const handleAmountSelect = (value: number) => {
+    setAmount(clampToMaxHuman(value, investmentBalanceHuman))
   }
 
   const handleWithdrawConfirm = async () => {
@@ -152,6 +157,7 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
               poolName,
               poolMetrics,
               investorMetrics,
+              investmentBalanceDisplay,
               { gasFeeEstimateDisplay: contracts.withdrawGasFeeLabel },
             )}
             onContinue={() => setWithdrawalStep(WithdrawalStep.FinalConfirmation)}
@@ -186,10 +192,13 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
           <WithdrawAmountStep
             amount={amount}
             destinationWallet={destinationWallet}
+            walletBalanceDisplay={walletBalanceDisplay}
             investmentBalanceDisplay={investmentBalanceDisplay}
-            walletTokenBalanceLabel={withdrawOnChainHint}
-            quickAmounts={WITHDRAW_QUICK_AMOUNTS}
-            onAmountSelect={setAmount}
+            maxAmountHuman={investmentBalanceHuman}
+            validationError={withdrawAmountError}
+            onChainHint={withdrawOnChainHint}
+            quickAmounts={withdrawQuickAmounts}
+            onAmountSelect={handleAmountSelect}
             onContinue={handleAmountContinue}
           />
         )

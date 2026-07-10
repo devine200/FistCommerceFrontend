@@ -80,6 +80,16 @@ const MINIMAL_ERC20_ABI = [
     ],
     outputs: [{ name: '', type: 'bool' }],
   },
+  {
+    type: 'function',
+    name: 'mint',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
 ] as const satisfies Abi
 
 function readEnvAddress(key: string): string | undefined {

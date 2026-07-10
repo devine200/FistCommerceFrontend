@@ -1,14 +1,18 @@
 import arbitrumLogo from '@/assets/arbitrum_icon.jpeg.png'
 import { formatInvestAmountUsd } from '@/components/dashboard/investor/invest/config'
+import InvestorBalanceSummaryBoxes from '@/components/dashboard/investor/shared/InvestorBalanceSummaryBoxes'
+import { clampToMaxHuman } from '@/utils/investorFlowAmountLimits'
 import { useEffect, useMemo, useState } from 'react'
 
 interface WithdrawAmountStepProps {
   amount: number
   destinationWallet: string
-  /** Formatted position value from investor metrics (or fallback). */
+  walletBalanceDisplay: string
   investmentBalanceDisplay: string
-  /** Optional on-chain pool / mock token context (Arbitrum Sepolia). */
-  walletTokenBalanceLabel?: string
+  maxAmountHuman?: number | null
+  validationError?: string | null
+  /** Optional on-chain hint when pool position cannot be used for withdrawal. */
+  onChainHint?: string | null
   quickAmounts: readonly number[]
   onAmountSelect: (value: number) => void
   onContinue: () => void
@@ -17,8 +21,11 @@ interface WithdrawAmountStepProps {
 const WithdrawAmountStep = ({
   amount,
   destinationWallet,
+  walletBalanceDisplay,
   investmentBalanceDisplay,
-  walletTokenBalanceLabel,
+  maxAmountHuman,
+  validationError,
+  onChainHint,
   quickAmounts,
   onAmountSelect,
   onContinue,
@@ -41,21 +48,27 @@ const WithdrawAmountStep = ({
     const cleaned = nextRaw.replace(/[^\d.,]/g, '')
     setDraft(cleaned)
     const n = Number(cleaned.replace(/,/g, ''))
-    if (Number.isFinite(n)) onAmountSelect(n)
-    else onAmountSelect(0)
+    if (Number.isFinite(n)) {
+      onAmountSelect(clampToMaxHuman(n, maxAmountHuman))
+    } else {
+      onAmountSelect(0)
+    }
   }
+
+  const canContinue = amount > 0 && !validationError
 
   return (
     <>
       <section className="rounded-[10px] border border-[#D9DEE8] bg-white p-4 sm:p-6">
         <h2 className="text-[#6B7488] font-medium text-[16px] sm:text-[20px] mb-3 sm:mb-4">Withdraw Funds</h2>
 
-        <div className="rounded-[6px] border border-[#195EBC] bg-[#E8EFFB] px-4 py-3 text-left">
-          <p className="text-[#8B92A3] text-[12px] sm:text-[14px]">Investment balance</p>
-          <p className="text-[#0B1220] text-[26px] sm:text-[34px] font-bold leading-tight mt-1">
-            {investmentBalanceDisplay}
-          </p>
-        </div>
+        <InvestorBalanceSummaryBoxes
+          walletBalanceDisplay={walletBalanceDisplay}
+          investmentBalanceDisplay={investmentBalanceDisplay}
+        />
+        {onChainHint ? (
+          <p className="text-[#B45309] text-[13px] mt-3">{onChainHint}</p>
+        ) : null}
       </section>
 
       <section className="rounded-[10px] border border-[#D9DEE8] bg-white px-4 py-6 sm:px-6 sm:py-10">
@@ -82,26 +95,30 @@ const WithdrawAmountStep = ({
           <p className="text-[#8B92A3] text-[14px] mt-2" aria-live="polite">
             {formattedPreview}
           </p>
+          {validationError ? (
+            <p className="text-[#DC2626] text-[13px] mt-2 max-w-md text-center">{validationError}</p>
+          ) : null}
         </div>
 
         <div className="flex justify-center flex-wrap gap-3 mt-6 sm:mt-8">
-          {quickAmounts.map((v) => (
+          {quickAmounts.map((v) => {
+            const overMax =
+              maxAmountHuman != null && Number.isFinite(maxAmountHuman) && maxAmountHuman > 0 && v > maxAmountHuman
+            return (
             <button
               key={v}
               type="button"
               onClick={() => onAmountSelect(v)}
+              disabled={overMax}
               className={`min-w-[72px] sm:min-w-[90px] rounded-[4px] px-3 py-2 text-[13px] border ${
                 amount === v ? 'border-[#195EBC] bg-[#E8EFFB] text-[#195EBC]' : 'border-[#E6E8EC] bg-[#F8FAFC] text-[#8B92A3]'
-              }`}
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
               ${v.toLocaleString()}
             </button>
-          ))}
+            )
+          })}
         </div>
-
-        {walletTokenBalanceLabel ? (
-          <p className="text-center text-[#4D5D80] text-[13px] mt-4 max-w-md mx-auto">{walletTokenBalanceLabel}</p>
-        ) : null}
 
         <div className="flex justify-center mt-6 sm:mt-10">
           <div className="flex items-center gap-3">
@@ -117,7 +134,7 @@ const WithdrawAmountStep = ({
         <button
           type="button"
           onClick={onContinue}
-          disabled={amount <= 0}
+          disabled={!canContinue}
           className="mt-6 sm:mt-10 w-full rounded-[6px] bg-[#195EBC] text-white text-[16px] sm:text-[18px] font-medium h-[50px] hover:bg-[#154a9a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Continue
