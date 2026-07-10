@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 
 import { evaluateOnboardingPath } from '@/access/evaluateAccess'
 import { hasDashboardSession, isSessionBootstrapping } from '@/access/sessionAccess'
+import { isAdminSession } from '@/auth/adminSession'
 import { useAccessContext } from '@/hooks/useAccessContext'
 import { useAppDispatch } from '@/store/hooks'
 import { patchAuth } from '@/store/slices/authSlice'
@@ -33,7 +34,7 @@ export default function OnboardingStepOutletGuard() {
     return <Outlet />
   }
 
-  if (ctx.onboarded) {
+  if (ctx.onboarded && !isAdminSession(ctx.accessToken, ctx.sessionKind)) {
     const normalizedRole = parseUserRole(ctx.role)
 
     if (hasDashboardSession(ctx) && normalizedRole) {

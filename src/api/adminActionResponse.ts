@@ -8,7 +8,7 @@ export type ServicerWalletSnapshot = {
 export type AdminWriteOutcome =
   | {
       kind: 'completed'
-      status: 200
+      status: 200 | 201
       message: string
       txHash?: string
       servicerGasWarning?: string
@@ -116,15 +116,25 @@ export async function parseAdminWriteResponse(res: Response): Promise<AdminWrite
 
   if (res.status === 201) {
     const proposalId = pickProposalId(data)
-    if (!proposalId) {
-      throw new Error(pickMessage(data, 'Proposal create response was missing proposalId.'))
+    if (proposalId) {
+      return {
+        kind: 'proposal_created',
+        status: 201,
+        message: pickMessage(data, 'Multisig proposal created.'),
+        proposalId,
+        proposalDetailUrl: pickStr(data, 'proposalDetailUrl', 'proposal_detail_url') || undefined,
+        raw: data,
+      }
     }
+
     return {
-      kind: 'proposal_created',
+      kind: 'completed',
       status: 201,
-      message: pickMessage(data, 'Multisig proposal created.'),
-      proposalId,
-      proposalDetailUrl: pickStr(data, 'proposalDetailUrl', 'proposal_detail_url') || undefined,
+      message: pickMessage(data, 'Request completed.'),
+      txHash: pickTxHash(data),
+      servicerGasWarning: pickStr(data, 'servicerGasWarning', 'servicer_gas_warning') || undefined,
+      servicerWallet: normalizeServicerWallet(data.servicerWallet ?? data.servicer_wallet),
+      postExecuteSync: data.postExecuteSync ?? data.post_execute_sync,
       raw: data,
     }
   }

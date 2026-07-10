@@ -10,7 +10,7 @@ export const MERCHANT_REPAY_ON_CHAIN_UNAVAILABLE =
   'On-chain repayment is available for live loans with a linked receivable.'
 
 export const MERCHANT_REPAY_WARNING =
-  'Smart contract interactions are irreversible. Ensure your wallet is on Arbitrum Sepolia and you have approved sufficient token balance.'
+  'Repayment uses a two-step flow: you approve tokens in your wallet, then the protocol servicer submits the on-chain repayment. Ensure your wallet is on Arbitrum Sepolia with sufficient token balance and gas for approval.'
 
 export function merchantRepayPaths(loanId: string) {
   const base = `/dashboard/merchant/receivables/${loanId}/repay`
@@ -52,10 +52,10 @@ export function merchantRepaySubmitStatusMessage(
     return 'Confirm the token approval in your wallet. Repayment will start after approval is confirmed on-chain.'
   }
   if (phase === 'repaying') {
-    return 'Token approval confirmed. Confirm the repayment transaction in your wallet.'
+    return 'Submitting repayment… This may take a few seconds while the servicer processes your payment on-chain.'
   }
   if (needsApproval) {
-    return 'You will approve the repayment amount first, then submit the repayment transaction.'
+    return 'You will approve tokens in your wallet first. Repayment is then submitted by the protocol servicer — no second wallet signature.'
   }
   return null
 }

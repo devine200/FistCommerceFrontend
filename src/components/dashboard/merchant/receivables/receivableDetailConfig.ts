@@ -1,6 +1,7 @@
 import { MERCHANT_RECEIVABLES_ROWS } from '@/components/dashboard/merchant/receivables/merchantReceivablesConfig'
 import type { ReceivableDetailView } from '@/components/dashboard/merchant/receivables/receivableDetailTypes'
 import { ReceivableStage } from '@/types/receivables'
+import { demoRepayStateFromStage } from '@/utils/merchantReceivableRepayEligibility'
 
 const DEMO_LIFECYCLE: ReceivableDetailView['lifecycle'] = [
   {
@@ -81,10 +82,14 @@ export const getReceivableDetailById = (receivableId: string): ReceivableDetailV
     'r-5': ReceivableStage.Repaid,
   }
 
+  const stage = stageById[receivableId] ?? ReceivableStage.Verified
+  const maturityBanner =
+    stage === ReceivableStage.Repaid ? 'Loan repaid in full' : 'Loan Maturing in 56 Days'
+
   return {
     row,
     merchantId: RECEIVABLE_ID_TO_MERCHANT_ID[receivableId] ?? 'm-1',
-    stage: stageById[receivableId] ?? ReceivableStage.Verified,
+    stage,
     subtitle: 'Moderate risk, Moderate returns.',
     heroMetrics: [
       {
@@ -111,9 +116,10 @@ export const getReceivableDetailById = (receivableId: string): ReceivableDetailV
     ],
     lifecycle: DEMO_LIFECYCLE,
     repaymentRows: DEMO_REPAYMENT,
-    maturityBanner: 'Loan Maturing in 56 Days',
+    maturityBanner,
     basicInfo: DEMO_BASIC,
     documentName: 'Inv-daveenterprise-011',
     documentUrl: null,
+    repayState: demoRepayStateFromStage(stage, row.repaymentAmount),
   }
 }

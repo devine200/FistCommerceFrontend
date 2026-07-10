@@ -66,6 +66,7 @@ export type LoanDetailsLifecycle = {
   verifiedAt: string | null
   maturedAt: string | null
   defaultedAt: string | null
+  repaidAt: string | null
   onchainStatus: number | null
 }
 
@@ -178,11 +179,11 @@ export function canNavigateToLoanDetail(id: string): boolean {
   return Boolean(value) && !value.startsWith('pending-')
 }
 
-/** `lifecycle.status` values that allow the merchant repayment flow (loan must be funded first). */
+/** Repayment requires merchant disbursement (`paid_out`) or an active post-payout loan state. */
 export function isLoanLifecycleEligibleForRepayment(statusRaw: string | null | undefined): boolean {
   const s = (statusRaw ?? '').trim().toLowerCase()
   if (!s || s === 'repaid') return false
-  return s === 'funded' || s === 'matured' || s === 'defaulted'
+  return s === 'paid_out' || s === 'matured' || s === 'defaulted'
 }
 
 export type MerchantLoanListEntry = {
@@ -231,6 +232,7 @@ function normalizeLoanDetailsPayload(raw: unknown): LoanDetailsResponse {
       verifiedAt: pickStr(lifecycle, 'verifiedAt', 'verified_at'),
       maturedAt: pickStr(lifecycle, 'maturedAt', 'matured_at'),
       defaultedAt: pickStr(lifecycle, 'defaultedAt', 'defaulted_at'),
+      repaidAt: pickStr(lifecycle, 'repaidAt', 'repaid_at'),
       onchainStatus:
         typeof lifecycle.onchainStatus === 'number'
           ? lifecycle.onchainStatus

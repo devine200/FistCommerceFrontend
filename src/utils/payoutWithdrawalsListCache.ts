@@ -36,7 +36,9 @@ export function filterPayoutWithdrawalsBySearch(
   return rows.filter((row) => {
     const hay = [
       row.id,
-      row.requestKey,
+      row.actionId,
+      row.receivableId,
+      row.withdrawalRequestId,
       row.party.displayName,
       row.party.wallet,
       row.typeLabel,
@@ -54,7 +56,7 @@ export function payoutWithdrawalListsEqual(a: AdminRequestRow[], b: AdminRequest
     const other = b[index]
     if (!other) return false
     return (
-      row.requestKey === other.requestKey &&
+      row.actionId === other.actionId &&
       row.status === other.status &&
       row.governanceStatus === other.governanceStatus &&
       row.pendingGovernanceProposalId === other.pendingGovernanceProposalId &&

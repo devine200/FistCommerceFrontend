@@ -7,7 +7,7 @@ import {
   type LifecycleStepVariant,
   type ReceivableDetailView,
 } from '@/components/dashboard/merchant/receivables/receivableDetailTypes'
-import { isReceivableStageEligibleForRepayment, lifecycleCompletedCount } from '@/types/receivables'
+import { isLifecycleStepCompleted, ReceivableStage } from '@/types/receivables'
 
 const lifecycleBarClass = (variant: LifecycleStepVariant): string => {
   if (variant === 'purple') return 'bg-[#9333EA]'
@@ -23,11 +23,22 @@ interface MerchantReceivableDetailContentProps {
 }
 
 const MerchantReceivableDetailContent = ({ detail }: MerchantReceivableDetailContentProps) => {
-  const { row, subtitle, heroMetrics, lifecycle, repaymentRows, maturityBanner, basicInfo, documentUrl, stage } = detail
+  const {
+    row,
+    subtitle,
+    heroMetrics,
+    lifecycle,
+    repaymentRows,
+    maturityBanner,
+    basicInfo,
+    documentUrl,
+    stage,
+    repayState,
+  } = detail
   const navigate = useNavigate()
-  const completedCount = lifecycleCompletedCount(stage)
   const documentHref = documentUrl?.trim() || null
-  const canRepay = isReceivableStageEligibleForRepayment(stage)
+  const { canRepay, disabledReason, isPaidOutToMerchant } = repayState
+  const isFullyRepaid = stage === ReceivableStage.Repaid
 
   return (
     <div className="flex flex-col gap-6 pb-8">
@@ -36,6 +47,19 @@ const MerchantReceivableDetailContent = ({ detail }: MerchantReceivableDetailCon
           <div className="min-w-0">
             <h1 className="text-[#0B1220] font-bold text-[28px] lg:text-[34px] leading-tight">{row.receivableName}</h1>
             <p className="text-[#6B7488] text-[16px] mt-1.5">{subtitle}</p>
+            {isFullyRepaid ? (
+              <p className="mt-2 inline-flex items-center rounded-[6px] bg-[#EEF2FF] border border-[#C7D2FE] px-3 py-1 text-[#3730A3] text-[13px] font-medium">
+                Loan fully repaid
+              </p>
+            ) : isPaidOutToMerchant ? (
+              <p className="mt-2 inline-flex items-center rounded-[6px] bg-[#ECFDF3] border border-[#BBF7D0] px-3 py-1 text-[#166534] text-[13px] font-medium">
+                Loan disbursed to your account
+              </p>
+            ) : (
+              <p className="mt-2 inline-flex items-center rounded-[6px] bg-[#FEF3C7] border border-[#FDE68A] px-3 py-1 text-[#92400E] text-[13px] font-medium">
+                Payout pending — funds not yet disbursed
+              </p>
+            )}
             <button type="button" className="mt-3 text-[#195EBC] text-[14px] font-medium hover:underline">
               Report an issue
             </button>
@@ -54,7 +78,7 @@ const MerchantReceivableDetailContent = ({ detail }: MerchantReceivableDetailCon
             </button>
           ) : (
             <p className="shrink-0 text-[#6B7488] text-[14px] leading-snug max-w-[280px] lg:text-right">
-              Repayment is available after your loan has been funded.
+              {disabledReason ?? 'Repayment is not available for this loan.'}
             </p>
           )}
         </div>
@@ -87,7 +111,7 @@ const MerchantReceivableDetailContent = ({ detail }: MerchantReceivableDetailCon
           <h2 className="text-[#0B1220] font-bold text-[18px] mb-6">Receivable Lifecycle</h2>
           <ol className="m-0 p-0 list-none flex flex-col gap-8">
             {lifecycle.map((step, i) => {
-              const completed = i < completedCount
+              const completed = isLifecycleStepCompleted(stage, i)
               return (
                 <li key={`${step.label}-${i}`} className="flex gap-4 min-w-0">
                   <div

@@ -10,6 +10,7 @@ import { getReceivableDetailById } from '@/components/dashboard/merchant/receiva
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 import { useAppSelector } from '@/store/hooks'
 import { mapLoanDetailsToReceivableDetailView } from '@/utils/mapLoanDetailsToReceivableDetailView'
+import { resolveMerchantReceivableRepayState } from '@/utils/merchantReceivableRepayEligibility'
 
 type ReceivableDetailLocationState = {
   poolSlug?: string
@@ -49,7 +50,9 @@ const MerchantReceivableDetailPage = () => {
     queryKey: ['loan-details', loanId, token],
     queryFn: async () => {
       if (!token) throw new Error('Missing session token.')
-      return await fetchLoanDetails(token, loanId)
+      const api = await fetchLoanDetails(token, loanId)
+      const repayState = await resolveMerchantReceivableRepayState(token, api)
+      return { api, repayState }
     },
     enabled: Boolean(loanId && token && fetchFromApi),
     staleTime: Number.POSITIVE_INFINITY,
@@ -62,7 +65,11 @@ const MerchantReceivableDetailPage = () => {
 
   const detail = useMemo(() => {
     if (!loanDetailsQuery.data || !loanId) return null
-    return mapLoanDetailsToReceivableDetailView(loanId, loanDetailsQuery.data)
+    return mapLoanDetailsToReceivableDetailView(
+      loanId,
+      loanDetailsQuery.data.api,
+      loanDetailsQuery.data.repayState,
+    )
   }, [loanDetailsQuery.data, loanId])
 
   const resolvedDetail = detail ?? (!fetchFromApi ? demoOnlyDetail : null)

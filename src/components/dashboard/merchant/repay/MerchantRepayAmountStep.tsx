@@ -2,11 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 
 import arbitrumLogo from '@/assets/arbitrum_icon.jpeg.png'
 import { formatInvestAmountUsd } from '@/components/dashboard/investor/invest/config'
+import {
+  clampMerchantRepayAmount,
+  validateMerchantRepayAmount,
+} from '@/utils/merchantReceivableRepayEligibility'
 
 interface MerchantRepayAmountStepProps {
   amount: number
   destinationWallet: string
   amountOwedLabel: string
+  amountOwedHuman?: number | null
   walletTokenBalanceLabel?: string
   validationError?: string | null
   quickAmounts: readonly number[]
@@ -18,6 +23,7 @@ const MerchantRepayAmountStep = ({
   amount,
   destinationWallet,
   amountOwedLabel,
+  amountOwedHuman,
   walletTokenBalanceLabel,
   validationError,
   quickAmounts,
@@ -42,9 +48,16 @@ const MerchantRepayAmountStep = ({
     const cleaned = nextRaw.replace(/[^\d.,]/g, '')
     setDraft(cleaned)
     const n = Number(cleaned.replace(/,/g, ''))
-    if (Number.isFinite(n)) onAmountSelect(n)
-    else onAmountSelect(0)
+    if (Number.isFinite(n)) {
+      const clamped = clampMerchantRepayAmount(n, amountOwedHuman)
+      onAmountSelect(clamped)
+    } else {
+      onAmountSelect(0)
+    }
   }
+
+  const canContinue =
+    amount > 0 && !validateMerchantRepayAmount(amount, amountOwedHuman)
 
   return (
     <section className="rounded-[10px] border border-[#DFE2E8] bg-white p-6">
@@ -121,7 +134,7 @@ const MerchantRepayAmountStep = ({
       <button
         type="button"
         onClick={onContinue}
-        disabled={amount <= 0}
+        disabled={!canContinue}
         className="mt-8 w-full rounded-[6px] bg-[#195EBC] text-white text-[18px] font-medium h-[50px] hover:bg-[#154a9a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Continue

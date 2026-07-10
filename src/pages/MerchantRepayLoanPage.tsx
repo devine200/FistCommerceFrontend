@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import MerchantRepayAmountStep from '@/components/dashboard/merchant/repay/MerchantRepayAmountStep'
@@ -18,6 +18,10 @@ import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useTokenBalanceLabel } from '@/hooks/useTokenBalanceLabel'
 import { useWallet } from '@/hooks/useWallet'
 import DashboardLayout from '@/layouts/DashboardLayout'
+import {
+  clampMerchantRepayAmount,
+  validateMerchantRepayAmount,
+} from '@/utils/merchantReceivableRepayEligibility'
 import { shortWalletDisplay } from '@/utils/shortWalletDisplay'
 
 const MerchantRepayLoanPage = () => {
@@ -33,6 +37,14 @@ const MerchantRepayLoanPage = () => {
   const [amount, setAmount] = useState(0)
   const [validationError, setValidationError] = useState<string | null>(null)
 
+  const quickAmounts = useMemo(() => {
+    const max = repayContext.amountOwedHuman
+    return MERCHANT_REPAY_QUICK_AMOUNTS.filter((v) => max == null || v <= max)
+  }, [repayContext.amountOwedHuman])
+
+  const amountValidationError = validateMerchantRepayAmount(amount, repayContext.amountOwedHuman)
+  const displayValidationError = validationError ?? amountValidationError
+
   if (!repayContext.isValid) {
     return <Navigate to="/dashboard/merchant/receivables" replace />
   }
@@ -46,6 +58,11 @@ const MerchantRepayLoanPage = () => {
   }
 
   const handleContinue = () => {
+    const owedError = validateMerchantRepayAmount(amount, repayContext.amountOwedHuman)
+    if (owedError) {
+      setValidationError(owedError)
+      return
+    }
     const gate = contracts.canRepayReceivable(
       amount,
       repayContext.onChainReceivableId,
@@ -94,12 +111,14 @@ const MerchantRepayLoanPage = () => {
           amount={amount}
           destinationWallet={shortWalletDisplay(shortAddress ?? address)}
           amountOwedLabel={repayContext.amountOwedLabel}
+          amountOwedHuman={repayContext.amountOwedHuman}
           walletTokenBalanceLabel={walletTokenBalanceLabel}
-          validationError={validationError}
-          quickAmounts={MERCHANT_REPAY_QUICK_AMOUNTS}
+          validationError={displayValidationError}
+          quickAmounts={quickAmounts}
           onAmountSelect={(v) => {
-            setAmount(v)
-            setValidationError(null)
+            const clamped = clampMerchantRepayAmount(v, repayContext.amountOwedHuman)
+            setAmount(clamped)
+            setValidationError(validateMerchantRepayAmount(clamped, repayContext.amountOwedHuman))
           }}
           onContinue={handleContinue}
         />

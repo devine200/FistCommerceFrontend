@@ -79,7 +79,7 @@ const MerchantRepayLoanConfirmationPage = () => {
       <DashboardRequestFeedbackLayer
         phase={submitBusy ? 'loading' : submit.error ? 'failed' : 'idle'}
         loadingTitle="Submitting repayment"
-        loadingDescription={submit.statusMessage || 'Confirm the transaction in your wallet…'}
+        loadingDescription={submit.statusMessage || 'Processing your repayment…'}
         errorTitle="Unable to submit repayment"
         errorDescription={submit.error ?? undefined}
         onDismiss={() => submit.clearError()}

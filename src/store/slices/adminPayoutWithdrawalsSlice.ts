@@ -45,7 +45,7 @@ export type AdminPayoutWithdrawalsState = AdminListRequestState & {
   lastLimit: number
   actionStatus: AdminPayoutWithdrawalsActionStatus
   actionError: string | null
-  actionRequestKey: string | null
+  actionRequestId: string | null
   actionType: AdminRequestType | null
   actionKind: AdminPayoutWithdrawalsActionKind | null
   lastApproveOutcome: AdminWriteOutcome | null
@@ -76,7 +76,7 @@ const initialState: AdminPayoutWithdrawalsState = {
   lastLimit: 50,
   actionStatus: 'idle',
   actionError: null,
-  actionRequestKey: null,
+  actionRequestId: null,
   actionType: null,
   actionKind: null,
   lastApproveOutcome: null,
@@ -93,7 +93,7 @@ export type RefreshAdminPayoutWithdrawalsParams = {
 }
 
 export type AdminRequestActionParams = {
-  requestKey: string
+  actionId: string
   type: AdminRequestType
   userWallet?: string
 }
@@ -163,18 +163,24 @@ export const approveAdminRequest = createAsyncThunk(
       throw new Error('Sign in to approve this request.')
     }
 
-    const requestKey = params.requestKey.trim()
-    if (!requestKey) throw new Error('Missing request key.')
+    const actionId = params.actionId.trim()
+    if (!actionId) {
+      throw new Error(
+        params.type === 'disbursement'
+          ? 'Missing receivable id for disbursement request.'
+          : 'Missing withdrawal request id.',
+      )
+    }
 
     try {
       let outcome: AdminWriteOutcome
       if (params.type === 'withdrawal') {
-        outcome = await postApproveWithdrawalRequest(accessToken, requestKey, {
+        outcome = await postApproveWithdrawalRequest(accessToken, actionId, {
           user: params.userWallet,
           signal: thunkApi.signal,
         })
       } else {
-        outcome = await postApproveDisbursementRequest(accessToken, requestKey, {
+        outcome = await postApproveDisbursementRequest(accessToken, actionId, {
           signal: thunkApi.signal,
         })
       }
@@ -215,14 +221,20 @@ export const rejectAdminRequest = createAsyncThunk(
       throw new Error('Sign in to reject this request.')
     }
 
-    const requestKey = params.requestKey.trim()
-    if (!requestKey) throw new Error('Missing request key.')
+    const actionId = params.actionId.trim()
+    if (!actionId) {
+      throw new Error(
+        params.type === 'disbursement'
+          ? 'Missing receivable id for disbursement request.'
+          : 'Missing withdrawal request id.',
+      )
+    }
 
     try {
       if (params.type === 'withdrawal') {
-        await postRejectWithdrawalRequest(accessToken, requestKey, { signal: thunkApi.signal })
+        await postRejectWithdrawalRequest(accessToken, actionId, { signal: thunkApi.signal })
       } else {
-        await postRejectDisbursementRequest(accessToken, requestKey, { signal: thunkApi.signal })
+        await postRejectDisbursementRequest(accessToken, actionId, { signal: thunkApi.signal })
       }
       if (thunkApi.signal.aborted) {
         throw new DOMException('Aborted', 'AbortError')
@@ -251,7 +263,7 @@ const adminPayoutWithdrawalsSlice = createSlice({
     clearAdminPayoutWithdrawalsActionError: (state) => {
       state.actionStatus = 'idle'
       state.actionError = null
-      state.actionRequestKey = null
+      state.actionRequestId = null
       state.actionType = null
       state.actionKind = null
     },
@@ -356,7 +368,7 @@ const adminPayoutWithdrawalsSlice = createSlice({
       .addCase(approveAdminRequest.pending, (state, action) => {
         state.actionStatus = 'loading'
         state.actionError = null
-        state.actionRequestKey = action.meta.arg.requestKey
+        state.actionRequestId = action.meta.arg.actionId
         state.actionType = action.meta.arg.type
         state.actionKind = 'approve'
         state.lastApproveOutcome = null
@@ -377,7 +389,7 @@ const adminPayoutWithdrawalsSlice = createSlice({
         if (isAbortedThunkAction(action)) {
           state.actionStatus = 'idle'
           state.actionError = null
-          state.actionRequestKey = null
+          state.actionRequestId = null
           state.actionType = null
           state.actionKind = null
           return
@@ -391,7 +403,7 @@ const adminPayoutWithdrawalsSlice = createSlice({
       .addCase(rejectAdminRequest.pending, (state, action) => {
         state.actionStatus = 'loading'
         state.actionError = null
-        state.actionRequestKey = action.meta.arg.requestKey
+        state.actionRequestId = action.meta.arg.actionId
         state.actionType = action.meta.arg.type
         state.actionKind = 'reject'
       })
@@ -404,7 +416,7 @@ const adminPayoutWithdrawalsSlice = createSlice({
         if (isAbortedThunkAction(action)) {
           state.actionStatus = 'idle'
           state.actionError = null
-          state.actionRequestKey = null
+          state.actionRequestId = null
           state.actionType = null
           state.actionKind = null
           return

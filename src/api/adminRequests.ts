@@ -1,5 +1,5 @@
 import { parseAdminWriteResponse, type AdminWriteOutcome } from '@/api/adminActionResponse'
-import { apiUrl, parseJsonResponse } from '@/api/client'
+import { apiUrl, parseApiErrorResponse, parseJsonResponse } from '@/api/client'
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
 
 /** Status filter for `GET /api/metrics/admin/requests/`. */
@@ -30,8 +30,14 @@ export type AdminRequestGovernanceStatus =
   | 'cancelled'
 
 export type AdminRequestRow = {
+  /** Short display id from API `id` — never used in approve/reject URLs. */
   id: string
-  requestKey: string
+  /** Disbursement only: full receivable id (from API `requestKey`). */
+  receivableId: string | null
+  /** Withdrawal only: full withdrawal request id (from API `requestKey`). */
+  withdrawalRequestId: string | null
+  /** Approve/reject path param (always API `requestKey` when present). */
+  actionId: string
   type: AdminRequestType
   typeLabel: string
   party: AdminRequestParty
@@ -112,19 +118,49 @@ function pickNumber(record: Record<string, unknown>, ...keys: string[]): number 
   return 0
 }
 
-function pickBool(record: Record<string, unknown>, ...keys: string[]): boolean {
+function pickScalarId(record: Record<string, unknown>, ...keys: string[]): string {
   for (const key of keys) {
     const v = record[key]
-    if (typeof v === 'boolean') return v
+    if (typeof v === 'string' && v.trim()) return v.trim()
+    if (typeof v === 'number' && Number.isFinite(v)) return String(v)
   }
+  return ''
+}
+
+function isShortenedDisplayId(value: string): boolean {
+  const v = value.trim()
+  if (!v) return true
+  if (v.includes('…') || v.includes('...')) return true
+  if (/^0x[0-9a-fA-F]+$/.test(v) && v.length < 66) return true
   return false
+}
+
+function isActionableId(value: string): boolean {
+  return Boolean(value.trim()) && !isShortenedDisplayId(value)
+}
+
+function pickFirstActionableId(...candidates: string[]): string {
+  for (const candidate of candidates) {
+    if (isActionableId(candidate)) return candidate.trim()
+  }
+  return ''
+}
+
+/**
+ * `GET /api/metrics/admin/requests/` — `requestKey` is the full on-chain key for approve/reject.
+ * Disbursement → receivable id; withdrawal → withdrawal request id. Never use shortened `id`.
+ */
+function pickListRequestKey(record: Record<string, unknown>): string {
+  return pickFirstActionableId(pickScalarId(record, 'requestKey', 'request_key'))
 }
 
 function normalizeRequestStatus(raw: string): AdminRequestStatus {
   const t = raw.trim().toLowerCase()
-  if (t === 'approved') return 'approved'
+  if (t === 'approved' || t === 'executed' || t === 'completed' || t === 'paid_out' || t === 'paid out') {
+    return 'approved'
+  }
   if (t === 'rejected') return 'rejected'
-  if (t === 'pending_governance' || t === 'pending governance') return 'pending'
+  if (t === 'pending_governance' || t === 'pending governance' || t === 'pending') return 'pending'
   return 'pending'
 }
 
@@ -140,7 +176,9 @@ function normalizeGovernanceStatus(raw: string): AdminRequestGovernanceStatus {
 
 function normalizeRequestType(raw: string): AdminRequestType {
   const t = raw.trim().toLowerCase()
-  if (t === 'disbursement') return 'disbursement'
+  if (t === 'disbursement' || t === 'payout' || t === 'merchant_payout' || t === 'merchant_disbursement') {
+    return 'disbursement'
+  }
   return 'withdrawal'
 }
 
@@ -152,36 +190,113 @@ function normalizeRequestParty(raw: unknown): AdminRequestParty {
   }
 }
 
-function normalizeRequestActions(raw: unknown): AdminRequestActions {
-  const r = asRecord(raw)
-  return {
-    canApprove: pickBool(r, 'canApprove', 'can_approve'),
-    canReject: pickBool(r, 'canReject', 'can_reject'),
+function pickBoolOptional(record: Record<string, unknown>, ...keys: string[]): boolean | undefined {
+  for (const key of keys) {
+    const v = record[key]
+    if (typeof v === 'boolean') return v
   }
+  return undefined
+}
+
+function normalizeRequestActions(
+  row: Record<string, unknown>,
+  status: AdminRequestStatus,
+  hasActionId: boolean,
+): AdminRequestActions {
+  const nested = asRecord(row.actions)
+  const explicitApprove =
+    pickBoolOptional(nested, 'canApprove', 'can_approve') ??
+    pickBoolOptional(row, 'canApprove', 'can_approve')
+  const explicitReject =
+    pickBoolOptional(nested, 'canReject', 'can_reject') ??
+    pickBoolOptional(row, 'canReject', 'can_reject')
+
+  if (status === 'pending' && hasActionId) {
+    return {
+      canApprove: explicitApprove ?? true,
+      canReject: explicitReject ?? true,
+    }
+  }
+
+  if (status === 'approved' || status === 'rejected') {
+    return {
+      canApprove: false,
+      canReject: false,
+    }
+  }
+
+  return {
+    canApprove: explicitApprove ?? false,
+    canReject: explicitReject ?? false,
+  }
+}
+
+/** Approve/reject path param from a raw list row (`requestKey`). */
+export function resolveAdminRequestActionId(
+  raw: Record<string, unknown>,
+  _type?: AdminRequestType,
+): string {
+  return pickListRequestKey(raw)
+}
+
+/** @deprecated Use `resolveAdminRequestActionId` */
+export function resolveAdminRequestActionKey(
+  raw: Record<string, unknown>,
+  type: AdminRequestType,
+): string {
+  return resolveAdminRequestActionId(raw, type)
+}
+
+/** Approve/reject path param from a normalized row. */
+export function adminRequestRowActionId(
+  row: Pick<AdminRequestRow, 'actionId' | 'receivableId' | 'withdrawalRequestId'>,
+): string {
+  return pickFirstActionableId(row.actionId, row.receivableId ?? '', row.withdrawalRequestId ?? '')
+}
+
+/** Path segment for approve/reject on a normalized queue row. */
+export function adminRequestActionId(row: Pick<AdminRequestRow, 'type' | 'actionId'>): string {
+  const id = row.actionId.trim()
+  if (!id) {
+    throw new Error(
+      row.type === 'disbursement'
+        ? 'Missing receivable id for disbursement request.'
+        : 'Missing withdrawal request id.',
+    )
+  }
+  return id
 }
 
 function normalizeRequestRow(raw: unknown): AdminRequestRow | null {
   const r = asRecord(raw)
-  const requestKey = pickStr(r, 'requestKey', 'request_key', 'requestId', 'request_id')
-  const id = pickStr(r, 'id', 'transactionId', 'transaction_id') || requestKey
-  if (!id && !requestKey) return null
-
   const typeRaw = pickStr(r, 'type')
-  const statusRaw = pickStr(r, 'status', 'statusLabel', 'status_label')
+  const type = normalizeRequestType(typeRaw)
+  const requestKey = pickListRequestKey(r)
+  const receivableId = type === 'disbursement' ? requestKey : ''
+  const withdrawalRequestId = type === 'withdrawal' ? requestKey : ''
+  const actionId = requestKey
+
+  const displayId = pickScalarId(r, 'id') || pickStr(r, 'typeLabel', 'type_label')
+  if (!displayId && !actionId) return null
+
+  const statusRaw = pickStr(r, 'status') || pickStr(r, 'statusLabel', 'status_label')
+  const status = normalizeRequestStatus(statusRaw)
 
   return {
-    id: id || requestKey,
-    requestKey: requestKey || id,
-    type: normalizeRequestType(typeRaw),
+    id: displayId,
+    receivableId: receivableId || null,
+    withdrawalRequestId: withdrawalRequestId || null,
+    actionId,
+    type,
     typeLabel: pickStr(r, 'typeLabel', 'type_label') || typeRaw || 'Request',
     party: normalizeRequestParty(r.party),
     amount: pickStr(r, 'amount') || '0.00',
     amountDisplay: pickStr(r, 'amountDisplay', 'amount_display') || '—',
     date: pickStr(r, 'date') || '',
     dateDisplay: pickStr(r, 'dateDisplay', 'date_display') || pickStr(r, 'date') || '—',
-    status: normalizeRequestStatus(statusRaw),
+    status,
     statusLabel: pickStr(r, 'statusLabel', 'status_label') || statusRaw || 'Pending',
-    actions: normalizeRequestActions(r.actions),
+    actions: normalizeRequestActions(r, status, Boolean(actionId)),
     pendingGovernanceProposalId: pickNullableStr(
       r,
       'pendingGovernanceProposalId',
@@ -246,10 +361,24 @@ function normalizeRequestsListResponse(raw: unknown): AdminRequestsListResult {
   }
 }
 
-function encodeRequestKey(requestKey: string): string {
-  const key = requestKey.trim()
-  if (!key) throw new Error('Missing request key.')
+function encodePathParam(value: string): string {
+  const key = value.trim()
+  if (!key) throw new Error('Missing path parameter.')
   return encodeURIComponent(key)
+}
+
+/** Reject endpoints return 201 with an empty body; tolerate non-JSON success payloads. */
+async function parseAdminVoidMutationResponse(res: Response): Promise<void> {
+  if (!res.ok) {
+    throw await parseApiErrorResponse(res)
+  }
+  const text = await res.text()
+  if (!text.trim()) return
+  try {
+    JSON.parse(text)
+  } catch {
+    // ignore
+  }
 }
 
 /** `GET /api/metrics/admin/requests/` — summary counts + filtered request queue rows. */
@@ -276,13 +405,13 @@ export async function fetchAdminRequestsList(
   return normalizeRequestsListResponse(raw)
 }
 
-/** `POST /api/metrics/admin/requests/withdrawals/{requestKey}/approve/` */
+/** `POST /api/metrics/admin/requests/withdrawals/{request_id}/approve/` */
 export async function postApproveWithdrawalRequest(
   accessToken: string | null | undefined,
-  requestKey: string,
+  requestId: string,
   options?: { user?: string; signal?: AbortSignal },
 ): Promise<AdminWriteOutcome> {
-  const key = encodeRequestKey(requestKey)
+  const key = encodePathParam(requestId)
   const body: Record<string, string> = {}
   const user = options?.user?.trim()
   if (user) body.user = user
@@ -299,13 +428,13 @@ export async function postApproveWithdrawalRequest(
   return parseAdminWriteResponse(res)
 }
 
-/** `POST /api/metrics/admin/requests/withdrawals/{requestKey}/reject/` */
+/** `POST /api/metrics/admin/requests/withdrawals/{request_id}/reject/` */
 export async function postRejectWithdrawalRequest(
   accessToken: string | null | undefined,
-  requestKey: string,
+  requestId: string,
   options?: { signal?: AbortSignal },
 ): Promise<void> {
-  const key = encodeRequestKey(requestKey)
+  const key = encodePathParam(requestId)
   const res = await fetchWithAuthRecovery(
     apiUrl(`${REQUESTS_LIST_PATH}withdrawals/${key}/reject/`),
     {
@@ -315,16 +444,16 @@ export async function postRejectWithdrawalRequest(
       signal: options?.signal,
     },
   )
-  await parseJsonResponse<unknown>(res)
+  await parseAdminVoidMutationResponse(res)
 }
 
-/** `POST /api/metrics/admin/requests/disbursements/{requestKey}/approve/` */
+/** `POST /api/metrics/admin/requests/disbursements/{receivable_id}/approve/` */
 export async function postApproveDisbursementRequest(
   accessToken: string | null | undefined,
-  requestKey: string,
+  receivableId: string,
   options?: { signal?: AbortSignal },
 ): Promise<AdminWriteOutcome> {
-  const key = encodeRequestKey(requestKey)
+  const key = encodePathParam(receivableId)
   const res = await fetchWithAuthRecovery(
     apiUrl(`${REQUESTS_LIST_PATH}disbursements/${key}/approve/`),
     {
@@ -337,13 +466,13 @@ export async function postApproveDisbursementRequest(
   return parseAdminWriteResponse(res)
 }
 
-/** `POST /api/metrics/admin/requests/disbursements/{requestKey}/reject/` */
+/** `POST /api/metrics/admin/requests/disbursements/{receivable_id}/reject/` */
 export async function postRejectDisbursementRequest(
   accessToken: string | null | undefined,
-  requestKey: string,
+  receivableId: string,
   options?: { signal?: AbortSignal },
 ): Promise<void> {
-  const key = encodeRequestKey(requestKey)
+  const key = encodePathParam(receivableId)
   const res = await fetchWithAuthRecovery(
     apiUrl(`${REQUESTS_LIST_PATH}disbursements/${key}/reject/`),
     {
@@ -353,5 +482,5 @@ export async function postRejectDisbursementRequest(
       signal: options?.signal,
     },
   )
-  await parseJsonResponse<unknown>(res)
+  await parseAdminVoidMutationResponse(res)
 }

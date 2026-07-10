@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { resolveAdminWriteOutcome } from '@/admin/governance/resolveAdminWriteOutcome'
 import { PrivilegedActionFeedbackLayer } from '@/admin/governance/PrivilegedActionFeedbackLayer'
 import { AdminGovernanceStatusBadge } from '@/admin/governance/AdminGovernanceStatusBadge'
-import type { AdminRequestType } from '@/api/adminRequests'
+import { adminRequestRowActionId, type AdminRequestType } from '@/api/adminRequests'
 import AdminServicerWalletPanel from '@/components/admin/ops/AdminServicerWalletPanel'
 import AdminTransactionTypeBadge from '@/components/admin/transactions/AdminTransactionTypeBadge'
 import {
@@ -75,7 +75,7 @@ const AdminPayoutWithdrawalManagementPage = () => {
     status,
     total,
     actionStatus,
-    actionRequestKey,
+    actionRequestId,
     actionType,
     actionKind,
     actionError,
@@ -162,17 +162,18 @@ const AdminPayoutWithdrawalManagementPage = () => {
   )
 
   const handleDecision = useCallback(
-    (requestKey: string, type: AdminRequestType, partyWallet: string, decision: 'approve' | 'reject') => {
+    (actionId: string, type: AdminRequestType, partyWallet: string, decision: 'approve' | 'reject') => {
+      if (!actionId.trim()) return
       if (decision === 'approve') {
         dispatchCancellable(
           approveAdminRequest({
-            requestKey,
+            actionId,
             type,
             userWallet: type === 'withdrawal' ? partyWallet : undefined,
           }),
         )
       } else {
-        dispatchCancellable(rejectAdminRequest({ requestKey, type }))
+        dispatchCancellable(rejectAdminRequest({ actionId, type }))
       }
     },
     [dispatchCancellable],
@@ -192,21 +193,21 @@ const AdminPayoutWithdrawalManagementPage = () => {
   }, [dispatch])
 
   const handleRetryAction = useCallback(() => {
-    const requestKey = actionRequestKey?.trim()
-    if (!requestKey || !actionType || !actionKind) return
+    const actionId = actionRequestId?.trim()
+    if (!actionId || !actionType || !actionKind) return
     if (actionKind === 'reject') {
-      dispatchCancellable(rejectAdminRequest({ requestKey, type: actionType }))
+      dispatchCancellable(rejectAdminRequest({ actionId, type: actionType }))
       return
     }
-    const row = results.find((r) => r.requestKey === requestKey)
+    const row = results.find((r) => adminRequestRowActionId(r) === actionId)
     dispatchCancellable(
       approveAdminRequest({
-        requestKey,
+        actionId,
         type: actionType,
         userWallet: actionType === 'withdrawal' ? row?.party.wallet : undefined,
       }),
     )
-  }, [dispatchCancellable, actionRequestKey, actionType, actionKind, results])
+  }, [dispatchCancellable, actionRequestId, actionType, actionKind, results])
 
   const actionPhase =
     actionStatus === 'idle' ? ('idle' as const) : actionStatus
@@ -314,13 +315,17 @@ const AdminPayoutWithdrawalManagementPage = () => {
               </tr>
             ) : (
               results.map((r, idx) => {
+                const rowActionId = adminRequestRowActionId(r)
                 const rowActionLoading =
-                  actionStatus === 'loading' && actionRequestKey === r.requestKey
+                  actionStatus === 'loading' && actionRequestId === rowActionId
                 const governanceActive = isRowGovernanceActive(r)
-                const canReject = r.actions.canReject && !rowActionLoading && !governanceActive
-                const canApprove = r.actions.canApprove && !rowActionLoading && !governanceActive
+                const hasActionId = Boolean(rowActionId)
+                const canReject =
+                  hasActionId && r.actions.canReject && !rowActionLoading && !governanceActive
+                const canApprove =
+                  hasActionId && r.actions.canApprove && !rowActionLoading && !governanceActive
                 return (
-                  <tr key={r.requestKey} className={adminZebraRowClass(idx)}>
+                  <tr key={`${r.type}:${r.id}:${rowActionId || idx}`} className={adminZebraRowClass(idx)}>
                     <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium align-top font-mono">
                       {r.id}
                     </td>
@@ -349,7 +354,7 @@ const AdminPayoutWithdrawalManagementPage = () => {
                           type="button"
                           className="h-9 px-4 rounded-[4px] bg-[#DC2626] text-white text-[13px] font-semibold hover:bg-[#b91c1c] transition-colors disabled:opacity-40 disabled:hover:bg-[#DC2626] disabled:cursor-not-allowed"
                           disabled={!canReject}
-                          onClick={() => handleDecision(r.requestKey, r.type, r.party.wallet, 'reject')}
+                          onClick={() => handleDecision(rowActionId, r.type, r.party.wallet, 'reject')}
                         >
                           Reject
                         </button>
@@ -357,7 +362,7 @@ const AdminPayoutWithdrawalManagementPage = () => {
                           type="button"
                           className="h-9 px-4 rounded-[4px] bg-[#195EBC] text-white text-[13px] font-semibold hover:bg-[#154a9a] transition-colors disabled:opacity-40 disabled:hover:bg-[#195EBC] disabled:cursor-not-allowed"
                           disabled={!canApprove}
-                          onClick={() => handleDecision(r.requestKey, r.type, r.party.wallet, 'approve')}
+                          onClick={() => handleDecision(rowActionId, r.type, r.party.wallet, 'approve')}
                         >
                           Approve
                         </button>

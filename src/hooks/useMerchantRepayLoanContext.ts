@@ -5,12 +5,15 @@ import { useLocation } from 'react-router-dom'
 import {
   canNavigateToLoanDetail,
   fetchLoanDetails,
-  isLoanLifecycleEligibleForRepayment,
+  type LoanDetailsResponse,
 } from '@/api/loanDetails'
 import { displayDashboardMetricString } from '@/api/metrics'
 import { getReceivableDetailById } from '@/components/dashboard/merchant/receivables/receivableDetailConfig'
 import { useAppSelector } from '@/store/hooks'
-import { isReceivableStageEligibleForRepayment } from '@/types/receivables'
+import {
+  demoRepayStateFromStage,
+  resolveMerchantReceivableRepayState,
+} from '@/utils/merchantReceivableRepayEligibility'
 import {
   demoRepayReviewBreakdown,
   emptyRepayReviewBreakdown,
@@ -68,6 +71,22 @@ function displayNameFromLocation(state: MerchantRepayLocationState, loanId: stri
   return state.receivableName?.trim() || `Receivable ${loanId.slice(0, 8)}`
 }
 
+type RepayLoanDetailsPayload = {
+  details: LoanDetailsResponse
+  onChainReceivableId: `0x${string}` | null
+  repayState: Awaited<ReturnType<typeof resolveMerchantReceivableRepayState>>
+}
+
+async function fetchRepayLoanDetails(
+  accessToken: string,
+  loanId: string,
+): Promise<RepayLoanDetailsPayload> {
+  const details = await fetchLoanDetails(accessToken, loanId)
+  const onChainReceivableId = normalizeReceivableIdToBytes32(details.receivable.receivableId)
+  const repayState = await resolveMerchantReceivableRepayState(accessToken, details)
+  return { details, onChainReceivableId, repayState }
+}
+
 export function useMerchantRepayLoanContext(receivableId: string | undefined): MerchantRepayLoanContext {
   const loanId = receivableId?.trim() ?? ''
   const location = useLocation()
@@ -83,7 +102,7 @@ export function useMerchantRepayLoanContext(receivableId: string | undefined): M
 
   const query = useQuery({
     queryKey: ['loan-details', 'repay', loanId, token],
-    queryFn: () => fetchLoanDetails(token, loanId),
+    queryFn: () => fetchRepayLoanDetails(token, loanId),
     enabled: fetchFromApi,
     staleTime: 60_000,
   })
@@ -93,19 +112,19 @@ export function useMerchantRepayLoanContext(receivableId: string | undefined): M
   }
 
   if (demoDetail) {
-    const canRepay = isReceivableStageEligibleForRepayment(demoDetail.stage)
+    const repayState = demoRepayStateFromStage(demoDetail.stage, demoDetail.row.repaymentAmount)
     const review = demoRepayReviewBreakdown(demoDetail)
     return {
       loanId,
       receivableName: demoDetail.row.receivableName,
       amountOwedLabel: review.totalOwed,
-      amountOwedHuman: parseMoneyToHuman(demoDetail.row.repaymentAmount),
+      amountOwedHuman: repayState.amountOwedHuman,
       review,
       onChainReceivableId: null,
       isLoading: false,
       isError: false,
       isValid: true,
-      canRepay,
+      canRepay: repayState.canRepay,
       canRepayOnChain: false,
     }
   }
@@ -129,11 +148,9 @@ export function useMerchantRepayLoanContext(receivableId: string | undefined): M
   }
 
   if (fetchFromApi && query.data) {
-    const api = query.data
-    const canRepay = isLoanLifecycleEligibleForRepayment(api.lifecycle.status)
+    const { details: api, onChainReceivableId, repayState } = query.data
     const owedRaw = api.summary.amountOwed ?? api.summary.funding
     const review = mapLoanDetailsToRepayReviewBreakdown(api)
-    const onChainReceivableId = normalizeReceivableIdToBytes32(api.receivable.receivableId)
 
     return {
       loanId,
@@ -145,14 +162,14 @@ export function useMerchantRepayLoanContext(receivableId: string | undefined): M
             api.summary.title?.trim() ||
             fallbackName,
       amountOwedLabel: formatMoney(owedRaw),
-      amountOwedHuman: parseMoneyToHuman(owedRaw),
+      amountOwedHuman: repayState.amountOwedHuman ?? parseMoneyToHuman(owedRaw),
       review,
       onChainReceivableId,
       isLoading: false,
       isError: Boolean(query.isError),
       isValid: true,
-      canRepay,
-      canRepayOnChain: canRepay && onChainReceivableId !== null,
+      canRepay: repayState.canRepay,
+      canRepayOnChain: repayState.canRepay && onChainReceivableId !== null,
     }
   }
 

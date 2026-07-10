@@ -419,6 +419,7 @@ export async function fetchRecentPayoutTransactions(
 }
 
 const PAYOUT_INITIATE_PATH = '/api/payout/initiate/'
+const MERCHANT_REPAYMENT_SUBMIT_PATH = '/api/payout/repayment/submit/'
 
 export type ReceivablePayoutStatus = {
   receivableId: string
@@ -487,6 +488,33 @@ export async function postAdminPayoutInitiate(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ receivable_id: id }),
+    signal: options?.signal,
+  })
+  return parseAdminWriteResponse(res)
+}
+
+/** `POST /api/payout/repayment/submit/` — servicer executes repayment after merchant token approval. */
+export async function postMerchantRepaymentSubmit(
+  accessToken: string | null | undefined,
+  receivableId: string,
+  amountWei: bigint,
+  options?: { signal?: AbortSignal },
+): Promise<AdminWriteOutcome> {
+  const id = receivableId.trim()
+  if (!id) throw new Error('Missing receivable id.')
+  if (amountWei <= 0n) throw new Error('Repayment amount must be greater than zero.')
+
+  const base = requireApiBaseUrl()
+  const res = await fetchWithAuthRecovery(`${base}${MERCHANT_REPAYMENT_SUBMIT_PATH}`, {
+    method: 'POST',
+    headers: {
+      ...authHeaders(accessToken),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      receivable_id: id,
+      amount_wei: amountWei.toString(),
+    }),
     signal: options?.signal,
   })
   return parseAdminWriteResponse(res)

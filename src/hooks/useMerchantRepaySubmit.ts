@@ -59,7 +59,7 @@ export function useMerchantRepaySubmit({
     const paths = merchantRepayPaths(loanId)
 
     try {
-      await contracts.executeMerchantRepayment(
+      const txHash = await contracts.executeMerchantRepayment(
         paymentAmount,
         repayContext.onChainReceivableId,
         (next) => setPhase(next),
@@ -67,7 +67,14 @@ export function useMerchantRepaySubmit({
 
       void dispatch(refreshMerchantReceivables())
       void queryClient.invalidateQueries({ queryKey: ['loan-details'] })
-      navigate(paths.detail, { replace: true })
+      navigate(paths.detail, {
+        replace: true,
+        state: {
+          receivableName,
+          paymentAmount,
+          txHash,
+        },
+      })
     } catch (e) {
       navigate(paths.failure, {
         replace: true,

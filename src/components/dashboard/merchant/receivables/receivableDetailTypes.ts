@@ -1,5 +1,6 @@
 import type { ReceivableTableRow } from '@/components/dashboard/merchant/receivables/types'
 import type { ReceivableStage } from '@/types/receivables'
+import type { MerchantReceivableRepayState } from '@/utils/merchantReceivableRepayEligibility'
 
 export type LifecycleStepVariant = 'blue' | 'purple' | 'green' | 'sky' | 'red' | 'neutral'
 
@@ -22,8 +23,9 @@ export type ReceivableDetailView = {
   maturityBanner: string
   basicInfo: { label: string; value: string }[]
   documentName: string
-  /** When set, `documentName` links to this URL (e.g. IPFS gateway). */
+  /** When set, links to this URL (e.g. IPFS gateway). */
   documentUrl: string | null
+  repayState: MerchantReceivableRepayState
 }
 
 export const LOAN_VERIFICATION_FILE_LABEL = 'Loan Verification File'

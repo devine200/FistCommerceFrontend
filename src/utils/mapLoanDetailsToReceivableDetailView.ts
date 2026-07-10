@@ -8,6 +8,8 @@ import {
 import type { ReceivableTableRow } from '@/components/dashboard/merchant/receivables/types'
 import type { MerchantLoanTableRowData } from '@/components/dashboard/merchant/lending-pool-detail/types'
 import { ReceivableStage } from '@/types/receivables'
+import { parseMoneyToHuman } from '@/utils/mapLoanDetailsToRepayReviewView'
+import { isLoanFullyRepaid, type MerchantReceivableRepayState } from '@/utils/merchantReceivableRepayEligibility'
 
 function formatIsoDateForDisplay(iso: string | null | undefined): string {
   if (!iso?.trim()) return '—'
@@ -50,28 +52,38 @@ function apiStatusToStage(statusRaw: string | null | undefined): ReceivableStage
   const s = (statusRaw ?? '').trim().toLowerCase()
   if (s === 'verified') return ReceivableStage.Verified
   if (s === 'funded') return ReceivableStage.Funded
-  if (s === 'matured') return ReceivableStage.Matured
+  if (s === 'paid_out' || s === 'matured') return ReceivableStage.Matured
   if (s === 'defaulted') return ReceivableStage.Defaulted
   if (s === 'repaid') return ReceivableStage.Repaid
   return ReceivableStage.Created
 }
 
-function statusToDebtStatus(statusRaw: string | null | undefined): {
+function resolveReceivableStage(api: LoanDetailsResponse): ReceivableStage {
+  if (isLoanFullyRepaid(api)) return ReceivableStage.Repaid
+  return apiStatusToStage(api.lifecycle.status)
+}
+
+function statusToDebtStatus(api: LoanDetailsResponse): {
   debtStatus: string
   debtStatusVariant: ReceivableTableRow['debtStatusVariant']
 } {
-  const s = (statusRaw ?? '').trim().toLowerCase()
+  if (isLoanFullyRepaid(api)) {
+    return { debtStatus: 'Repaid', debtStatusVariant: 'repaid' }
+  }
+  const s = (api.lifecycle.status ?? '').trim().toLowerCase()
   if (s === 'repaid') return { debtStatus: 'Repaid', debtStatusVariant: 'repaid' }
   if (s === 'defaulted') return { debtStatus: 'Defaulted', debtStatusVariant: 'defaulted' }
   if (s === 'funded' || s === 'verified') return { debtStatus: 'Unpaid', debtStatusVariant: 'unpaid' }
+  if (s === 'paid_out') return { debtStatus: 'Unpaid', debtStatusVariant: 'unpaid' }
   return { debtStatus: 'Unpaid', debtStatusVariant: 'unpaid' }
 }
 
 function repaymentDueVariantFromStatus(
-  statusRaw: string | null | undefined,
+  api: LoanDetailsResponse,
   daysRemaining: number | null | undefined,
 ): ReceivableTableRow['repaymentDueVariant'] {
-  const s = (statusRaw ?? '').trim().toLowerCase()
+  if (isLoanFullyRepaid(api)) return 'repaid'
+  const s = (api.lifecycle.status ?? '').trim().toLowerCase()
   if (s === 'repaid') return 'repaid'
   if (s === 'defaulted') return 'overdue'
   if (daysRemaining != null && daysRemaining <= 0 && s !== 'repaid') return 'overdue'
@@ -89,7 +101,7 @@ export function mapLoanDetailsToReceivableTableRow(
   loanId: string,
   api: LoanDetailsResponse,
 ): ReceivableTableRow {
-  const debt = statusToDebtStatus(api.lifecycle.status)
+  const debt = statusToDebtStatus(api)
   const title = loanDisplayTitle(loanId, api)
   const totalDisplay = formatMoneyDisplay(api.summary.totalAmount)
   const owedDisplay = formatMoneyDisplay(api.summary.amountOwed)
@@ -102,7 +114,7 @@ export function mapLoanDetailsToReceivableTableRow(
     apr: aprDisplay,
     repaymentDue: formatIsoDateForDisplay(api.repaymentDetails.repaymentDueDate),
     repaymentDueVariant: repaymentDueVariantFromStatus(
-      api.lifecycle.status,
+      api,
       api.repaymentDetails.progress.daysRemaining,
     ),
     repaymentAmount: owedDisplay,
@@ -137,20 +149,26 @@ export function mapLoanDetailsToMerchantLoanTableRow(
 function mergeLifecycle(
   api: LoanDetailsResponse,
   fallback: ReceivableDetailView,
+  stage: ReceivableStage,
 ): ReceivableDetailView['lifecycle'] {
   const status = api.lifecycle.status?.trim().toLowerCase() ?? ''
-  const dates = [
-    api.lifecycle.createdAt,
-    api.lifecycle.verifiedAt,
+  const fundedAt =
     status === 'funded' ||
+    status === 'paid_out' ||
     status === 'matured' ||
     status === 'defaulted' ||
     status === 'repaid'
       ? api.lifecycle.verifiedAt ?? api.lifecycle.maturedAt
-      : null,
+      : null
+  const dates = [
+    api.lifecycle.createdAt,
+    api.lifecycle.verifiedAt,
+    fundedAt,
     api.lifecycle.maturedAt,
     status === 'defaulted' ? api.lifecycle.defaultedAt ?? api.lifecycle.maturedAt : null,
-    status === 'repaid' ? api.lifecycle.maturedAt : null,
+    stage === ReceivableStage.Repaid
+      ? api.lifecycle.repaidAt ?? api.lifecycle.maturedAt
+      : null,
   ]
   return fallback.lifecycle.map((step, i) => ({
     ...step,
@@ -212,6 +230,7 @@ function mergeBasicInfo(
 export function mapLoanDetailsToReceivableDetailView(
   loanId: string,
   api: LoanDetailsResponse,
+  repayState?: MerchantReceivableRepayState,
 ): ReceivableDetailView {
   const fallback =
     getReceivableDetailById(loanId) ?? getReceivableDetailById('r-1') ?? getReceivableDetailById('r-2')
@@ -220,8 +239,8 @@ export function mapLoanDetailsToReceivableDetailView(
     throw new Error('Missing receivable detail fallback configuration.')
   }
 
-  const stage = apiStatusToStage(api.lifecycle.status)
-  const debt = statusToDebtStatus(api.lifecycle.status)
+  const stage = resolveReceivableStage(api)
+  const debt = statusToDebtStatus(api)
   const title =
     pick(api.summary.title, fallback.row.receivableName) ||
     pick(api.merchant.businessName, fallback.row.receivableName) ||
@@ -286,12 +305,22 @@ export function mapLoanDetailsToReceivableDetailView(
     stage,
     subtitle: fallback.subtitle,
     heroMetrics,
-    lifecycle: mergeLifecycle(api, fallback),
+    lifecycle: mergeLifecycle(api, fallback, stage),
     repaymentRows: mergeRepaymentRows(api, fallback),
     maturityBanner:
-      pick(api.repaymentDetails.progress.label, fallback.maturityBanner) || fallback.maturityBanner,
+      stage === ReceivableStage.Repaid
+        ? 'Loan repaid in full'
+        : pick(api.repaymentDetails.progress.label, fallback.maturityBanner) || fallback.maturityBanner,
     basicInfo: mergeBasicInfo(api, fallback),
     documentName: verificationDocumentUrl ? LOAN_VERIFICATION_FILE_LABEL : fallback.documentName,
     documentUrl: verificationDocumentUrl,
+    repayState:
+      repayState ??
+      ({
+        isPaidOutToMerchant: false,
+        canRepay: false,
+        disabledReason: 'Repayment is available after loan funds have been disbursed to you.',
+        amountOwedHuman: parseMoneyToHuman(api.summary.amountOwed),
+      } satisfies MerchantReceivableRepayState),
   }
 }

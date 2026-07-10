@@ -6,9 +6,9 @@ import {
   FUNDING_POOL_ADDRESS,
   MOCK_ERC20_ABI,
   MOCK_ERC20_ADDRESS,
-  PAYOUT_ROUTER_ABI,
   PAYOUT_ROUTER_ADDRESS,
 } from '@/contract_config/deployment'
+import { postMerchantRepaymentSubmit } from '@/api/payout'
 import { useAppSelector } from '@/store/hooks'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 import { APP_CHAIN } from '@/wallet/appChain'
@@ -83,6 +83,7 @@ export type UseTestnetContractsOptions = {
 export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const { wallet, address, isConnected } = useActiveWallet()
   const chainId = useAppSelector((s) => s.wallet.chainId)
+  const accessToken = useAppSelector((s) => s.auth.accessToken)
   const publicClient = useMemo(() => getPublicClient(), [])
   const [isWritePending, setIsWritePending] = useState(false)
 
@@ -571,8 +572,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     async (humanAmount: number, receivableIdBytes32: `0x${string}`): Promise<Hash> => {
       const gate = canRepayReceivable(humanAmount, receivableIdBytes32)
       if (!gate.ok) throw new Error(gate.message ?? 'Cannot repay')
-      if (!address) throw new Error('Wallet required')
-      if (!wallet) throw new Error('Wallet required')
+      if (!accessToken?.trim()) throw new Error('Sign in to submit repayment.')
 
       const amount = humanAmountToUnits(humanAmount, tokenDecimals)
       if (amount <= 0n) throw new Error('Invalid amount')
@@ -584,37 +584,26 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
 
       setIsWritePending(true)
       try {
-        await ensureWalletChain(wallet, APP_CONTRACTS_CHAIN.id)
-        const walletClient = await getWalletClientFromPrivyWallet(wallet)
-        const gasFees = await getBufferedEip1559Fees(publicClient)
-
-        const repayHash = await walletClient.writeContract({
-          address: PAYOUT_ROUTER_ADDRESS,
-          abi: PAYOUT_ROUTER_ABI,
-          functionName: 'repayReceivable',
-          args: [receivableIdBytes32, amount],
-          chain: APP_CONTRACTS_CHAIN,
-          account: address as `0x${string}`,
-          ...gasFees,
-        })
-        const receipt = await publicClient.waitForTransactionReceipt({ hash: repayHash })
-        if (receipt.status !== 'success') {
-          throw new Error('Repayment transaction failed.')
+        const outcome = await postMerchantRepaymentSubmit(
+          accessToken,
+          receivableIdBytes32,
+          amount,
+        )
+        if (outcome.kind !== 'completed' || !outcome.txHash) {
+          throw new Error(outcome.message ?? 'Repayment submission failed.')
         }
         await refetchBalances()
-        return repayHash
+        return outcome.txHash as Hash
       } finally {
         setIsWritePending(false)
       }
     },
     [
-      address,
+      accessToken,
       canRepayReceivable,
-      publicClient,
       readPayoutRouterAllowance,
       refetchBalances,
       tokenDecimals,
-      wallet,
     ],
   )
 
@@ -639,7 +628,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     [approveTokenForRepayment, readPayoutRouterAllowance, submitRepayReceivable, tokenDecimals],
   )
 
-  /** Approve token spending (if needed), wait for confirmation, then call `repayReceivable`. */
+  /** Approve token spending (if needed), then submit repayment via backend servicer. */
   const repayReceivable = useCallback(
     async (humanAmount: number, receivableIdBytes32: `0x${string}`): Promise<Hash> =>
       executeMerchantRepayment(humanAmount, receivableIdBytes32),
