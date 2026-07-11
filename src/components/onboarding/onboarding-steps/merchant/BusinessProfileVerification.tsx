@@ -9,6 +9,7 @@ import ApiFormErrorPanel from '@/components/forms/ApiFormErrorPanel'
 import FormSubmitLoadingNotice from '@/components/forms/FormSubmitLoadingNotice'
 import { useOnboardingFormStep } from '@/hooks/useOnboardingFormStep'
 import { completeOnboarding } from '@/state/session'
+import { persistor } from '@/store'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { resetOnboardingProfileDrafts } from '@/store/slices/onboardingProfileDraftSlice'
 
@@ -67,6 +68,7 @@ const BusinessProfileVerification = () => {
       dispatch(resetOnboardingProfileDrafts())
       clearStepDirty()
       completeOnboarding('merchant')
+      await persistor.flush()
       navigate('/dashboard/merchant/overview')
     } catch (err) {
       if (err instanceof ApiRequestError) {

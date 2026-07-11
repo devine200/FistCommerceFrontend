@@ -1,7 +1,8 @@
 import arbitrumLogo from '@/assets/arbitrum_icon.jpeg.png'
 import { formatInvestAmountUsd } from '@/components/dashboard/investor/invest/config'
 import InvestorBalanceSummaryBoxes from '@/components/dashboard/investor/shared/InvestorBalanceSummaryBoxes'
-import { clampToMaxHuman } from '@/utils/investorFlowAmountLimits'
+import InvestorFlowContinueButton from '@/components/dashboard/investor/shared/InvestorFlowContinueButton'
+import { resolveInvestFlowContinueHint } from '@/utils/investorFlowAmountLimits'
 import { useEffect, useMemo, useState } from 'react'
 
 interface WithdrawAmountStepProps {
@@ -49,13 +50,17 @@ const WithdrawAmountStep = ({
     setDraft(cleaned)
     const n = Number(cleaned.replace(/,/g, ''))
     if (Number.isFinite(n)) {
-      onAmountSelect(clampToMaxHuman(n, maxAmountHuman))
+      onAmountSelect(n)
     } else {
       onAmountSelect(0)
     }
   }
 
   const canContinue = amount > 0 && !validationError
+  const continueDisabledHint = useMemo(
+    () => resolveInvestFlowContinueHint(amount, maxAmountHuman, validationError),
+    [amount, maxAmountHuman, validationError],
+  )
 
   return (
     <>
@@ -131,14 +136,13 @@ const WithdrawAmountStep = ({
           </div>
         </div>
 
-        <button
-          type="button"
+        <InvestorFlowContinueButton
           onClick={onContinue}
           disabled={!canContinue}
-          className="mt-6 sm:mt-10 w-full rounded-[6px] bg-[#195EBC] text-white text-[16px] sm:text-[18px] font-medium h-[50px] hover:bg-[#154a9a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Continue
-        </button>
+          disabledHint={continueDisabledHint}
+          className="mt-6 sm:mt-10"
+          buttonClassName="w-full rounded-[6px] bg-[#195EBC] text-white text-[16px] sm:text-[18px] font-medium h-[50px] hover:bg-[#154a9a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        />
       </section>
     </>
   )

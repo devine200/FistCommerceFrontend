@@ -9,6 +9,7 @@ import FormSubmitLoadingNotice from '@/components/forms/FormSubmitLoadingNotice'
 import { useNavigate } from 'react-router-dom'
 
 import { completeOnboarding } from '@/state/session'
+import { persistor } from '@/store'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { resetOnboardingProfileDrafts } from '@/store/slices/onboardingProfileDraftSlice'
 
@@ -56,6 +57,7 @@ const InvestmentExplainer = ({ onContinue }: InvestmentExplainerProps) => {
             })
             dispatch(resetOnboardingProfileDrafts())
             completeOnboarding('investor')
+            await persistor.flush()
             navigate('/dashboard/investor/overview')
         } catch (err) {
             if (err instanceof ApiRequestError) {

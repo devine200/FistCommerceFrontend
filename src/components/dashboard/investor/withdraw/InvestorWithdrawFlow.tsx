@@ -19,7 +19,6 @@ import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useAppSelector } from '@/store/hooks'
 import { formatFlowFailureMessage } from '@/utils/formatFlowFailureMessage'
 import {
-  clampToMaxHuman,
   filterQuickAmountsByMax,
   validateInvestWithdrawAmount,
 } from '@/utils/investorFlowAmountLimits'
@@ -121,7 +120,7 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
   }
 
   const handleAmountSelect = (value: number) => {
-    setAmount(clampToMaxHuman(value, investmentBalanceHuman))
+    setAmount(value)
   }
 
   const handleWithdrawConfirm = async () => {

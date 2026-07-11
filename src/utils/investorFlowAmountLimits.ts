@@ -1,5 +1,26 @@
 import { displayDashboardMetricString } from '@/api/metrics'
 
+export const INSUFFICIENT_BALANCE_ORDER_HINT = 'Insufficient balance to fulfil order.'
+
+export function isInvestAmountOverMax(
+  amount: number,
+  maxHuman: number | null | undefined,
+): boolean {
+  if (maxHuman == null || !Number.isFinite(maxHuman) || maxHuman <= 0) return false
+  return Number.isFinite(amount) && amount > maxHuman + 1e-9
+}
+
+export function resolveInvestFlowContinueHint(
+  amount: number,
+  maxHuman: number | null | undefined,
+  validationError?: string | null,
+): string | null {
+  if (isInvestAmountOverMax(amount, maxHuman)) return INSUFFICIENT_BALANCE_ORDER_HINT
+  if (validationError) return validationError
+  if (!Number.isFinite(amount) || amount <= 0) return 'Enter an amount greater than zero.'
+  return null
+}
+
 export function validateInvestDepositAmount(
   amount: number,
   maxWalletHuman: number | null | undefined,
