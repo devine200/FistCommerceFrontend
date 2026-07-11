@@ -6,7 +6,6 @@ import { Provider } from 'react-redux'
 import { PersistGate } from 'redux-persist/integration/react'
 
 import App from './App.tsx'
-import ArbitrumSepoliaWalletEnforcer from '@/components/session/ArbitrumSepoliaWalletEnforcer'
 import { getContractNetworkLabel, isLocalContractNetwork } from '@/contract_config/contractNetwork'
 import { APP_CHAIN } from '@/wallet/appChain'
 import WalletReduxSync from '@/components/session/WalletReduxSync'
@@ -72,7 +71,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <PrivyProvider appId={privyAppId ?? ''} config={privyConfig}>
           <QueryClientProvider client={queryClient}>
             <WalletReduxSync />
-            <ArbitrumSepoliaWalletEnforcer />
             <App />
           </QueryClientProvider>
         </PrivyProvider>

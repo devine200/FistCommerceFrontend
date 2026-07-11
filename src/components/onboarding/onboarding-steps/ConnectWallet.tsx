@@ -7,10 +7,12 @@ import { createWalletLoginSignable, postWalletLogin } from '@/api/walletSession'
 import privyIcon from '@/assets/Icon (1).png'
 import { isSafeDashboardReturnPath, resolveDashboardReturnTo, saveDashboardReturnTo } from '@/session/dashboardReturnTo'
 import { applyWalletLoginResponse } from '@/session/loginBridge'
+import { disconnectLinkedWalletOnly } from '@/session/disconnectPrivySession'
 import { unlockAfterConnectWallet } from '@/state/session'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { persistor } from '@/store'
 import { patchAuth } from '@/store/slices/authSlice'
+import { resetWallet } from '@/store/slices/walletSlice'
 import { setInvestorWalletDisplay } from '@/store/slices/investorDashboardSlice'
 import { setMerchantWalletDisplay } from '@/store/slices/merchantDashboardSlice'
 import { parseUserRole } from '@/utils/userRole'
@@ -40,11 +42,17 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
   const navigate = useNavigate()
 
   const { ready: privyReady, login, connectWallet } = usePrivy()
-  const { wallet, address, isConnected, walletClientType, ready: walletsReady } = useActiveWallet()
+  const { wallet, address, isConnected, walletClientType, ready: walletsReady, setActiveWalletId } =
+    useActiveWallet()
+  const chainId = useAppSelector((s) => s.wallet.chainId)
 
   const [rowError, setRowError] = React.useState<string | null>(null)
   const [authInFlight, setAuthInFlight] = React.useState(false)
   const [connecting, setConnecting] = React.useState(false)
+  const [disconnecting, setDisconnecting] = React.useState(false)
+
+  const wrongNetwork =
+    isConnected && chainId != null && chainId !== APP_CHAIN.id
 
   React.useLayoutEffect(() => {
     const from = (location.state as { from?: string } | null)?.from
@@ -97,6 +105,22 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
       console.error(e)
     } finally {
       setConnecting(false)
+    }
+  }
+
+  const handleDisconnectWallet = async () => {
+    setRowError(null)
+    setDisconnecting(true)
+    try {
+      await disconnectLinkedWalletOnly(wallet)
+      setActiveWalletId(null)
+      dispatch(resetWallet())
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Could not disconnect wallet.'
+      setRowError(message)
+      console.error(e)
+    } finally {
+      setDisconnecting(false)
     }
   }
 
@@ -223,9 +247,25 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
         </div>
 
         {isConnected && address ? (
-          <p className="text-[14px] text-[#195EBC] font-medium mb-4" aria-live="polite">
-            Connected: <span className="font-mono">{truncateAddress(address)}</span>
-            {walletClientType ? <span className="ml-2 text-[#6B7488]">({walletClientType})</span> : null}
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[14px] text-[#195EBC] font-medium" aria-live="polite">
+              Connected: <span className="font-mono">{truncateAddress(address)}</span>
+              {walletClientType ? <span className="ml-2 text-[#6B7488]">({walletClientType})</span> : null}
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleDisconnectWallet()}
+              disabled={disconnecting || authInFlight || connecting}
+              className="text-[14px] font-medium text-[#6B7488] underline underline-offset-2 hover:text-[#374151] disabled:opacity-60 self-start sm:self-auto"
+            >
+              {disconnecting ? 'Disconnecting…' : 'Disconnect wallet'}
+            </button>
+          </div>
+        ) : null}
+
+        {wrongNetwork ? (
+          <p className="text-[14px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4" role="status">
+            Your wallet is on a different network. Press Continue to switch to {APP_CHAIN.name}, or disconnect and choose another wallet.
           </p>
         ) : null}
 
@@ -239,7 +279,7 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
           <button
             type="button"
             onClick={() => void handlePrivyLogin()}
-            disabled={connecting || authInFlight}
+            disabled={connecting || authInFlight || disconnecting}
             className="flex items-center justify-between rounded-md border border-[#EAEAEA] bg-white px-4 py-3 hover:bg-[#F9FAFB] disabled:opacity-60"
           >
             <div className="flex items-center gap-3 min-w-0">
@@ -252,7 +292,7 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
           <button
             type="button"
             onClick={() => void handleConnectExternalWallet()}
-            disabled={connecting || authInFlight}
+            disabled={connecting || authInFlight || disconnecting}
             className="flex items-center justify-between rounded-md border border-[#EAEAEA] bg-white px-4 py-3 hover:bg-[#F9FAFB] disabled:opacity-60"
           >
             <span className="text-black font-bold truncate">Connect external wallet</span>
@@ -264,7 +304,7 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
           <button
             type="button"
             onClick={() => void handleContinue()}
-            disabled={!isConnected || authInFlight}
+            disabled={!isConnected || authInFlight || disconnecting}
             className="bg-[#195EBC] text-white px-4 py-3 rounded-md w-full mt-1 disabled:opacity-60"
           >
             {authInFlight ? 'Signing in…' : 'Continue'}

@@ -29,6 +29,8 @@ export type DashboardErrorModalProps = {
   blocking?: boolean
   secondaryLabel?: string
   onSecondary?: () => void
+  tertiaryLabel?: string
+  onTertiary?: () => void
   onClose: () => void
   onRetry?: () => void
   /** Optional content between message and action buttons (e.g. manual recovery steps). */
@@ -59,6 +61,8 @@ export default function DashboardErrorModal({
   blocking,
   secondaryLabel,
   onSecondary,
+  tertiaryLabel,
+  onTertiary,
   onClose,
   onRetry,
   children,
@@ -110,6 +114,15 @@ export default function DashboardErrorModal({
               className="min-h-[48px] w-full rounded-xl text-[15px] font-semibold bg-[#1D61C1] text-white shadow-sm hover:bg-[#1955AD] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {retryLabel?.trim() ? retryLabel : 'Retry'}
+            </button>
+          ) : null}
+          {isBlocking && typeof onTertiary === 'function' ? (
+            <button
+              type="button"
+              onClick={onTertiary}
+              className="min-h-[48px] w-full rounded-xl text-[15px] font-semibold border border-[#E5E7EB] bg-white text-[#374151] hover:bg-[#F9FAFB] active:scale-[0.99]"
+            >
+              {tertiaryLabel?.trim() ? tertiaryLabel : 'Other action'}
             </button>
           ) : null}
           {isBlocking && typeof onSecondary === 'function' ? (

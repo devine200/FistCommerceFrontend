@@ -68,6 +68,7 @@ import AdminInvestorProfilePage from '@/pages/AdminInvestorProfilePage'
 import AdminLoginPage from '@/pages/AdminLoginPage'
 import AdminProtectedOutlet from '@/components/session/AdminProtectedOutlet'
 import LandingPage from '@/pages/LandingPage'
+import AppShell from '@/layouts/AppShell'
 import { resolveDashboardReturnTo } from '@/session/dashboardReturnTo'
 import { parseUserRole } from '@/utils/userRole'
 import {
@@ -127,6 +128,9 @@ const DashboardIndexRedirect = () => {
 }
 
 const router = createBrowserRouter([
+  {
+    element: <AppShell />,
+    children: [
   {
     path: '/',
     element: <LandingPage />,
@@ -529,6 +533,8 @@ const router = createBrowserRouter([
   {
     path: '*',
     element: <PageNotFound />,
+  },
+    ],
   },
 ])
 

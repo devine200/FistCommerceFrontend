@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { usePrivy } from '@privy-io/react-auth'
 
+import {
+  isOnboardingConnectWalletPath,
+  onboardingConnectWalletPath,
+} from '@/access/onboardingPaths'
 import DashboardErrorModal from '@/components/dashboard/shared/DashboardErrorModal'
 import WrongNetworkHelp from '@/components/session/WrongNetworkHelp'
-import { disconnectPrivySession } from '@/session/disconnectPrivySession'
+import { disconnectLinkedWalletOnly, disconnectPrivySession } from '@/session/disconnectPrivySession'
 import { resetUserSession } from '@/session/resetUserSession'
 import { ADMIN_LOGIN_PATH, shouldRedirectToAdminLogin } from '@/auth/adminSession'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { store } from '@/store'
+import { resetWallet } from '@/store/slices/walletSlice'
+import { parseUserRole } from '@/utils/userRole'
 import { APP_CHAIN } from '@/wallet/appChain'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 import { formatWalletChainSwitchError } from '@/wallet/walletChainErrors'
@@ -32,15 +39,24 @@ function logEnsureWalletChainFailure(
 
 /**
  * After any wallet becomes active, prefer Arbitrum Sepolia. If the user leaves the app chain,
- * block the app until they switch back or fully log out (Privy + app session).
+ * block the app until they switch back, choose another wallet, or fully log out.
+ *
+ * On the onboarding connect-wallet step, auto-switch and the blocking modal are skipped so the user
+ * can pick a wallet and switch only when they press Continue.
  */
 export default function ArbitrumSepoliaWalletEnforcer() {
   const dispatch = useAppDispatch()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const role = useAppSelector((s) => s.auth.role)
   const { ready: privyReady, logout } = usePrivy()
   const { wallet, isConnected, address, ready: walletsReady } = useActiveWallet()
   const chainId = useAppSelector((s) => s.wallet.chainId)
   const [switchError, setSwitchError] = useState<string | null>(null)
   const [switching, setSwitching] = useState(false)
+  const [choosingWallet, setChoosingWallet] = useState(false)
+
+  const skipEnforcer = isOnboardingConnectWalletPath(pathname)
 
   /** Dedupe initial switch per address; cleared on effect cleanup if the debounced run never fired (StrictMode-safe). */
   const initialSwitchStartedForKeyRef = useRef<string | null>(null)
@@ -72,6 +88,10 @@ export default function ArbitrumSepoliaWalletEnforcer() {
   )
 
   useEffect(() => {
+    if (skipEnforcer) {
+      initialSwitchStartedForKeyRef.current = null
+      return
+    }
     if (!privyReady || !walletsReady || !wallet || !isConnected || !address) {
       initialSwitchStartedForKeyRef.current = null
       return
@@ -94,7 +114,7 @@ export default function ArbitrumSepoliaWalletEnforcer() {
         initialSwitchStartedForKeyRef.current = null
       }
     }
-  }, [privyReady, walletsReady, wallet, isConnected, address, runEnsureWalletChain])
+  }, [skipEnforcer, privyReady, walletsReady, wallet, isConnected, address, runEnsureWalletChain])
 
   const wrongNetwork =
     privyReady &&
@@ -104,21 +124,40 @@ export default function ArbitrumSepoliaWalletEnforcer() {
     chainId != null &&
     chainId !== APP_CHAIN.id
 
+  const showBlockingModal = wrongNetwork && !skipEnforcer
+
   useEffect(() => {
-    if (!wrongNetwork) {
+    if (!wrongNetwork || skipEnforcer) {
       setSwitchError(null)
       setSwitching(false)
     }
-  }, [wrongNetwork])
+  }, [wrongNetwork, skipEnforcer])
 
   const handleLogoutWrongNetwork = useCallback(async () => {
     await disconnectPrivySession(wallet, logout)
     const { accessToken, sessionKind } = store.getState().auth
-    const pathname = typeof window !== 'undefined' ? window.location.pathname : undefined
-    const toAdminLogin = shouldRedirectToAdminLogin({ accessToken, sessionKind, pathname })
+    const currentPathname = typeof window !== 'undefined' ? window.location.pathname : undefined
+    const toAdminLogin = shouldRedirectToAdminLogin({ accessToken, sessionKind, pathname: currentPathname })
     resetUserSession(dispatch)
     window.location.replace(toAdminLogin ? ADMIN_LOGIN_PATH : '/onboarding/choose-role')
   }, [wallet, logout, dispatch])
+
+  const handleChooseDifferentWallet = useCallback(async () => {
+    if (choosingWallet) return
+    setChoosingWallet(true)
+    try {
+      await disconnectLinkedWalletOnly(wallet)
+      dispatch(resetWallet())
+      const parsedRole = parseUserRole(role)
+      if (parsedRole) {
+        navigate(onboardingConnectWalletPath(parsedRole), { replace: true })
+        return
+      }
+      navigate('/onboarding/choose-role', { replace: true })
+    } finally {
+      setChoosingWallet(false)
+    }
+  }, [choosingWallet, wallet, dispatch, role, navigate])
 
   const handleSwitchToAppChain = useCallback(() => {
     if (!wallet) {
@@ -130,17 +169,19 @@ export default function ArbitrumSepoliaWalletEnforcer() {
 
   const modalMessage = switchError
     ? switchError
-    : `This app runs on ${APP_CHAIN.name} only. Switch your wallet back to ${APP_CHAIN.name}, or log out.`
+    : `This app runs on ${APP_CHAIN.name} only. Switch your wallet to ${APP_CHAIN.name}, choose a different wallet, or log out.`
 
   return (
     <DashboardErrorModal
       blocking
-      open={wrongNetwork}
+      open={showBlockingModal}
       title="Wrong network"
       message={modalMessage}
       retryLabel={switching ? 'Switching…' : `Switch to ${APP_CHAIN.name}`}
-      retryDisabled={switching}
+      retryDisabled={switching || choosingWallet}
       onRetry={handleSwitchToAppChain}
+      tertiaryLabel={choosingWallet ? 'Opening wallet picker…' : 'Choose a different wallet'}
+      onTertiary={() => void handleChooseDifferentWallet()}
       secondaryLabel="Log out"
       onSecondary={() => void handleLogoutWrongNetwork()}
       onClose={() => {}}
