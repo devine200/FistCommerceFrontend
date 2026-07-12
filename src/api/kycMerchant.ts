@@ -24,7 +24,14 @@ export type MerchantKycRecord = {
 }
 
 /**
- * Merchant dashboard access: **verified** only when both `kyc_verified` and `insurance_verified`.
+ * Merchant is fully verified only when reviewed, identity KYC, and insurance are all true.
+ */
+export function isMerchantFullyVerified(record: MerchantKycRecord | null | undefined): boolean {
+  return Boolean(record?.reviewed && record?.kyc_verified && record?.insurance_verified)
+}
+
+/**
+ * Merchant dashboard access: **verified** only when `reviewed`, `kyc_verified`, and `insurance_verified`.
  */
 export function deriveKycStatusFromMerchantRecord(record: MerchantKycRecord | null | undefined): KycStatus {
   if (!record) return 'not_started'
@@ -37,7 +44,7 @@ export function deriveKycStatusFromMerchantRecord(record: MerchantKycRecord | nu
   const { reviewed, kyc_verified, insurance_verified } = record
   const inProgress = hasDiditVerificationInProgress(record)
 
-  if (reviewed && kyc_verified && insurance_verified) return 'verified'
+  if (isMerchantFullyVerified(record)) return 'verified'
   if (reviewed && !(kyc_verified && insurance_verified)) return 'rejected'
   if (inProgress || kyc_verified || insurance_verified) return 'pending'
   return 'not_started'

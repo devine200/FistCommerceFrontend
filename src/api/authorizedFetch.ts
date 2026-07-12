@@ -14,9 +14,9 @@ function hasAuthRetried(init: RequestInit): boolean {
   return Boolean((init as AuthRecoveryInit)[AUTH_RETRIED])
 }
 
-/** DRF auth failures are often 401; some gateways or configs surface 403 instead. */
+/** Unauthenticated — refresh/logout path. Permission 403 is returned to the caller (not a session wipe). */
 function isAuthFailureStatus(status: number): boolean {
-  return status === 401 || status === 403
+  return status === 401
 }
 
 function authorizationHeaderFromInit(headers: RequestInit['headers']): string | null {
@@ -93,7 +93,7 @@ async function logoutAndRedirectAfterAuthFailure(): Promise<void> {
     event: 'auth_failure_logout',
     redirectTo: path,
     role,
-    note: '401/403 after refresh failure or missing refresh',
+    note: '401 after refresh failure or missing refresh',
   })
   const { resetUserSession } = await import('@/session/resetUserSession')
   resetUserSession(store.dispatch)
@@ -130,8 +130,9 @@ async function logoutHeaderTooLargeAndRedirect(): Promise<void> {
  *   redirect (no network request).
  * - **431 / 413 / narrow 400** (proxy “header too large” body) + `Authorization: Token …`: full
  *   session reset and redirect (no refresh).
- * - **401/403** + `Authorization: Token …`: with refresh token → refresh and retry once; a second
- *   401/403 on that retry, missing refresh token, or failed refresh → logout and redirect.
+ * - **401** + `Authorization: Token …`: with refresh token → refresh and retry once; a second
+ *   401 on that retry, missing refresh token, or failed refresh → logout and redirect.
+ * - **403** is treated as a permission/resource error for the caller (does not clear the session).
  *
  * Uses dynamic `import()` for the Redux store and session refresh so this module does not create a
  * circular dependency with `store/index.ts` (metrics → authorizedFetch → store → slices → metrics).

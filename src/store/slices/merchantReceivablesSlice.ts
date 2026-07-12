@@ -1,6 +1,9 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
 import { fetchMerchantLoanList, type MerchantLoanListEntry } from '@/api/loanDetails'
+import { recordSessionDiagnostic } from '@/session/sessionDiagnostics'
+import type { RootState } from '@/store'
+import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
 
 export type MerchantReceivablesStatus = 'idle' | 'loading' | 'succeeded' | 'failed'
 
@@ -21,11 +24,23 @@ const initialState: MerchantReceivablesState = {
 export const refreshMerchantReceivables = createAsyncThunk(
   'merchantReceivables/refresh',
   async (_arg, thunkApi) => {
-    const state = thunkApi.getState() as { auth?: { accessToken?: string | null } }
+    const state = thunkApi.getState() as RootState
     const accessToken = state.auth?.accessToken?.trim()
     if (!accessToken) {
       return { fetchedAt: Date.now(), loans: [] as MerchantLoanListEntry[] }
     }
+
+    // Only fully verified merchants (reviewed + kyc_verified + insurance_verified) may call GET /api/loan/request.
+    if (!selectIsKycVerified(state)) {
+      recordSessionDiagnostic({
+        event: 'loan_request_skipped',
+        note: 'skipped GET /api/loan/request — merchant not fully verified',
+        role: state.auth.role,
+        hasAccessToken: true,
+      })
+      return { fetchedAt: Date.now(), loans: [] as MerchantLoanListEntry[] }
+    }
+
     const loans = await fetchMerchantLoanList(accessToken)
     return { fetchedAt: Date.now(), loans }
   },
