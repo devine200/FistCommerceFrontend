@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 
 import { resetUserSession } from '@/session/resetUserSession'
+import { recordSessionDiagnostic } from '@/session/sessionDiagnostics'
 import { logoutAdminSession } from '@/session/logoutAdminSession'
 import {
   ADMIN_LOGIN_PATH,
@@ -25,34 +26,28 @@ import { useActiveWallet } from '@/wallet/useActiveWallet'
  */
 const DISCONNECT_SESSION_RESET_MS = 2500
 
-// Opt-in only: avoids noisy console/network errors in dev when no ingest proxy is configured.
-const AGENT_DEBUG_INGEST =
-  import.meta.env.DEV && String(import.meta.env.VITE_AGENT_DEBUG_INGEST_ENABLED).toLowerCase() === 'true'
-    ? '/ingest/fb9c849e-37ad-4a71-b70c-257ccd07e08d'
-    : ''
-
-function agentDebugLog(payload: Record<string, unknown>) {
-  if (!AGENT_DEBUG_INGEST) return
-  void fetch(AGENT_DEBUG_INGEST, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': 'eda03a',
-    },
-    body: JSON.stringify({ sessionId: 'eda03a', ...payload }),
-  }).then((res) => {
-    // `fetch` doesn't reject on 4xx/5xx; swallow to keep console clean.
-    if (!res.ok) return
-  }).catch(() => {})
-}
-
 type Eip1193Emitter = {
   on?: (event: string, handler: (...args: unknown[]) => void) => void
   removeListener?: (event: string, handler: (...args: unknown[]) => void) => void
 }
 
+type WalletSessionResetKind =
+  | 'wallet_disconnect_reset'
+  | 'wallet_address_change_reset'
+  | 'privy_logout_reset'
+
 /** Wallet disconnect / Privy logout routing for admin vs investor/merchant flows. */
-function resetWalletAppSessionAndRedirect(dispatch: AppDispatch) {
+function resetWalletAppSessionAndRedirect(
+  dispatch: AppDispatch,
+  kind: WalletSessionResetKind,
+  extra?: {
+    authenticated?: boolean
+    privyReady?: boolean
+    walletsReady?: boolean
+    walletConnected?: boolean
+    note?: string
+  },
+) {
   const { sessionKind, accessToken } = store.getState().auth
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
 
@@ -61,6 +56,16 @@ function resetWalletAppSessionAndRedirect(dispatch: AppDispatch) {
 
   const onAdminDashboard = Boolean(pathname && isAdminDashboardPath(pathname))
   if (sessionKind === 'admin' || (onAdminDashboard && isAdminSession(accessToken, sessionKind))) {
+    recordSessionDiagnostic({
+      event: kind,
+      pathname,
+      redirectTo: ADMIN_LOGIN_PATH,
+      note: extra?.note ?? 'admin session logout',
+      authenticated: extra?.authenticated,
+      privyReady: extra?.privyReady,
+      walletsReady: extra?.walletsReady,
+      walletConnected: extra?.walletConnected,
+    })
     void logoutAdminSession(dispatch).catch(() => {
       window.location.assign(ADMIN_LOGIN_PATH)
     })
@@ -68,11 +73,31 @@ function resetWalletAppSessionAndRedirect(dispatch: AppDispatch) {
   }
 
   if (shouldRedirectToAdminLogin({ accessToken, sessionKind, pathname })) {
+    recordSessionDiagnostic({
+      event: kind,
+      pathname,
+      redirectTo: ADMIN_LOGIN_PATH,
+      note: extra?.note ?? 'redirect to admin login',
+      authenticated: extra?.authenticated,
+      privyReady: extra?.privyReady,
+      walletsReady: extra?.walletsReady,
+      walletConnected: extra?.walletConnected,
+    })
     resetUserSession(dispatch)
     window.location.replace(ADMIN_LOGIN_PATH)
     return
   }
 
+  recordSessionDiagnostic({
+    event: kind,
+    pathname,
+    redirectTo: '/onboarding/choose-role',
+    note: extra?.note ?? 'full session reset → choose-role',
+    authenticated: extra?.authenticated,
+    privyReady: extra?.privyReady,
+    walletsReady: extra?.walletsReady,
+    walletConnected: extra?.walletConnected,
+  })
   resetUserSession(dispatch)
   window.location.replace('/onboarding/choose-role')
 }
@@ -88,23 +113,6 @@ export default function WalletReduxSync() {
 
   // Keep chainId mirror updated from the active wallet provider.
   useEffect(() => {
-    // #region agent log
-    agentDebugLog({
-      runId: 'post-proxy',
-      hypothesisId: 'H1',
-      location: 'src/components/session/WalletReduxSync.tsx:chain-effect',
-      message: 'WalletReduxSync chainId effect tick',
-      data: {
-        authenticated,
-        privyReady,
-        walletsReady,
-        isConnected,
-        hasWallet: Boolean(wallet),
-        addressPresent: Boolean(address),
-      },
-      timestamp: Date.now(),
-    })
-    // #endregion agent log
     let cancelled = false
     let detachProviderListeners: (() => void) | undefined
     let clearPollInterval: (() => void) | undefined
@@ -161,7 +169,7 @@ export default function WalletReduxSync() {
       detachProviderListeners?.()
       clearPollInterval?.()
     }
-  }, [dispatch, wallet, isConnected, address, authenticated, privyReady, walletsReady])
+  }, [dispatch, wallet, isConnected, address])
 
   useEffect(() => {
     const { onboarded, accessToken } = store.getState().auth
@@ -207,25 +215,13 @@ export default function WalletReduxSync() {
     if (wasConnected.current && !isConnected) {
       const runDisconnectReset = () => {
         clearPendingDisconnectReset()
-        // #region agent log
-        agentDebugLog({
-          runId: 'post-fix',
-          hypothesisId: 'H2',
-          location: 'src/components/session/WalletReduxSync.tsx:disconnect-branch',
-          message: 'Redirecting choose-role due to disconnect',
-          data: {
-            wasConnected: true,
-            isConnected,
-            prevAddress: lastAddress.current,
-            nextAddress: address,
-            authenticated,
-            privyReady,
-            walletsReady,
-          },
-          timestamp: Date.now(),
+        resetWalletAppSessionAndRedirect(dispatch, 'wallet_disconnect_reset', {
+          authenticated,
+          privyReady,
+          walletsReady,
+          walletConnected: false,
+          note: `prevAddress=${lastAddress.current ?? 'null'}`,
         })
-        // #endregion agent log
-        resetWalletAppSessionAndRedirect(dispatch)
       }
 
       // Still Privy-authenticated: only reset after a sustained disconnect (avoids idle flicker).
@@ -243,25 +239,13 @@ export default function WalletReduxSync() {
     }
     // If user swaps wallet/address while “connected”, force re-auth (signature is wallet-bound).
     if (wasConnected.current && isConnected && lastAddress.current && lastAddress.current !== address) {
-      // #region agent log
-      agentDebugLog({
-        runId: 'post-fix',
-        hypothesisId: 'H3',
-        location: 'src/components/session/WalletReduxSync.tsx:address-change-branch',
-        message: 'Redirecting choose-role due to address change',
-        data: {
-          wasConnected: true,
-          isConnected,
-          prevAddress: lastAddress.current,
-          nextAddress: address,
-          authenticated,
-          privyReady,
-          walletsReady,
-        },
-        timestamp: Date.now(),
+      resetWalletAppSessionAndRedirect(dispatch, 'wallet_address_change_reset', {
+        authenticated,
+        privyReady,
+        walletsReady,
+        walletConnected: true,
+        note: `prev=${lastAddress.current} next=${address ?? 'null'}`,
       })
-      // #endregion agent log
-      resetWalletAppSessionAndRedirect(dispatch)
     }
     wasConnected.current = isConnected
     lastAddress.current = address
@@ -275,24 +259,13 @@ export default function WalletReduxSync() {
         clearTimeout(disconnectResetTimerRef.current)
         disconnectResetTimerRef.current = null
       }
-      // #region agent log
-      agentDebugLog({
-        runId: 'post-fix',
-        hypothesisId: 'H4',
-        location: 'src/components/session/WalletReduxSync.tsx:privy-logout-branch',
-        message: 'Redirecting choose-role due to privy logout',
-        data: {
-          prevAuthenticated: true,
-          nextAuthenticated: false,
-          isConnected,
-          address,
-          privyReady,
-          walletsReady,
-        },
-        timestamp: Date.now(),
+      resetWalletAppSessionAndRedirect(dispatch, 'privy_logout_reset', {
+        authenticated: false,
+        privyReady,
+        walletsReady,
+        walletConnected: isConnected,
+        note: `address=${address ?? 'null'}`,
       })
-      // #endregion agent log
-      resetWalletAppSessionAndRedirect(dispatch)
     }
     wasAuthenticated.current = authenticated
   }, [dispatch, privyReady, walletsReady, authenticated, isConnected, address])

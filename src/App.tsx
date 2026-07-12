@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useEffect, useRef } from 'react'
 
 import {
   DashboardOverviewRoute,
@@ -70,6 +71,7 @@ import AdminProtectedOutlet from '@/components/session/AdminProtectedOutlet'
 import LandingPage from '@/pages/LandingPage'
 import AppShell from '@/layouts/AppShell'
 import { resolveDashboardReturnTo } from '@/session/dashboardReturnTo'
+import { recordSessionDiagnostic } from '@/session/sessionDiagnostics'
 import { parseUserRole } from '@/utils/userRole'
 import {
   ADMIN_DASHBOARD_OVERVIEW_PATH,
@@ -99,6 +101,19 @@ const RootRedirect = () => {
 
 const RequireOnboarded = ({ children }: { children: ReactNode }) => {
   const { onboarded } = useAppSelector((s) => s.auth)
+  const loggedRef = useRef(false)
+
+  useEffect(() => {
+    if (onboarded || loggedRef.current) return
+    loggedRef.current = true
+    recordSessionDiagnostic({
+      event: 'require_onboarded_redirect',
+      redirectTo: '/onboarding/choose-role',
+      onboarded: false,
+      note: 'RequireOnboarded blocked dashboard shell',
+    })
+  }, [onboarded])
+
   if (!onboarded) return <Navigate to="/onboarding/choose-role" replace />
   return <>{children}</>
 }

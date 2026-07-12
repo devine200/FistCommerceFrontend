@@ -7,6 +7,7 @@ import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFul
 import { useAccessContext } from '@/hooks/useAccessContext'
 import { useDeferredAccessRedirect } from '@/hooks/useDeferredAccessRedirect'
 import { saveDashboardReturnTo } from '@/session/dashboardReturnTo'
+import { recordSessionDiagnostic } from '@/session/sessionDiagnostics'
 
 /**
  * Blocks investor/merchant dashboard subtree when wallet or session token is missing.
@@ -37,6 +38,18 @@ export default function DashboardSessionGuard() {
   }
 
   if (!decision.allowed && redirectTo) {
+    recordSessionDiagnostic({
+      event: 'dashboard_guard_navigate',
+      pathname: location.pathname,
+      reason: decision.reason,
+      redirectTo,
+      walletConnected: ctx.walletConnected,
+      privyReady: ctx.privyReady,
+      walletsReady: ctx.walletsReady,
+      onboarded: ctx.onboarded,
+      role: ctx.role,
+      hasAccessToken: Boolean(ctx.accessToken?.length),
+    })
     saveDashboardReturnTo(`${location.pathname}${location.search}`)
     return <Navigate to={redirectTo} replace />
   }

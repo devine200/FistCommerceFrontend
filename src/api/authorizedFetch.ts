@@ -88,6 +88,13 @@ async function logoutAndRedirectAfterAuthFailure(): Promise<void> {
   const { role: roleRaw, accessToken, sessionKind } = store.getState().auth
   const role = parseUserRole(roleRaw)
   const path = redirectPathAfterAuthFailure(accessToken, role, sessionKind)
+  const { recordSessionDiagnostic } = await import('@/session/sessionDiagnostics')
+  recordSessionDiagnostic({
+    event: 'auth_failure_logout',
+    redirectTo: path,
+    role,
+    note: '401/403 after refresh failure or missing refresh',
+  })
   const { resetUserSession } = await import('@/session/resetUserSession')
   resetUserSession(store.dispatch)
   await persistor.flush()
@@ -103,6 +110,14 @@ async function logoutHeaderTooLargeAndRedirect(): Promise<void> {
   const { role: roleRaw, accessToken, sessionKind } = store.getState().auth
   const role = parseUserRole(roleRaw)
   const path = redirectPathAfterAuthFailure(accessToken, role, sessionKind)
+  const { recordSessionDiagnostic } = await import('@/session/sessionDiagnostics')
+  recordSessionDiagnostic({
+    event: 'auth_failure_logout',
+    redirectTo: path,
+    role,
+    note: 'header too large / 431 path',
+    accessTokenLen: accessToken?.length ?? 0,
+  })
   const { resetUserSession } = await import('@/session/resetUserSession')
   resetUserSession(store.dispatch)
   await persistor.flush()
