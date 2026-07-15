@@ -5,6 +5,7 @@ import { isAdminSession } from '@/auth/adminSession'
 /** Investor/merchant dashboard session — excludes staff admin tokens on onboarding. */
 export function hasDashboardSession(ctx: AccessContext): boolean {
   if (isAdminSession(ctx.accessToken, ctx.sessionKind)) return false
+  if (ctx.sessionExpired) return false
   return (
     ctx.role !== null &&
     ctx.walletConnected &&

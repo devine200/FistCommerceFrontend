@@ -72,11 +72,11 @@ function seedLegacyAuthIntoPersist() {
 
 seedLegacyAuthIntoPersist()
 
-/** v1: clear legacy kycVerified. v2: refreshToken. v3: coerce invalid persisted `role` to null. v4: reject oversize/corrupt accessToken. v5: keep refresh when access sanitize fails; sanitize refresh independently. */
+/** v1: clear legacy kycVerified. v2: refreshToken. v3: coerce invalid persisted `role` to null. v4: reject oversize/corrupt accessToken. v5: keep refresh when access sanitize fails; sanitize refresh independently. v6: sessionExpired flags. */
 const authPersistConfig = {
   key: AUTH_PERSIST_KEY,
   storage: authPersistStorage,
-  version: 5,
+  version: 6,
   migrate: async (state: PersistedState): Promise<PersistedState> => {
     if (!state || typeof state !== 'object') return undefined
     const next = { ...state, kycVerified: false } as Record<string, unknown>
@@ -89,6 +89,8 @@ const authPersistConfig = {
     if (typeof next.refreshToken === 'string') {
       next.refreshToken = sanitizeRefreshToken(next.refreshToken)
     }
+    if (typeof next.sessionExpired !== 'boolean') next.sessionExpired = false
+    if (next.sessionExpiredReason === undefined) next.sessionExpiredReason = null
     return next as PersistedState
   },
 }

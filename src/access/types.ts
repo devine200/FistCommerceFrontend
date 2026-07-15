@@ -15,6 +15,7 @@ export type AccessDecision = {
     | 'role_mismatch'
     | 'admin_required'
     | 'admin_session_only'
+    | 'session_expired'
 }
 
 export type AccessContext = {
@@ -27,6 +28,8 @@ export type AccessContext = {
   onboarded: boolean
   accessToken: string | null
   sessionKind: SessionKind
+  /** True after API refresh failure until user chooses Log in again or Log out. */
+  sessionExpired: boolean
   /** Wallet connection status (used by access guards). */
   walletStatus: string
   walletConnected: boolean

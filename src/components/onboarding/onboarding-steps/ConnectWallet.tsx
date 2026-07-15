@@ -2,6 +2,7 @@ import React from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { usePrivy } from '@privy-io/react-auth'
 
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import { ApiRequestError, formatApiRequestErrorPlain, getApiBaseUrl } from '@/api/client'
 import { createWalletLoginSignable, postWalletLogin } from '@/api/walletSession'
 import privyIcon from '@/assets/Icon (1).png'
@@ -9,6 +10,7 @@ import { isSafeDashboardReturnPath, resolveDashboardReturnTo, saveDashboardRetur
 import { applyWalletLoginResponse } from '@/session/loginBridge'
 import { disconnectLinkedWalletOnly } from '@/session/disconnectPrivySession'
 import { consumeSessionEndMessage } from '@/session/sessionEnd'
+import { logoutUserSession } from '@/session/logoutUserSession'
 import { unlockAfterConnectWallet } from '@/state/session'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { persistor } from '@/store'
@@ -38,19 +40,22 @@ interface ConnectWalletProps {
 export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
   const dispatch = useAppDispatch()
   const roleFromStore = useAppSelector((s) => s.auth.role)
+  const accessToken = useAppSelector((s) => s.auth.accessToken)
   const role = parseUserRole(roleFromStore)
   const location = useLocation()
   const navigate = useNavigate()
 
-  const { ready: privyReady, login, connectWallet } = usePrivy()
+  const { ready: privyReady, login, connectWallet, logout } = usePrivy()
   const { wallet, address, isConnected, walletClientType, ready: walletsReady, setActiveWalletId } =
     useActiveWallet()
   const chainId = useAppSelector((s) => s.wallet.chainId)
 
   const [rowError, setRowError] = React.useState<string | null>(null)
+  const [sessionEndBanner, setSessionEndBanner] = React.useState(false)
   const [authInFlight, setAuthInFlight] = React.useState(false)
   const [connecting, setConnecting] = React.useState(false)
   const [disconnecting, setDisconnecting] = React.useState(false)
+  const [loggingOut, setLoggingOut] = React.useState(false)
 
   const wrongNetwork =
     isConnected && chainId != null && chainId !== APP_CHAIN.id
@@ -64,9 +69,19 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
 
   React.useEffect(() => {
     const message = consumeSessionEndMessage()
-    if (message) setRowError(message)
+    if (message) {
+      setRowError(message)
+      setSessionEndBanner(true)
+    }
   }, [])
 
+  const handleFullLogout = () => {
+    if (loggingOut) return
+    setLoggingOut(true)
+    void logoutUserSession(dispatch, wallet, logout).catch(() => {
+      setLoggingOut(false)
+    })
+  }
   React.useEffect(() => {
     if (!isConnected || !address) return
     const display = truncateAddress(address)
@@ -213,6 +228,8 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
           accessToken: loginRes.accessToken,
           refreshToken: loginRes.refreshToken ?? null,
           sessionKind: 'app',
+          sessionExpired: false,
+          sessionExpiredReason: null,
         }),
       )
       unlockAfterConnectWallet(role)
@@ -279,6 +296,17 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
           <p className="text-[14px] text-red-600 mb-4 whitespace-pre-wrap" role="alert">
             {rowError}
           </p>
+        ) : null}
+
+        {sessionEndBanner || (role && !isUsableApiAccessToken(accessToken)) ? (
+          <button
+            type="button"
+            onClick={handleFullLogout}
+            disabled={loggingOut || authInFlight || connecting || disconnecting}
+            className="mb-4 text-[14px] font-medium text-[#6B7488] underline underline-offset-2 hover:text-[#374151] disabled:opacity-60 self-start"
+          >
+            {loggingOut ? 'Logging out…' : 'Log out and disconnect wallet'}
+          </button>
         ) : null}
 
         <div className="flex flex-col gap-3">

@@ -216,6 +216,11 @@ export function evaluateDashboardSession(ctx: AccessContext): AccessDecision {
     }
   }
 
+  // Modal owns UX; do not soft-navigate to onboarding while sessionExpired is set.
+  if (ctx.sessionExpired) {
+    return { allowed: false, redirectTo: null, reason: 'session_expired' }
+  }
+
   // Wait for Privy before treating a persisted token as a missing wallet.
   if (
     isSessionBootstrapping(ctx) &&

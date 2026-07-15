@@ -65,8 +65,8 @@ function coalescedRefreshSessionTokens(): Promise<RefreshSessionResult> {
 async function endSessionAfterAuthFailure(reason: SessionEndReason): Promise<void> {
   const { store } = await import('@/store')
   const { role: roleRaw, accessToken, sessionKind } = store.getState().auth
-  const { endAppSessionAndRedirect } = await import('@/session/sessionEnd')
-  await endAppSessionAndRedirect(store.dispatch, {
+  const { markAppSessionExpired } = await import('@/session/sessionEnd')
+  await markAppSessionExpired(store.dispatch, {
     reason,
     accessToken,
     sessionKind,
@@ -82,7 +82,7 @@ async function endSessionAfterAuthFailure(reason: SessionEndReason): Promise<voi
  * - **431 / 413 / narrow 400** (proxy “header too large” body) + `Authorization: Token …`: session
  *   end and redirect (no refresh).
  * - **401** + `Authorization: Token …`: with refresh token → refresh and retry once; a second
- *   401 on that retry, missing refresh token, or failed refresh → session end with a clear message.
+ *   401 on that retry, missing refresh token, or failed refresh → mark session expired (choice modal).
  * - **403** is treated as a permission/resource error for the caller (does not clear the session).
  *
  * Uses dynamic `import()` for the Redux store and session refresh so this module does not create a

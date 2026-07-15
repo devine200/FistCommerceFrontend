@@ -1,6 +1,11 @@
 import { shouldRedirectToAdminLogin } from '@/auth/adminSession'
 import type { AppDispatch } from '@/store'
-import { patchAuth, type UserRole } from '@/store/slices/authSlice'
+import {
+  patchAuth,
+  type SessionExpiredReason,
+  type SessionKind,
+  type UserRole,
+} from '@/store/slices/authSlice'
 import { unlockOnboardingStep } from '@/store/slices/onboardingSlice'
 import { parseUserRole } from '@/utils/userRole'
 
@@ -8,21 +13,14 @@ import { resetUserSession } from '@/session/resetUserSession'
 
 const SESSION_END_STORAGE_KEY = 'fistcommerce.sessionEndMessage'
 
-export type SessionEndReason =
-  | 'refresh_expired'
-  | 'refresh_failed'
-  | 'missing_refresh'
-  | 'header_too_large'
-  | 'wallet_disconnected'
-  | 'wallet_changed'
-  | 'privy_logout'
+export type SessionEndReason = SessionExpiredReason
 
 type SessionEndPayload = {
   reason: SessionEndReason
   role: UserRole | null
 }
 
-const SESSION_END_MESSAGES: Record<SessionEndReason, string> = {
+export const SESSION_END_MESSAGES: Record<SessionEndReason, string> = {
   refresh_expired: 'Your session expired. Sign in again with your wallet to continue.',
   refresh_failed: 'Your session could not be renewed. Sign in again with your wallet to continue.',
   missing_refresh: 'Your session is no longer valid. Sign in again with your wallet to continue.',
@@ -30,6 +28,13 @@ const SESSION_END_MESSAGES: Record<SessionEndReason, string> = {
   wallet_disconnected: 'Your wallet disconnected. Reconnect and sign in again to continue.',
   wallet_changed: 'Wallet changed. Sign in again with the new wallet to continue.',
   privy_logout: 'You were signed out. Sign in again with your wallet to continue.',
+}
+
+export function getSessionEndMessage(reason: SessionEndReason | null | undefined): string {
+  if (!reason || !(reason in SESSION_END_MESSAGES)) {
+    return SESSION_END_MESSAGES.refresh_expired
+  }
+  return SESSION_END_MESSAGES[reason]
 }
 
 export function stashSessionEndMessage(reason: SessionEndReason, role: UserRole | null = null): void {
@@ -63,29 +68,60 @@ export function consumeSessionEndMessage(): string | null {
   }
 }
 
-function connectWalletPathForRole(role: UserRole | null): string {
+export function connectWalletPathForRole(role: UserRole | null): string {
   if (role === 'investor' || role === 'merchant') {
     return `/onboarding/${role}/connect-wallet`
   }
   return '/onboarding/choose-role'
 }
 
+type SessionEndOptions = {
+  reason: SessionEndReason
+  accessToken?: string | null
+  sessionKind?: SessionKind
+  role?: string | null
+  /** Prefer keeping the user’s onboarding branch so they don’t re-pick role. */
+  keepRole?: boolean
+}
+
 let sessionEndInFlight: Promise<void> | null = null
 
-/**
- * Ends an investor/merchant app session with a user-visible reason, keeps role when known,
- * and lands on the matching connect-wallet step (not a silent choose-role bounce).
- */
-export async function endAppSessionAndRedirect(
+function clearAppSessionKeepingRole(
   dispatch: AppDispatch,
-  options: {
-    reason: SessionEndReason
-    accessToken?: string | null
-    sessionKind?: import('@/store/slices/authSlice').SessionKind
-    role?: string | null
-    /** Prefer keeping the user’s onboarding branch so they don’t re-pick role. */
-    keepRole?: boolean
-  },
+  reason: SessionEndReason,
+  role: UserRole | null,
+  keepRole: boolean,
+): void {
+  stashSessionEndMessage(reason, role)
+  resetUserSession(dispatch)
+  if (keepRole && role) {
+    dispatch(
+      patchAuth({
+        role,
+        sessionExpired: true,
+        sessionExpiredReason: reason,
+      }),
+    )
+    // resetOnboardingProgress leaves maxStep at 0; unlock connect-wallet so guards
+    // do not bounce to choose-role after a wallet/session end.
+    dispatch(unlockOnboardingStep({ role, stepIndex: 1 }))
+  } else {
+    dispatch(
+      patchAuth({
+        sessionExpired: true,
+        sessionExpiredReason: reason,
+      }),
+    )
+  }
+}
+
+/**
+ * Clears API credentials and opens the in-app session-expired modal (no hard navigation).
+ * Used when refresh fails so the user can Log in again or Log out.
+ */
+export async function markAppSessionExpired(
+  dispatch: AppDispatch,
+  options: SessionEndOptions,
 ): Promise<void> {
   if (sessionEndInFlight) return sessionEndInFlight
 
@@ -104,20 +140,56 @@ export async function endAppSessionAndRedirect(
     }
 
     const role = parseUserRole(options.role)
-    stashSessionEndMessage(options.reason, role)
+    const keepRole = options.keepRole !== false
+    clearAppSessionKeepingRole(dispatch, options.reason, role, keepRole)
 
+    const { persistor } = await import('@/store')
+    await persistor.flush()
+  })().finally(() => {
+    sessionEndInFlight = null
+  })
+
+  return sessionEndInFlight
+}
+
+/**
+ * Ends an investor/merchant app session with a user-visible reason, keeps role when known,
+ * and lands on the matching connect-wallet step (used for wallet disconnect / Privy logout).
+ */
+export async function endAppSessionAndRedirect(
+  dispatch: AppDispatch,
+  options: SessionEndOptions,
+): Promise<void> {
+  if (sessionEndInFlight) return sessionEndInFlight
+
+  sessionEndInFlight = (async () => {
+    const pathname = typeof window !== 'undefined' ? window.location.pathname : undefined
+    if (
+      shouldRedirectToAdminLogin({
+        accessToken: options.accessToken,
+        sessionKind: options.sessionKind,
+        pathname,
+      })
+    ) {
+      const { logoutAdminSession } = await import('@/session/logoutAdminSession')
+      await logoutAdminSession(dispatch)
+      return
+    }
+
+    const role = parseUserRole(options.role)
+    const keepRole = options.keepRole !== false
+    // Hard redirect path: leave sessionExpired false so the modal does not open on connect-wallet.
+    stashSessionEndMessage(options.reason, role)
     resetUserSession(dispatch)
-    if (options.keepRole !== false && role) {
+    if (keepRole && role) {
       dispatch(patchAuth({ role }))
-      // resetOnboardingProgress leaves maxStep at 0; unlock connect-wallet so guards
-      // do not bounce to choose-role after a wallet/session end.
       dispatch(unlockOnboardingStep({ role, stepIndex: 1 }))
     }
 
     const { persistor } = await import('@/store')
     await persistor.flush()
 
-    const path = connectWalletPathForRole(options.keepRole === false ? null : role)
+    const path = connectWalletPathForRole(keepRole ? role : null)
     window.location.assign(path)
   })().finally(() => {
     sessionEndInFlight = null

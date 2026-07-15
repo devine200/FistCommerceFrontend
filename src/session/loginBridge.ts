@@ -42,6 +42,8 @@ export function applyWalletLoginResponse(
     onboarded,
     role,
     sessionKind: 'app',
+    sessionExpired: false,
+    sessionExpiredReason: null,
     kycVerified: res.kycStatus === 'verified',
   }
   if ('refresh_token' in res) {

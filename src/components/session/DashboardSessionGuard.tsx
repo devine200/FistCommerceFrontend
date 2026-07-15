@@ -37,6 +37,15 @@ export default function DashboardSessionGuard() {
     )
   }
 
+  // SessionExpiredModal owns recovery; hold on this route without soft-redirecting.
+  if (decision.reason === 'session_expired' || ctx.sessionExpired) {
+    return (
+      <div className="fixed inset-0 z-75">
+        <DashboardFullPageLoading label="Session expired…" />
+      </div>
+    )
+  }
+
   if (!decision.allowed && redirectTo) {
     saveDashboardReturnTo(`${location.pathname}${location.search}`)
     return <Navigate to={redirectTo} replace />

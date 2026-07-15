@@ -13,6 +13,16 @@ export type AuthUser = {
   email?: string
 }
 
+/** Why the blocking session-expired modal is showing (app / wallet API session only). */
+export type SessionExpiredReason =
+  | 'refresh_expired'
+  | 'refresh_failed'
+  | 'missing_refresh'
+  | 'header_too_large'
+  | 'wallet_disconnected'
+  | 'wallet_changed'
+  | 'privy_logout'
+
 export type SessionState = {
   accessToken: string | null
   refreshToken: string | null
@@ -21,6 +31,12 @@ export type SessionState = {
   /** `null` until the user picks a role on choose-role (also cleared on onboarding URL / role mismatch). */
   role: UserRole | null
   sessionKind: SessionKind
+  /**
+   * API session is dead (e.g. refresh failed). Blocks dashboard/onboarding handoff until the user
+   * chooses Log in again or Log out on the session-expired modal.
+   */
+  sessionExpired: boolean
+  sessionExpiredReason: SessionExpiredReason | null
   /** @deprecated Prefer kyc slice + selectIsKycVerified; kept for redux-persist migration */
   kycVerified: boolean
 }
@@ -32,6 +48,8 @@ const DEFAULT_SESSION: SessionState = {
   onboarded: false,
   role: null,
   sessionKind: null,
+  sessionExpired: false,
+  sessionExpiredReason: null,
   kycVerified: false,
 }
 
@@ -45,6 +63,8 @@ const authSlice = createSlice({
       refreshToken: sanitizeRefreshToken(action.payload.refreshToken),
       role: parseUserRole(action.payload.role),
       sessionKind: action.payload.sessionKind ?? null,
+      sessionExpired: Boolean(action.payload.sessionExpired),
+      sessionExpiredReason: action.payload.sessionExpiredReason ?? null,
     }),
     patchAuth: (state, action: PayloadAction<Partial<SessionState>>) => {
       if (action.payload.accessToken !== undefined) {
@@ -57,6 +77,10 @@ const authSlice = createSlice({
       if (action.payload.onboarded !== undefined) state.onboarded = action.payload.onboarded
       if (action.payload.role !== undefined) state.role = parseUserRole(action.payload.role)
       if (action.payload.sessionKind !== undefined) state.sessionKind = action.payload.sessionKind
+      if (action.payload.sessionExpired !== undefined) state.sessionExpired = action.payload.sessionExpired
+      if (action.payload.sessionExpiredReason !== undefined) {
+        state.sessionExpiredReason = action.payload.sessionExpiredReason
+      }
       if (action.payload.kycVerified !== undefined) state.kycVerified = action.payload.kycVerified
     },
     resetAuth: () => DEFAULT_SESSION,

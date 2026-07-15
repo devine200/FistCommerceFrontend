@@ -114,7 +114,6 @@ const AdminDashboardLayout = () => {
         <AdminTopBar
           title={pageTitle}
           leading={topBarLeading}
-          notificationUnread
           walletDisplay={shortAddress ?? undefined}
           onConnectWallet={() => void connectWallet()}
           connectWalletPending={connectWalletPending}

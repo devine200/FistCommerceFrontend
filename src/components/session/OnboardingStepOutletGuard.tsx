@@ -29,6 +29,7 @@ export default function OnboardingStepOutletGuard() {
   const canHandoffToDashboard =
     ctx.persistedReady &&
     !sessionBootstrapping &&
+    !ctx.sessionExpired &&
     ctx.onboarded &&
     !isAdminSession(ctx.accessToken, ctx.sessionKind) &&
     hasDashboardSession(ctx) &&

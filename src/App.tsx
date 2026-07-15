@@ -80,7 +80,7 @@ import {
 } from '@/auth/adminSession'
 
 const RootRedirect = () => {
-  const { onboarded, role, accessToken, sessionKind } = useAppSelector((s) => s.auth)
+  const { onboarded, role, accessToken, sessionKind, sessionExpired } = useAppSelector((s) => s.auth)
   const { isConnected } = useActiveWallet()
   const normalizedRole = parseUserRole(role)
   if (isAdminSession(accessToken, sessionKind)) {
@@ -88,6 +88,10 @@ const RootRedirect = () => {
   }
   if (sessionKind === 'admin') {
     return <Navigate to={ADMIN_LOGIN_PATH} replace />
+  }
+  if (sessionExpired) {
+    if (!normalizedRole) return <Navigate to="/onboarding/choose-role" replace />
+    return <Navigate to={`/onboarding/${normalizedRole}/connect-wallet`} replace />
   }
   if (!onboarded) return <Navigate to="/onboarding" replace />
   if (!isConnected || !isUsableApiAccessToken(accessToken)) {
@@ -99,7 +103,9 @@ const RootRedirect = () => {
 }
 
 const RequireOnboarded = ({ children }: { children: ReactNode }) => {
-  const { onboarded } = useAppSelector((s) => s.auth)
+  const { onboarded, sessionExpired } = useAppSelector((s) => s.auth)
+  // Keep the current dashboard route mounted so SessionExpiredModal can own recovery.
+  if (sessionExpired) return <>{children}</>
   if (!onboarded) return <Navigate to="/onboarding/choose-role" replace />
   return <>{children}</>
 }

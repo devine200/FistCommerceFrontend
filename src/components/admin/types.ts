@@ -18,15 +18,10 @@ export type AdminTopBarProps = {
   title: string
   /** When set, replaces the main title area (e.g. breadcrumb on investor profile). */
   leading?: ReactNode
-  notificationUnread?: boolean
   onMenuClick?: () => void
   menuButtonAriaLabel?: string
   /** Truncated wallet address — when set, shows wallet chip (replaces legacy email row) */
   walletDisplay?: string
   onConnectWallet?: () => void
   connectWalletPending?: boolean
-}
-
-export type AdminBellIconProps = {
-  className?: string
 }

@@ -31,6 +31,7 @@ export function selectKycStatus(state: RootState) {
 
 export function selectHasDashboardSession(state: RootState): boolean {
   return (
+    !state.auth.sessionExpired &&
     state.auth.onboarded &&
     isUsableApiAccessToken(state.auth.accessToken) &&
     state.wallet.isConnected &&
