@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import { fetchMerchantLoanList, type MerchantLoanListEntry } from '@/api/loanDetails'
 import type { RootState } from '@/store'
 import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
@@ -25,7 +26,7 @@ export const refreshMerchantReceivables = createAsyncThunk(
   async (_arg, thunkApi) => {
     const state = thunkApi.getState() as RootState
     const accessToken = state.auth?.accessToken?.trim()
-    if (!accessToken) {
+    if (!isUsableApiAccessToken(accessToken)) {
       return { fetchedAt: Date.now(), loans: [] as MerchantLoanListEntry[] }
     }
 

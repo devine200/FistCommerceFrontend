@@ -1,4 +1,5 @@
 import { isMerchantFullyVerified } from '@/api/kycMerchant'
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import type { RootState } from '@/store'
 
 import { parseUserRole } from '@/utils/userRole'
@@ -31,7 +32,7 @@ export function selectKycStatus(state: RootState) {
 export function selectHasDashboardSession(state: RootState): boolean {
   return (
     state.auth.onboarded &&
-    Boolean(state.auth.accessToken?.length) &&
+    isUsableApiAccessToken(state.auth.accessToken) &&
     state.wallet.isConnected &&
     Boolean(state.wallet.address)
   )

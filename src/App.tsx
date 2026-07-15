@@ -71,6 +71,7 @@ import LandingPage from '@/pages/LandingPage'
 import AppShell from '@/layouts/AppShell'
 import { resolveDashboardReturnTo } from '@/session/dashboardReturnTo'
 import { parseUserRole } from '@/utils/userRole'
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import {
   ADMIN_DASHBOARD_OVERVIEW_PATH,
   ADMIN_LOGIN_PATH,
@@ -89,7 +90,7 @@ const RootRedirect = () => {
     return <Navigate to={ADMIN_LOGIN_PATH} replace />
   }
   if (!onboarded) return <Navigate to="/onboarding" replace />
-  if (!isConnected || !accessToken?.length) {
+  if (!isConnected || !isUsableApiAccessToken(accessToken)) {
     if (!normalizedRole) return <Navigate to="/onboarding/choose-role" replace />
     return <Navigate to={`/onboarding/${normalizedRole}/connect-wallet`} replace />
   }

@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 
 import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import DashboardSessionGuard from '@/components/session/DashboardSessionGuard'
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { refreshInvestorDashboard, setInvestorWalletDisplay } from '@/store/slices/investorDashboardSlice'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
@@ -37,7 +38,7 @@ export default function InvestorDashboardSessionLayout() {
   useEffect(() => {
     if (didKickoffRef.current) return
     if (status !== 'idle') return
-    if (!accessToken?.trim()) return
+    if (!isUsableApiAccessToken(accessToken)) return
     if (role !== 'investor') return
     didKickoffRef.current = true
     void dispatch(refreshInvestorDashboard())

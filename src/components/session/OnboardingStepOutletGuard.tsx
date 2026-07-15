@@ -41,7 +41,8 @@ export default function OnboardingStepOutletGuard() {
     if (!decision.allowed && decision.reason === 'role_mismatch') {
       dispatch(resetOnboardingProgress())
       dispatch(resetOnboardingProfileDrafts())
-      dispatch(patchAuth({ role: null, accessToken: null, refreshToken: null }))
+      // Clear role mismatch without wiping API tokens mid-onboarding (avoids silent re-login).
+      dispatch(patchAuth({ role: null }))
     }
   }, [ctx, dispatch])
 

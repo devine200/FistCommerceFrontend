@@ -7,6 +7,7 @@ import {
   isAdminDashboardPath,
   isAdminLoginPath,
 } from '@/auth/adminSession'
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import type { UserRole } from '@/store/slices/authSlice'
 
 function isKycFullyVerified(ctx: AccessContext): boolean {
@@ -220,7 +221,7 @@ export function evaluateDashboardSession(ctx: AccessContext): AccessDecision {
     isSessionBootstrapping(ctx) &&
     ctx.onboarded &&
     ctx.role &&
-    Boolean(ctx.accessToken?.length)
+    isUsableApiAccessToken(ctx.accessToken)
   ) {
     return { allowed: true, redirectTo: null, reason: 'ok' }
   }
@@ -249,7 +250,7 @@ export function evaluateDashboardSession(ctx: AccessContext): AccessDecision {
     }
   }
 
-  if (!ctx.accessToken?.length) {
+  if (!isUsableApiAccessToken(ctx.accessToken)) {
     return {
       allowed: false,
       redirectTo: `/onboarding/${ctx.role}/connect-wallet`,

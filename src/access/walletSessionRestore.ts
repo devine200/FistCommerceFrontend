@@ -1,4 +1,5 @@
 import type { AccessContext, AccessDecision } from '@/access/types'
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 
 /** Match {@link WalletReduxSync} disconnect debounce — Privy wallet list can flicker after idle. */
 export const WALLET_SESSION_RESTORE_MS = 2500
@@ -17,7 +18,7 @@ export function shouldDeferDashboardRedirect(ctx: AccessContext, decision: Acces
     Boolean(decision.redirectTo) &&
     ctx.onboarded &&
     ctx.role !== null &&
-    Boolean(ctx.accessToken?.length) &&
+    isUsableApiAccessToken(ctx.accessToken) &&
     isWalletSessionRecoveryReason(decision.reason)
   )
 }

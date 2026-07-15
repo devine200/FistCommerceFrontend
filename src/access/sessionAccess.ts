@@ -1,3 +1,4 @@
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import type { AccessContext } from '@/access/types'
 import { isAdminSession } from '@/auth/adminSession'
 
@@ -8,7 +9,7 @@ export function hasDashboardSession(ctx: AccessContext): boolean {
     ctx.role !== null &&
     ctx.walletConnected &&
     Boolean(ctx.walletAddress) &&
-    Boolean(ctx.accessToken?.length)
+    isUsableApiAccessToken(ctx.accessToken)
   )
 }
 

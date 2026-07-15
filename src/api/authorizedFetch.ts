@@ -1,7 +1,5 @@
 import { MAX_AUTHORIZATION_HEADER_CHARS } from '@/auth/accessTokenPolicy'
-import { ADMIN_LOGIN_PATH, shouldRedirectToAdminLogin } from '@/auth/adminSession'
-import type { SessionKind, UserRole } from '@/store/slices/authSlice'
-import { parseUserRole } from '@/utils/userRole'
+import type { SessionEndReason } from '@/session/sessionEnd'
 
 /** Marks that token refresh already ran for this logical request (prevents refresh loops). */
 const AUTH_RETRIED = Symbol('authRetried')
@@ -64,59 +62,27 @@ function coalescedRefreshSessionTokens(): Promise<RefreshSessionResult> {
   return refreshCoalesce
 }
 
-function connectWalletPathForRole(role: UserRole | null): string {
-  if (role === 'investor' || role === 'merchant') {
-    return `/onboarding/${role}/connect-wallet`
-  }
-  return '/onboarding/choose-role'
-}
-
-function redirectPathAfterAuthFailure(
-  accessToken: string | null | undefined,
-  role: UserRole | null,
-  sessionKind: SessionKind,
-): string {
-  const pathname = typeof window !== 'undefined' ? window.location.pathname : undefined
-  if (shouldRedirectToAdminLogin({ accessToken, sessionKind, pathname })) {
-    return ADMIN_LOGIN_PATH
-  }
-  return connectWalletPathForRole(role)
-}
-
-async function logoutAndRedirectAfterAuthFailure(): Promise<void> {
-  const { store, persistor } = await import('@/store')
+async function endSessionAfterAuthFailure(reason: SessionEndReason): Promise<void> {
+  const { store } = await import('@/store')
   const { role: roleRaw, accessToken, sessionKind } = store.getState().auth
-  const role = parseUserRole(roleRaw)
-  const path = redirectPathAfterAuthFailure(accessToken, role, sessionKind)
-  const { resetUserSession } = await import('@/session/resetUserSession')
-  resetUserSession(store.dispatch)
-  await persistor.flush()
-  window.location.assign(path)
-}
-
-/**
- * 431 Request Header Fields Too Large — often a corrupted oversized `Token` header. Full session
- * reset (not refresh; retry would resend the bad header).
- */
-async function logoutHeaderTooLargeAndRedirect(): Promise<void> {
-  const { store, persistor } = await import('@/store')
-  const { role: roleRaw, accessToken, sessionKind } = store.getState().auth
-  const role = parseUserRole(roleRaw)
-  const path = redirectPathAfterAuthFailure(accessToken, role, sessionKind)
-  const { resetUserSession } = await import('@/session/resetUserSession')
-  resetUserSession(store.dispatch)
-  await persistor.flush()
-  window.location.assign(path)
+  const { endAppSessionAndRedirect } = await import('@/session/sessionEnd')
+  await endAppSessionAndRedirect(store.dispatch, {
+    reason,
+    accessToken,
+    sessionKind,
+    role: roleRaw,
+    keepRole: true,
+  })
 }
 
 /**
  * Performs `fetch`, then:
- * - **Preflight**: if `Authorization: Token …` exceeds client/header limits → full session reset and
+ * - **Preflight**: if `Authorization: Token …` exceeds client/header limits → session end and
  *   redirect (no network request).
- * - **431 / 413 / narrow 400** (proxy “header too large” body) + `Authorization: Token …`: full
- *   session reset and redirect (no refresh).
+ * - **431 / 413 / narrow 400** (proxy “header too large” body) + `Authorization: Token …`: session
+ *   end and redirect (no refresh).
  * - **401** + `Authorization: Token …`: with refresh token → refresh and retry once; a second
- *   401 on that retry, missing refresh token, or failed refresh → logout and redirect.
+ *   401 on that retry, missing refresh token, or failed refresh → session end with a clear message.
  * - **403** is treated as a permission/resource error for the caller (does not clear the session).
  *
  * Uses dynamic `import()` for the Redux store and session refresh so this module does not create a
@@ -129,7 +95,7 @@ export async function fetchWithAuthRecovery(
   if (usesDrfTokenAuth(init.headers)) {
     const authLine = authorizationHeaderFromInit(init.headers)
     if (authLine && authLine.length > MAX_AUTHORIZATION_HEADER_CHARS) {
-      await logoutHeaderTooLargeAndRedirect()
+      await endSessionAfterAuthFailure('header_too_large')
       return new Response(null, { status: 431 })
     }
   }
@@ -141,14 +107,14 @@ export async function fetchWithAuthRecovery(
 
   const tokenAuth = usesDrfTokenAuth(init.headers)
   if (tokenAuth && (res.status === 431 || res.status === 413)) {
-    await logoutHeaderTooLargeAndRedirect()
+    await endSessionAfterAuthFailure('header_too_large')
     return res
   }
 
   if (tokenAuth && res.status === 400) {
     const bodySnippet = await res.clone().text()
     if (isLikelyProxyRequestHeaderTooLargeBody(bodySnippet)) {
-      await logoutHeaderTooLargeAndRedirect()
+      await endSessionAfterAuthFailure('header_too_large')
       return res
     }
   }
@@ -162,20 +128,20 @@ export async function fetchWithAuthRecovery(
   }
 
   if (hasAuthRetried(init)) {
-    await logoutAndRedirectAfterAuthFailure()
+    await endSessionAfterAuthFailure('refresh_expired')
     return res
   }
 
   const { store } = await import('@/store')
   const { refreshToken } = store.getState().auth
   if (!refreshToken?.trim()) {
-    await logoutAndRedirectAfterAuthFailure()
+    await endSessionAfterAuthFailure('missing_refresh')
     return res
   }
 
   const tokens = await coalescedRefreshSessionTokens()
   if (!tokens) {
-    await logoutAndRedirectAfterAuthFailure()
+    await endSessionAfterAuthFailure('refresh_failed')
     return res
   }
 

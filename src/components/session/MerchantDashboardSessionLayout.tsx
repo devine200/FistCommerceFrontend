@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 
 import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import DashboardSessionGuard from '@/components/session/DashboardSessionGuard'
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
 import { refreshMerchantDashboard } from '@/store/slices/merchantDashboardSlice'
@@ -30,7 +31,7 @@ export default function MerchantDashboardSessionLayout() {
   useEffect(() => {
     if (didKickoffRef.current) return
     if (status !== 'idle') return
-    if (!accessToken?.trim()) return
+    if (!isUsableApiAccessToken(accessToken)) return
     if (role !== 'merchant') return
     didKickoffRef.current = true
     void dispatch(refreshMerchantDashboard())
@@ -39,7 +40,7 @@ export default function MerchantDashboardSessionLayout() {
   // After dashboard/KYC hydration: only fully verified merchants load GET /api/loan/request.
   useEffect(() => {
     if (!didKickoffRef.current) return
-    if (!accessToken?.trim()) return
+    if (!isUsableApiAccessToken(accessToken)) return
     if (role !== 'merchant') return
     if (status !== 'succeeded' && status !== 'failed') return
     if (!kycVerified) return

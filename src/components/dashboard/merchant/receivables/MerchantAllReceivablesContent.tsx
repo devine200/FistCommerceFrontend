@@ -3,6 +3,7 @@ import dollarIcon from '@/assets/CurrencyDollarSimple.png'
 import primeChevronRight from '@/assets/prime_chevron-right.png'
 import magnifyingGlassIcon from '@/assets/MagnifyingGlass.png'
 import { canNavigateToLoanDetail } from '@/api/loanDetails'
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import {
   AsyncTableBodyMessage,
   resolveAsyncTableBodyState,
@@ -79,7 +80,7 @@ const MerchantAllReceivablesContent = () => {
   const totalCount = rows.length
 
   useEffect(() => {
-    if (!accessToken?.trim()) return
+    if (!isUsableApiAccessToken(accessToken)) return
     void dispatch(refreshMerchantReceivables())
   }, [dispatch, accessToken])
 

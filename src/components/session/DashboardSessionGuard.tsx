@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { evaluateDashboardSession } from '@/access/evaluateAccess'
 import { isSessionBootstrapping } from '@/access/sessionAccess'
 import { WALLET_SESSION_RESTORE_MS } from '@/access/walletSessionRestore'
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import DashboardFullPageLoading from '@/components/dashboard/shared/DashboardFullPageLoading'
 import { useAccessContext } from '@/hooks/useAccessContext'
 import { useDeferredAccessRedirect } from '@/hooks/useDeferredAccessRedirect'
@@ -26,7 +27,7 @@ export default function DashboardSessionGuard() {
     isSessionBootstrapping(ctx) &&
     ctx.onboarded &&
     Boolean(ctx.role) &&
-    Boolean(ctx.accessToken?.length)
+    isUsableApiAccessToken(ctx.accessToken)
 
   if (restoringSession || hold) {
     return (

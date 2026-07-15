@@ -12,6 +12,7 @@ import {
 import { toUserFacingError } from '@/api/client'
 import { deriveKycStatusFromInvestorRecord, fetchInvestorKycRecord } from '@/api/kycInvestor'
 import { fetchRecentPayoutTransactions, type RecentPayoutBundle } from '@/api/payout'
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
 import { patchAuth, type UserRole } from '@/store/slices/authSlice'
 import { setInvestorKycRecord, setKycStatus } from '@/store/slices/kycSlice'
@@ -109,7 +110,7 @@ export const refreshInvestorDashboard = createAsyncThunk(
     const accessToken = state.auth?.accessToken
     const role = state.auth?.role
     let kycStatus: 'not_started' | 'pending' | 'verified' | 'rejected' | null = null
-    if (role === 'investor' && accessToken?.trim()) {
+    if (role === 'investor' && isUsableApiAccessToken(accessToken)) {
       try {
         const kycRecord = await fetchInvestorKycRecord(accessToken)
         kycStatus = deriveKycStatusFromInvestorRecord(kycRecord)

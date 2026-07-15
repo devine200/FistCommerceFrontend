@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { toUserFacingError } from '@/api/client'
 import { fetchInvestorProfile, type InvestorProfileInfo } from '@/api/onboardingProfile'
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import InvestorProfileHero from '@/components/dashboard/investor/profile/InvestorProfileHero'
 import InvestorProfileStatsGrid from '@/components/dashboard/investor/profile/InvestorProfileStatsGrid'
 import InvestorProfileTabs from '@/components/dashboard/investor/profile/InvestorProfileTabs'
@@ -30,7 +31,7 @@ const InvestorProfileOverviewContent = () => {
 
   const loadProfile = useCallback(() => {
     const token = accessToken?.trim()
-    if (!token) {
+    if (!isUsableApiAccessToken(token)) {
       setProfile(null)
       setProfileLoad('idle')
       setProfileError(null)

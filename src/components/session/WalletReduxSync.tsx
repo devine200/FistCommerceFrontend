@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 
-import { resetUserSession } from '@/session/resetUserSession'
 import { logoutAdminSession } from '@/session/logoutAdminSession'
+import { endAppSessionAndRedirect } from '@/session/sessionEnd'
 import {
   ADMIN_LOGIN_PATH,
   isAdminDashboardPath,
@@ -13,10 +13,10 @@ import {
 import { store } from '@/store'
 import { useAppDispatch } from '@/store/hooks'
 import type { AppDispatch } from '@/store'
-import { patchAuth } from '@/store/slices/authSlice'
 import { setWalletFromProvider } from '@/store/slices/walletSlice'
 import { syncWalletChainIdFromProviderToRedux } from '@/wallet/syncWalletChainToRedux'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
+import type { SessionEndReason } from '@/session/sessionEnd'
 
 /**
  * After idle, Privy/the wallet provider can briefly report an empty wallet list while `ready` is
@@ -30,30 +30,43 @@ type Eip1193Emitter = {
   removeListener?: (event: string, handler: (...args: unknown[]) => void) => void
 }
 
+function isOnboardingPath(pathname: string): boolean {
+  return pathname === '/onboarding' || pathname.startsWith('/onboarding/')
+}
+
 /** Wallet disconnect / Privy logout routing for admin vs investor/merchant flows. */
-function resetWalletAppSessionAndRedirect(dispatch: AppDispatch) {
-  const { sessionKind, accessToken } = store.getState().auth
+function resetWalletAppSessionAndRedirect(dispatch: AppDispatch, reason: SessionEndReason) {
+  const { sessionKind, accessToken, role } = store.getState().auth
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
 
   // Admin sign-in screen: disconnect/reconnect is expected; stay on `/admin/login`.
   if (isAdminLoginPath(pathname)) return
 
+  // Mid-onboarding: wallet flicker must not wipe progress or bounce to choose-role.
+  if (pathname && isOnboardingPath(pathname) && reason === 'wallet_disconnected') {
+    dispatch(setWalletFromProvider({ isConnected: false, address: null, chainId: undefined }))
+    return
+  }
+
   const onAdminDashboard = Boolean(pathname && isAdminDashboardPath(pathname))
-  if (sessionKind === 'admin' || (onAdminDashboard && isAdminSession(accessToken, sessionKind))) {
+  if (
+    sessionKind === 'admin' ||
+    (onAdminDashboard && isAdminSession(accessToken, sessionKind)) ||
+    shouldRedirectToAdminLogin({ accessToken, sessionKind, pathname })
+  ) {
     void logoutAdminSession(dispatch).catch(() => {
       window.location.assign(ADMIN_LOGIN_PATH)
     })
     return
   }
 
-  if (shouldRedirectToAdminLogin({ accessToken, sessionKind, pathname })) {
-    resetUserSession(dispatch)
-    window.location.replace(ADMIN_LOGIN_PATH)
-    return
-  }
-
-  resetUserSession(dispatch)
-  window.location.replace('/onboarding/choose-role')
+  void endAppSessionAndRedirect(dispatch, {
+    reason,
+    accessToken,
+    sessionKind,
+    role,
+    keepRole: true,
+  })
 }
 
 /**
@@ -125,13 +138,6 @@ export default function WalletReduxSync() {
     }
   }, [dispatch, wallet, isConnected, address])
 
-  useEffect(() => {
-    const { onboarded, accessToken } = store.getState().auth
-    if (onboarded && !accessToken?.length) {
-      dispatch(patchAuth({ accessToken: 'migrated_session' }))
-    }
-  }, [dispatch])
-
   const wasConnected = useRef(false)
   const lastAddress = useRef<string | null>(null)
   /** Timer id (`number` in DOM; Node typings may use `Timeout`). */
@@ -169,7 +175,7 @@ export default function WalletReduxSync() {
     if (wasConnected.current && !isConnected) {
       const runDisconnectReset = () => {
         clearPendingDisconnectReset()
-        resetWalletAppSessionAndRedirect(dispatch)
+        resetWalletAppSessionAndRedirect(dispatch, 'wallet_disconnected')
       }
 
       // Still Privy-authenticated: only reset after a sustained disconnect (avoids idle flicker).
@@ -187,7 +193,7 @@ export default function WalletReduxSync() {
     }
     // If user swaps wallet/address while “connected”, force re-auth (signature is wallet-bound).
     if (wasConnected.current && isConnected && lastAddress.current && lastAddress.current !== address) {
-      resetWalletAppSessionAndRedirect(dispatch)
+      resetWalletAppSessionAndRedirect(dispatch, 'wallet_changed')
     }
     wasConnected.current = isConnected
     lastAddress.current = address
@@ -201,7 +207,7 @@ export default function WalletReduxSync() {
         clearTimeout(disconnectResetTimerRef.current)
         disconnectResetTimerRef.current = null
       }
-      resetWalletAppSessionAndRedirect(dispatch)
+      resetWalletAppSessionAndRedirect(dispatch, 'privy_logout')
     }
     wasAuthenticated.current = authenticated
   }, [dispatch, privyReady, walletsReady, authenticated, isConnected, address])

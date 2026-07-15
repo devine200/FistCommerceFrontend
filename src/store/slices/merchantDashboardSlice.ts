@@ -12,6 +12,7 @@ import {
 } from '@/api/metrics'
 import { toUserFacingError } from '@/api/client'
 import { deriveKycStatusFromMerchantRecord, fetchMerchantKycRecord } from '@/api/kycMerchant'
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import type { LendingPoolCardState } from '@/store/slices/investorDashboardSlice'
 import { patchAuth } from '@/store/slices/authSlice'
 import { setKycStatus, setMerchantKycRecord } from '@/store/slices/kycSlice'
@@ -76,7 +77,7 @@ export const refreshMerchantDashboard = createAsyncThunk(
     const role = state.auth?.role
 
     let kycStatus: 'not_started' | 'pending' | 'verified' | 'rejected' | null = null
-    if (role === 'merchant' && accessToken?.trim()) {
+    if (role === 'merchant' && isUsableApiAccessToken(accessToken)) {
       try {
         const kycRecord = await fetchMerchantKycRecord(accessToken)
         kycStatus = deriveKycStatusFromMerchantRecord(kycRecord)

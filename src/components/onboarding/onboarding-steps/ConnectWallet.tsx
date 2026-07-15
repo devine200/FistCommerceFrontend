@@ -8,6 +8,7 @@ import privyIcon from '@/assets/Icon (1).png'
 import { isSafeDashboardReturnPath, resolveDashboardReturnTo, saveDashboardReturnTo } from '@/session/dashboardReturnTo'
 import { applyWalletLoginResponse } from '@/session/loginBridge'
 import { disconnectLinkedWalletOnly } from '@/session/disconnectPrivySession'
+import { consumeSessionEndMessage } from '@/session/sessionEnd'
 import { unlockAfterConnectWallet } from '@/state/session'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { persistor } from '@/store'
@@ -60,6 +61,11 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
       saveDashboardReturnTo(from)
     }
   }, [location.state])
+
+  React.useEffect(() => {
+    const message = consumeSessionEndMessage()
+    if (message) setRowError(message)
+  }, [])
 
   React.useEffect(() => {
     if (!isConnected || !address) return
