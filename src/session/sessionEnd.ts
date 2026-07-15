@@ -1,6 +1,7 @@
 import { shouldRedirectToAdminLogin } from '@/auth/adminSession'
 import type { AppDispatch } from '@/store'
 import { patchAuth, type UserRole } from '@/store/slices/authSlice'
+import { unlockOnboardingStep } from '@/store/slices/onboardingSlice'
 import { parseUserRole } from '@/utils/userRole'
 
 import { resetUserSession } from '@/session/resetUserSession'
@@ -108,6 +109,9 @@ export async function endAppSessionAndRedirect(
     resetUserSession(dispatch)
     if (options.keepRole !== false && role) {
       dispatch(patchAuth({ role }))
+      // resetOnboardingProgress leaves maxStep at 0; unlock connect-wallet so guards
+      // do not bounce to choose-role after a wallet/session end.
+      dispatch(unlockOnboardingStep({ role, stepIndex: 1 }))
     }
 
     const { persistor } = await import('@/store')

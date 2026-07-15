@@ -13,6 +13,7 @@ import {
 import { store } from '@/store'
 import { useAppDispatch } from '@/store/hooks'
 import type { AppDispatch } from '@/store'
+import { patchAuth } from '@/store/slices/authSlice'
 import { setWalletFromProvider } from '@/store/slices/walletSlice'
 import { syncWalletChainIdFromProviderToRedux } from '@/wallet/syncWalletChainToRedux'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
@@ -42,9 +43,17 @@ function resetWalletAppSessionAndRedirect(dispatch: AppDispatch, reason: Session
   // Admin sign-in screen: disconnect/reconnect is expected; stay on `/admin/login`.
   if (isAdminLoginPath(pathname)) return
 
-  // Mid-onboarding: wallet flicker must not wipe progress or bounce to choose-role.
-  if (pathname && isOnboardingPath(pathname) && reason === 'wallet_disconnected') {
-    dispatch(setWalletFromProvider({ isConnected: false, address: null, chainId: undefined }))
+  // Mid-onboarding: wallet flicker / swap must not wipe progress or bounce to choose-role.
+  // Tokens are wallet-bound — clear them so Continue re-signs; keep role + step progress.
+  if (
+    pathname &&
+    isOnboardingPath(pathname) &&
+    (reason === 'wallet_disconnected' || reason === 'wallet_changed')
+  ) {
+    if (reason === 'wallet_disconnected') {
+      dispatch(setWalletFromProvider({ isConnected: false, address: null, chainId: undefined }))
+    }
+    dispatch(patchAuth({ accessToken: null, refreshToken: null }))
     return
   }
 
