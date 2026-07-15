@@ -1,7 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
 import { fetchMerchantLoanList, type MerchantLoanListEntry } from '@/api/loanDetails'
-import { recordSessionDiagnostic } from '@/session/sessionDiagnostics'
 import type { RootState } from '@/store'
 import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
 
@@ -32,12 +31,6 @@ export const refreshMerchantReceivables = createAsyncThunk(
 
     // Only fully verified merchants (reviewed + kyc_verified + insurance_verified) may call GET /api/loan/request.
     if (!selectIsKycVerified(state)) {
-      recordSessionDiagnostic({
-        event: 'loan_request_skipped',
-        note: 'skipped GET /api/loan/request — merchant not fully verified',
-        role: state.auth.role,
-        hasAccessToken: true,
-      })
       return { fetchedAt: Date.now(), loans: [] as MerchantLoanListEntry[] }
     }
 
@@ -60,8 +53,8 @@ const merchantReceivablesSlice = createSlice({
       })
       .addCase(refreshMerchantReceivables.fulfilled, (state, action) => {
         state.status = 'succeeded'
-        state.loans = action.payload.loans
-        state.lastUpdated = action.payload.fetchedAt
+        state.loans = action.payload?.loans ?? []
+        state.lastUpdated = action.payload?.fetchedAt ?? Date.now()
       })
       .addCase(refreshMerchantReceivables.rejected, (state, action) => {
         state.status = 'failed'

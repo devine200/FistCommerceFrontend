@@ -68,16 +68,6 @@ export function completeOnboarding(role?: UserRole) {
   const token = current.accessToken?.length ? current.accessToken : newLocalAccessToken()
   store.dispatch(unlockAllOnboardingSteps(r))
   store.dispatch(patchAuth({ onboarded: true, role: r, accessToken: token }))
-  void import('@/session/sessionDiagnostics').then(({ recordSessionDiagnostic }) => {
-    recordSessionDiagnostic({
-      event: 'onboarding_complete',
-      role: r,
-      onboarded: true,
-      hasAccessToken: Boolean(token.length),
-      accessTokenLen: token.length,
-      note: token.startsWith('local_') ? 'issued local token fallback' : 'existing access token',
-    })
-  })
 }
 
 export function setKycVerified(value: boolean) {

@@ -11,20 +11,10 @@ import { APP_CHAIN } from '@/wallet/appChain'
 import WalletReduxSync from '@/components/session/WalletReduxSync'
 import AuthStorageSync from '@/store/AuthStorageSync'
 import FullPageLoading from '@/components/app/FullPageLoading'
-import {
-  consumeResetSessionQueryParam,
-  installSessionDiagnosticsWindowApi,
-  recordSessionDiagnostic,
-} from '@/session/sessionDiagnostics'
 import { persistor, store } from '@/store'
 
 import '@fontsource/outfit';
 import './index.css'
-
-installSessionDiagnosticsWindowApi()
-recordSessionDiagnostic({ event: 'diag_boot', note: 'app bootstrap' })
-consumeResetSessionQueryParam()
-
 const queryClient = new QueryClient()
 const privyAppId = import.meta.env.VITE_PRIVY_APP_ID
 /** Same value you paste into Privy → Login methods → Google (custom credentials). Public only. */

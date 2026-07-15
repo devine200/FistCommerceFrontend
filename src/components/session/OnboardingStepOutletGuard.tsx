@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 
 import { evaluateOnboardingPath } from '@/access/evaluateAccess'
@@ -13,7 +13,6 @@ import { patchAuth } from '@/store/slices/authSlice'
 import { resetOnboardingProgress } from '@/store/slices/onboardingSlice'
 import { resetOnboardingProfileDrafts } from '@/store/slices/onboardingProfileDraftSlice'
 import { resolveDashboardReturnTo } from '@/session/dashboardReturnTo'
-import { recordSessionDiagnostic } from '@/session/sessionDiagnostics'
 import { parseUserRole } from '@/utils/userRole'
 
 /**
@@ -26,7 +25,6 @@ export default function OnboardingStepOutletGuard() {
   const location = useLocation()
   const normalizedRole = parseUserRole(ctx.role)
   const sessionBootstrapping = isSessionBootstrapping(ctx)
-  const handoffLoggedRef = useRef(false)
 
   const canHandoffToDashboard =
     ctx.persistedReady &&
@@ -52,22 +50,7 @@ export default function OnboardingStepOutletGuard() {
   }
 
   if (handoffReady && normalizedRole) {
-    const to = resolveDashboardReturnTo(normalizedRole)
-    if (!handoffLoggedRef.current) {
-      handoffLoggedRef.current = true
-      recordSessionDiagnostic({
-        event: 'onboarding_handoff',
-        pathname: location.pathname,
-        redirectTo: to,
-        walletConnected: ctx.walletConnected,
-        privyReady: ctx.privyReady,
-        walletsReady: ctx.walletsReady,
-        onboarded: ctx.onboarded,
-        role: normalizedRole,
-        hasAccessToken: Boolean(ctx.accessToken?.length),
-      })
-    }
-    return <Navigate to={to} replace />
+    return <Navigate to={resolveDashboardReturnTo(normalizedRole)} replace />
   }
 
   if (canHandoffToDashboard) {

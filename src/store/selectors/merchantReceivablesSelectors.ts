@@ -1,9 +1,19 @@
 import { createSelector } from '@reduxjs/toolkit'
 
 import type { RootState } from '@/store'
+import type { MerchantReceivablesState } from '@/store/slices/merchantReceivablesSlice'
 import { mapLoanDetailsToMerchantLoanTableRow, mapLoanDetailsToReceivableTableRow } from '@/utils/mapLoanDetailsToReceivableDetailView'
 
-const selectMerchantReceivablesState = (state: RootState) => state.merchantReceivables
+const MISSING_RECEIVABLES_STATE: MerchantReceivablesState = {
+  loans: [],
+  status: 'idle',
+  error: null,
+  lastUpdated: null,
+}
+
+/** Falls back if the slice is missing (e.g. circular import left the reducer unregistered). */
+const selectMerchantReceivablesState = (state: RootState) =>
+  state.merchantReceivables ?? MISSING_RECEIVABLES_STATE
 
 export const selectMerchantReceivablesStatus = createSelector(
   selectMerchantReceivablesState,
@@ -15,7 +25,7 @@ export const selectMerchantReceivablesError = createSelector(
   (s) => s.error,
 )
 
-const selectMerchantLoanEntries = createSelector(selectMerchantReceivablesState, (s) => s.loans)
+const selectMerchantLoanEntries = createSelector(selectMerchantReceivablesState, (s) => s.loans ?? [])
 
 const selectHasLoadedMerchantLoans = createSelector(
   selectMerchantReceivablesStatus,
