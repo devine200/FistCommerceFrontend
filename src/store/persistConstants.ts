@@ -6,6 +6,9 @@ export const AUTH_PERSIST_STORAGE_KEY = `persist:${AUTH_PERSIST_KEY}`
 export const ONBOARDING_PERSIST_KEY = 'onboarding'
 export const ONBOARDING_PERSIST_STORAGE_KEY = `persist:${ONBOARDING_PERSIST_KEY}`
 
+export const KEY_BACKUP_PERSIST_KEY = 'keyBackup'
+export const KEY_BACKUP_PERSIST_STORAGE_KEY = `persist:${KEY_BACKUP_PERSIST_KEY}`
+
 export const KYC_PERSIST_KEY = 'kyc'
 export const KYC_PERSIST_STORAGE_KEY = `persist:${KYC_PERSIST_KEY}`
 

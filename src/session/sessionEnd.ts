@@ -86,6 +86,22 @@ type SessionEndOptions = {
 
 let sessionEndInFlight: Promise<void> | null = null
 
+/** Clears admin API tokens but keeps `sessionKind: 'admin'` so recovery stays on admin login. */
+function clearAdminSessionKeepingKind(dispatch: AppDispatch, reason: SessionEndReason): void {
+  stashSessionEndMessage(reason, null)
+  dispatch(
+    patchAuth({
+      accessToken: null,
+      refreshToken: null,
+      user: null,
+      role: null,
+      sessionKind: 'admin',
+      sessionExpired: true,
+      sessionExpiredReason: reason,
+    }),
+  )
+}
+
 function clearAppSessionKeepingRole(
   dispatch: AppDispatch,
   reason: SessionEndReason,
@@ -118,6 +134,7 @@ function clearAppSessionKeepingRole(
 /**
  * Clears API credentials and opens the in-app session-expired modal (no hard navigation).
  * Used when refresh fails so the user can Log in again or Log out.
+ * Admin sessions keep `sessionKind: 'admin'` so Log in again returns to `/admin/login`.
  */
 export async function markAppSessionExpired(
   dispatch: AppDispatch,
@@ -134,8 +151,9 @@ export async function markAppSessionExpired(
         pathname,
       })
     ) {
-      const { logoutAdminSession } = await import('@/session/logoutAdminSession')
-      await logoutAdminSession(dispatch)
+      clearAdminSessionKeepingKind(dispatch, options.reason)
+      const { persistor } = await import('@/store')
+      await persistor.flush()
       return
     }
 

@@ -1,4 +1,6 @@
 import { parseApiErrorResponse } from '@/api/client'
+import { normalizeOperationType } from '@/api/multisig/normalize'
+import type { OperationType } from '@/api/types/multisig'
 
 export type ServicerWalletSnapshot = {
   address: string
@@ -22,6 +24,7 @@ export type AdminWriteOutcome =
       message: string
       proposalId: string
       proposalDetailUrl?: string
+      operationType?: OperationType
       raw: Record<string, unknown>
     }
   | {
@@ -30,6 +33,7 @@ export type AdminWriteOutcome =
       message: string
       proposalId: string
       proposalDetailUrl?: string
+      operationType?: OperationType
       raw: Record<string, unknown>
     }
 
@@ -57,6 +61,12 @@ function pickStr(record: Record<string, unknown>, ...keys: string[]): string {
 
 function pickProposalId(record: Record<string, unknown>): string {
   return pickStr(record, 'proposalId', 'proposal_id', 'id')
+}
+
+/** Backend attaches `operationType` to multisig proposal responses; absent on 200 bypass. */
+function pickOperationType(record: Record<string, unknown>): OperationType | undefined {
+  const raw = pickStr(record, 'operationType', 'operation_type')
+  return raw ? normalizeOperationType(raw) : undefined
 }
 
 function pickMessage(record: Record<string, unknown>, fallback: string): string {
@@ -110,6 +120,7 @@ export async function parseAdminWriteResponse(res: Response): Promise<AdminWrite
       message: pickMessage(data, 'Sent to multisig queue.'),
       proposalId,
       proposalDetailUrl: pickStr(data, 'proposalDetailUrl', 'proposal_detail_url') || undefined,
+      operationType: pickOperationType(data),
       raw: data,
     }
   }
@@ -123,6 +134,7 @@ export async function parseAdminWriteResponse(res: Response): Promise<AdminWrite
         message: pickMessage(data, 'Multisig proposal created.'),
         proposalId,
         proposalDetailUrl: pickStr(data, 'proposalDetailUrl', 'proposal_detail_url') || undefined,
+        operationType: pickOperationType(data),
         raw: data,
       }
     }

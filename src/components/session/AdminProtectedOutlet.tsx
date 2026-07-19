@@ -7,6 +7,7 @@ import { useAccessContext } from '@/hooks/useAccessContext'
 /**
  * Renders child admin routes only when persisted auth is an admin session.
  * Otherwise redirects to admin login (or shows loading while rehydrating).
+ * Session-expired recovery is owned by SessionExpiredModal (not soft-redirect).
  */
 export default function AdminProtectedOutlet() {
   const ctx = useAccessContext()
@@ -16,6 +17,12 @@ export default function AdminProtectedOutlet() {
   }
 
   const decision = evaluateAdminDashboardSession(ctx)
+
+  // SessionExpiredModal owns recovery; hold on this route without soft-redirecting.
+  if (decision.reason === 'session_expired' || ctx.sessionExpired) {
+    return <DashboardFullPageLoading label="Session expired…" />
+  }
+
   if (!decision.allowed && decision.redirectTo) {
     return <Navigate to={decision.redirectTo} replace />
   }

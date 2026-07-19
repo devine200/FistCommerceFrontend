@@ -15,6 +15,7 @@ import { authPersistStorage } from '@/store/authPersistStorage'
 import {
   AUTH_PERSIST_KEY,
   AUTH_PERSIST_STORAGE_KEY,
+  KEY_BACKUP_PERSIST_KEY,
   LEGACY_AUTH_STORAGE_KEY,
   ONBOARDING_PERSIST_KEY,
 } from '@/store/persistConstants'
@@ -34,6 +35,7 @@ import { recentTransactionsReducer } from '@/store/slices/recentTransactionsSlic
 import { merchantDashboardReducer } from '@/store/slices/merchantDashboardSlice'
 import { merchantTransactionsReducer } from '@/store/slices/merchantTransactionsSlice'
 import { merchantReceivablesReducer } from '@/store/slices/merchantReceivablesSlice'
+import { keyBackupReducer } from '@/store/slices/keyBackupSlice'
 import { kycReducer } from '@/store/slices/kycSlice'
 import { onboardingReducer } from '@/store/slices/onboardingSlice'
 import { onboardingProfileDraftReducer } from '@/store/slices/onboardingProfileDraftSlice'
@@ -95,6 +97,21 @@ const authPersistConfig = {
   },
 }
 
+/** Persisted so an embedded user's key-backup acknowledgment survives reloads (address-keyed). */
+const keyBackupPersistConfig = {
+  key: KEY_BACKUP_PERSIST_KEY,
+  storage: authPersistStorage,
+  version: 1,
+  migrate: async (state: PersistedState): Promise<PersistedState> => {
+    if (!state || typeof state !== 'object') return undefined
+    const s = state as Record<string, unknown>
+    if (!s.acknowledgedByAddress || typeof s.acknowledgedByAddress !== 'object') {
+      s.acknowledgedByAddress = {}
+    }
+    return state as PersistedState
+  },
+}
+
 /** v1: add step dirty maps for forward URL guard after revisiting a form. */
 const onboardingPersistConfig = {
   key: ONBOARDING_PERSIST_KEY,
@@ -114,6 +131,7 @@ const rootReducer = combineReducers({
   wallet: walletReducer,
   onboarding: persistReducer(onboardingPersistConfig, onboardingReducer),
   onboardingProfileDraft: onboardingProfileDraftReducer,
+  keyBackup: persistReducer(keyBackupPersistConfig, keyBackupReducer),
   // KYC must be derived from backend payloads; do not persist.
   kyc: kycReducer,
   adminContactSocialLinks: adminContactSocialLinksReducer,
@@ -139,7 +157,7 @@ export const store = configureStore({
     getDefaultMiddleware({
       serializableCheck: {
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
-        ignoredPaths: ['auth._persist', 'onboarding._persist'],
+        ignoredPaths: ['auth._persist', 'onboarding._persist', 'keyBackup._persist'],
       },
     }),
 })

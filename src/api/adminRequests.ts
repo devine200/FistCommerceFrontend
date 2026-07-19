@@ -1,5 +1,5 @@
 import { parseAdminWriteResponse, type AdminWriteOutcome } from '@/api/adminActionResponse'
-import { apiUrl, parseApiErrorResponse, parseJsonResponse } from '@/api/client'
+import { apiUrl, parseJsonResponse } from '@/api/client'
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
 
 /** Status filter for `GET /api/metrics/admin/requests/`. */
@@ -367,20 +367,6 @@ function encodePathParam(value: string): string {
   return encodeURIComponent(key)
 }
 
-/** Reject endpoints return 201 with an empty body; tolerate non-JSON success payloads. */
-async function parseAdminVoidMutationResponse(res: Response): Promise<void> {
-  if (!res.ok) {
-    throw await parseApiErrorResponse(res)
-  }
-  const text = await res.text()
-  if (!text.trim()) return
-  try {
-    JSON.parse(text)
-  } catch {
-    // ignore
-  }
-}
-
 /** `GET /api/metrics/admin/requests/` — summary counts + filtered request queue rows. */
 export async function fetchAdminRequestsList(
   accessToken: string | null | undefined,
@@ -428,12 +414,15 @@ export async function postApproveWithdrawalRequest(
   return parseAdminWriteResponse(res)
 }
 
-/** `POST /api/metrics/admin/requests/withdrawals/{request_id}/reject/` */
+/**
+ * `POST /api/metrics/admin/requests/withdrawals/{request_id}/reject/`
+ * Now governance-gated: returns `202` + proposal in multisig mode, or `200` in local bypass.
+ */
 export async function postRejectWithdrawalRequest(
   accessToken: string | null | undefined,
   requestId: string,
   options?: { signal?: AbortSignal },
-): Promise<void> {
+): Promise<AdminWriteOutcome> {
   const key = encodePathParam(requestId)
   const res = await fetchWithAuthRecovery(
     apiUrl(`${REQUESTS_LIST_PATH}withdrawals/${key}/reject/`),
@@ -444,7 +433,7 @@ export async function postRejectWithdrawalRequest(
       signal: options?.signal,
     },
   )
-  await parseAdminVoidMutationResponse(res)
+  return parseAdminWriteResponse(res)
 }
 
 /** `POST /api/metrics/admin/requests/disbursements/{receivable_id}/approve/` */
@@ -466,12 +455,16 @@ export async function postApproveDisbursementRequest(
   return parseAdminWriteResponse(res)
 }
 
-/** `POST /api/metrics/admin/requests/disbursements/{receivable_id}/reject/` */
+/**
+ * `POST /api/metrics/admin/requests/disbursements/{receivable_id}/reject/`
+ * Post-fund rejects create a `loan_reject_funded` proposal (`202`); pre-fund rejects behave
+ * like a withdrawal reject. Local bypass returns `200`.
+ */
 export async function postRejectDisbursementRequest(
   accessToken: string | null | undefined,
   receivableId: string,
   options?: { signal?: AbortSignal },
-): Promise<void> {
+): Promise<AdminWriteOutcome> {
   const key = encodePathParam(receivableId)
   const res = await fetchWithAuthRecovery(
     apiUrl(`${REQUESTS_LIST_PATH}disbursements/${key}/reject/`),
@@ -482,5 +475,5 @@ export async function postRejectDisbursementRequest(
       signal: options?.signal,
     },
   )
-  await parseAdminVoidMutationResponse(res)
+  return parseAdminWriteResponse(res)
 }

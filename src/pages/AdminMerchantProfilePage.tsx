@@ -3,6 +3,7 @@ import { Navigate, useParams } from 'react-router-dom'
 
 import { AdminProfileKycReviewBar } from '@/components/admin/kyc/AdminProfileKycReviewBar'
 import { AdminMerchantInsuranceReviewBar } from '@/components/admin/kyc/AdminMerchantInsuranceReviewBar'
+import { AdminKycDummyVerifyBar } from '@/components/admin/kyc/AdminKycDummyVerifyBar'
 import { isAdminKycReviewFinalized } from '@/components/admin/kyc/adminKycReviewEligibility'
 import { AdminMerchantProfileView } from '@/components/admin/merchants'
 import { AdminPageFrame } from '@/components/admin/primitives'
@@ -86,6 +87,12 @@ const AdminMerchantProfilePage = () => {
             kycVerified={profile.kycVerified}
             insuranceVerified={profile.insuranceVerified}
             diditStatus={profile.diditStatus}
+            reviewed={isAdminKycReviewFinalized(profile.kycLabel)}
+            onReviewComplete={refreshProfile}
+          />
+          <AdminKycDummyVerifyBar
+            wallet={profile.wallet}
+            userType="merchant"
             reviewed={isAdminKycReviewFinalized(profile.kycLabel)}
             onReviewComplete={refreshProfile}
           />

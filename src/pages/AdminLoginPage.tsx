@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePrivy } from '@privy-io/react-auth'
 
@@ -9,6 +9,7 @@ import privyIcon from '@/assets/Icon (1).png'
 import { AdminLoginFeedbackModal } from '@/components/admin/AdminLoginFeedbackModal'
 import AdminLoginGuard from '@/components/session/AdminLoginGuard'
 import { ADMIN_DASHBOARD_OVERVIEW_PATH } from '@/auth/adminSession'
+import { consumeSessionEndMessage } from '@/session/sessionEnd'
 import { useAppDispatch } from '@/store/hooks'
 import { persistor } from '@/store'
 import { patchAuth } from '@/store/slices/authSlice'
@@ -45,6 +46,11 @@ const AdminLoginPage = () => {
   const [connecting, setConnecting] = useState(false)
   const [authInFlight, setAuthInFlight] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    const message = consumeSessionEndMessage()
+    if (message) setErrorMessage(message)
+  }, [])
 
   const handlePrivyLogin = async () => {
     setErrorMessage(null)
@@ -142,6 +148,8 @@ const AdminLoginPage = () => {
           refreshToken: result.refreshToken,
           role: null,
           sessionKind: 'admin',
+          sessionExpired: false,
+          sessionExpiredReason: null,
           user: { id: address },
         }),
       )

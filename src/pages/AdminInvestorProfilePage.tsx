@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 
 import { AdminProfileKycReviewBar } from '@/components/admin/kyc/AdminProfileKycReviewBar'
+import { AdminKycDummyVerifyBar } from '@/components/admin/kyc/AdminKycDummyVerifyBar'
 import { AdminPageFrame } from '@/components/admin/primitives'
 import {
   ACTIVITY_FILTER_TABS,
@@ -108,6 +109,12 @@ const AdminInvestorProfilePage = () => {
             kycVerified={profile.kycVerified}
             reviewed={profile.reviewed}
             pendingMultisigProposalId={profile.pendingMultisigProposalId}
+            onReviewComplete={refreshProfile}
+          />
+          <AdminKycDummyVerifyBar
+            wallet={profile.wallet}
+            userType="investor"
+            reviewed={profile.reviewed}
             onReviewComplete={refreshProfile}
           />
           <AdminInvestorProfileSummary

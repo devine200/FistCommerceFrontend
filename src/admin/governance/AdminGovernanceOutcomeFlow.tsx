@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { adminGovernanceProposalPath } from '@/api/adminActionResponse'
+import { operationTypeLabel } from '@/api/multisig/normalize'
 import { fetchMultisigProposalDetail } from '@/api/multisig/proposals'
 import { getDefaultBlockExplorerBase, blockExplorerTxUrl } from '@/api/payout'
 import { canUserSignGovernanceProposal } from '@/admin/governance/governanceSigner'
@@ -41,6 +42,8 @@ export function AdminGovernanceOutcomeFlow({ open, outcome, onClose }: AdminGove
     status: ProposalStatus
     missingSigners: string[]
     signedAddresses: string[]
+    validSignatureCount: number
+    threshold: number
   } | null>(null)
 
   useEffect(() => {
@@ -72,6 +75,8 @@ export function AdminGovernanceOutcomeFlow({ open, outcome, onClose }: AdminGove
           status: detail.status,
           missingSigners: detail.missingSigners,
           signedAddresses: detail.signatures.map((s) => s.signerAddress),
+          validSignatureCount: detail.validSignatureCount,
+          threshold: detail.threshold,
         })
       })
       .catch(() => {
@@ -155,6 +160,11 @@ export function AdminGovernanceOutcomeFlow({ open, outcome, onClose }: AdminGove
         <h3 id="gov-outcome-title" className="text-[#0B1220] text-[18px] font-bold">
           {title}
         </h3>
+        {outcome.kind === 'proposal_queued' && outcome.operationType ? (
+          <p className="mt-1 text-[#195EBC] text-[13px] font-semibold">
+            {operationTypeLabel(outcome.operationType)}
+          </p>
+        ) : null}
         <p className="mt-2 text-[#6B7488] text-[14px] leading-relaxed whitespace-pre-line">
           {outcome.kind === 'proposal_queued' ? proposalDescription : outcome.message}
         </p>
@@ -170,6 +180,17 @@ export function AdminGovernanceOutcomeFlow({ open, outcome, onClose }: AdminGove
             <a href={txUrl} target="_blank" rel="noopener noreferrer" className="text-[#195EBC] hover:underline">
               View transaction
             </a>
+          </p>
+        ) : null}
+
+        {outcome.kind === 'proposal_queued' && !signProgress && proposalSnapshot ? (
+          <p className="mt-3 text-[#0B1220] text-[14px] font-medium">
+            Signatures: {proposalSnapshot.validSignatureCount} / {proposalSnapshot.threshold}
+            {proposalSnapshot.missingSigners.length > 0
+              ? ` — awaiting ${proposalSnapshot.missingSigners.length} more owner${
+                  proposalSnapshot.missingSigners.length === 1 ? '' : 's'
+                }.`
+              : ' — threshold met; execute on the proposal page.'}
           </p>
         ) : null}
 

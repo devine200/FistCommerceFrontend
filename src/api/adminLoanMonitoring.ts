@@ -10,6 +10,7 @@ export type AdminLoanMonitoringTabFilter =
   | 'under_review'
   | 'repaid'
   | 'defaulted'
+  | 'rejected'
 
 export type AdminLoanMonitoringStatus =
   | 'active'
@@ -17,6 +18,7 @@ export type AdminLoanMonitoringStatus =
   | 'under_review'
   | 'repaid'
   | 'defaulted'
+  | 'rejected'
 
 export type AdminLoanMonitoringMerchant = {
   displayName: string
@@ -168,6 +170,8 @@ function loanLifecycleFundingRank(status: string): number {
     case 'matured':
       return 5
     case 'defaulted':
+    case 'rejected':
+      // Terminal states — a rejected funded loan is unwound on-chain, alongside defaulted.
       return 6
     case 'repaid':
       return 7
@@ -183,6 +187,7 @@ function normalizeMonitoringStatus(raw: string): AdminLoanMonitoringStatus {
   if (t === 'under_review' || t === 'under review') return 'under_review'
   if (t === 'repaid') return 'repaid'
   if (t === 'defaulted') return 'defaulted'
+  if (t === 'rejected') return 'rejected'
   return 'active'
 }
 

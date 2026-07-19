@@ -1,15 +1,16 @@
-import type {
-  BackendKeyAlignment,
-  MultisigConfig,
-  MultisigPrecondition,
-  MultisigProposalCall,
-  MultisigProposalSignature,
-  MultisigSignerMgmtSync,
-  OperationType,
-  ProposalDetail,
-  ProposalListRow,
-  ProposalStatus,
-  SigningPayload,
+import {
+  MULTISIG_OPERATION_TYPES,
+  type BackendKeyAlignment,
+  type MultisigConfig,
+  type MultisigPrecondition,
+  type MultisigProposalCall,
+  type MultisigProposalSignature,
+  type MultisigSignerMgmtSync,
+  type OperationType,
+  type ProposalDetail,
+  type ProposalListRow,
+  type ProposalStatus,
+  type SigningPayload,
 } from '@/api/types/multisig'
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -55,35 +56,16 @@ function pickBool(record: Record<string, unknown>, ...keys: string[]): boolean {
   return false
 }
 
-function normalizeOperationType(raw: string): OperationType {
-  const t = raw.trim().toLowerCase()
-  if (t === 'kyc_status' || t === 'kyc') return 'kyc_status'
-  if (t === 'risk_tier' || t === 'risk-tier') return 'risk_tier'
-  if (t === 'protocol_pause' || t === 'protocol-pause') return 'protocol_pause'
-  if (t === 'max_merchant_bps' || t === 'max-merchant-bps') return 'max_merchant_bps'
-  if (t === 'funding_pool_min_deposit' || t === 'funding-pool-min-deposit') {
-    return 'funding_pool_min_deposit'
-  }
-  if (t === 'funding_pool_payout_router' || t === 'funding-pool-payout-router') {
-    return 'funding_pool_payout_router'
-  }
-  if (t === 'funding_pool_allocator' || t === 'funding-pool-allocator') {
-    return 'funding_pool_allocator'
-  }
-  if (t === 'payout_router_funding_pool' || t === 'payout-router-funding-pool') {
-    return 'payout_router_funding_pool'
-  }
-  if (t === 'payout_router_allocator' || t === 'payout-router-allocator') {
-    return 'payout_router_allocator'
-  }
-  if (t === 'payout_router_accepted_token' || t === 'payout-router-accepted-token') {
-    return 'payout_router_accepted_token'
-  }
-  if (t === 'multisig_add_signers' || t === 'multisig-add-signers') return 'multisig_add_signers'
-  if (t === 'multisig_remove_signers' || t === 'multisig-remove-signers') return 'multisig_remove_signers'
-  if (t === 'multisig_set_threshold' || t === 'multisig-set-threshold') return 'multisig_set_threshold'
-  if (t === 'multisig_signer_rotation' || t === 'multisig-signer-rotation') return 'multisig_signer_rotation'
-  return 'withdrawal_approve'
+const OPERATION_TYPE_LOOKUP = new Set<string>(MULTISIG_OPERATION_TYPES)
+
+/**
+ * Maps a backend operation type (underscore or hyphen form) to a known {@link OperationType}.
+ * Unrecognized values fall back to `'unknown'` — never to a real op — so a newly added backend
+ * type is shown neutrally rather than being silently mislabeled as another action.
+ */
+export function normalizeOperationType(raw: string): OperationType {
+  const t = raw.trim().toLowerCase().replace(/-/g, '_')
+  return OPERATION_TYPE_LOOKUP.has(t) ? (t as OperationType) : 'unknown'
 }
 
 function normalizeProposalStatus(raw: string): ProposalStatus {
@@ -303,6 +285,16 @@ export function normalizeSigningPayload(raw: unknown): SigningPayload | null {
 
 export function operationTypeLabel(type: OperationType): string {
   switch (type) {
+    case 'withdrawal_approve':
+      return 'Withdrawal approval'
+    case 'withdrawal_reject':
+      return 'Withdrawal rejection'
+    case 'loan_fund':
+      return 'Fund loan'
+    case 'loan_reject_funded':
+      return 'Reject funded loan'
+    case 'payout_receivable':
+      return 'Funding payout'
     case 'kyc_status':
       return 'KYC status'
     case 'risk_tier':
@@ -315,8 +307,10 @@ export function operationTypeLabel(type: OperationType): string {
       return 'Change multisig threshold'
     case 'multisig_signer_rotation':
       return 'Rotate multisig owners'
+    case 'unknown':
+      return 'Governance proposal'
     default:
-      return 'Withdrawal approval'
+      return 'Governance proposal'
   }
 }
 

@@ -37,6 +37,8 @@ export function adminLoanMonitoringStatusLabel(status: AdminLoanMonitoringStatus
       return 'Repaid'
     case 'defaulted':
       return 'Defaulted'
+    case 'rejected':
+      return 'Rejected'
     default:
       return status
   }
@@ -53,6 +55,8 @@ export function loanMonitoringPillVariant(status: AdminLoanMonitoringStatus): Ad
     case 'repaid':
       return 'approved'
     case 'defaulted':
+      return 'rejected'
+    case 'rejected':
       return 'rejected'
     default:
       return 'neutral'
@@ -162,6 +166,8 @@ function loanStatusRank(status: string): number {
     case 'matured':
       return 5
     case 'defaulted':
+    case 'rejected':
+      // Terminal states — a rejected funded loan is unwound on-chain, alongside defaulted.
       return 6
     case 'repaid':
       return 7

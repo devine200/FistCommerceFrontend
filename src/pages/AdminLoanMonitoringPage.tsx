@@ -41,7 +41,7 @@ import { shortWalletDisplay } from '@/utils/shortWalletDisplay'
 
 const FULL_LIST_CACHE_KEY = adminLoanMonitoringListCacheKey(ADMIN_LOAN_MONITORING_FULL_LIST_FILTER)
 
-const TABS = ['All', 'Active', 'Late', 'Under Review', 'Repaid', 'Defaulted'] as const
+const TABS = ['All', 'Active', 'Late', 'Under Review', 'Repaid', 'Defaulted', 'Rejected'] as const
 type TabKey = (typeof TABS)[number]
 
 const TAB_ITEMS: AdminTabItem<TabKey>[] = TABS.map((t) => ({ value: t, label: t }))
@@ -60,6 +60,8 @@ function tabToApiFilter(tab: TabKey) {
       return 'repaid' as const
     case 'Defaulted':
       return 'defaulted' as const
+    case 'Rejected':
+      return 'rejected' as const
     default:
       return 'all' as const
   }

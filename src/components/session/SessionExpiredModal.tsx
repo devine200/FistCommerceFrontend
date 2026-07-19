@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { usePrivy } from '@privy-io/react-auth'
 
+import { ADMIN_LOGIN_PATH, shouldRedirectToAdminLogin } from '@/auth/adminSession'
 import DashboardErrorModal from '@/components/dashboard/shared/DashboardErrorModal'
 import {
   connectWalletPathForRole,
   getSessionEndMessage,
   stashSessionEndMessage,
 } from '@/session/sessionEnd'
+import { logoutAdminSession } from '@/session/logoutAdminSession'
 import { logoutUserSession } from '@/session/logoutUserSession'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { patchAuth } from '@/store/slices/authSlice'
@@ -16,14 +18,18 @@ import { useActiveWallet } from '@/wallet/useActiveWallet'
 
 /**
  * Blocking modal when API refresh fails. User must Log in again (re-sign) or Log out (Privy disconnect).
+ * Admin sessions recover via `/admin/login`, not user onboarding.
  */
 export default function SessionExpiredModal() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { logout } = usePrivy()
   const { wallet } = useActiveWallet()
   const sessionExpired = useAppSelector((s) => s.auth.sessionExpired)
   const sessionExpiredReason = useAppSelector((s) => s.auth.sessionExpiredReason)
+  const sessionKind = useAppSelector((s) => s.auth.sessionKind)
+  const accessToken = useAppSelector((s) => s.auth.accessToken)
   const roleRaw = useAppSelector((s) => s.auth.role)
   const role = parseUserRole(roleRaw)
 
@@ -31,25 +37,37 @@ export default function SessionExpiredModal() {
 
   if (!sessionExpired) return null
 
+  const isAdminRecovery = shouldRedirectToAdminLogin({
+    accessToken,
+    sessionKind,
+    pathname,
+  })
   const message = getSessionEndMessage(sessionExpiredReason)
 
   const handleLogInAgain = () => {
     if (loggingOut) return
     if (sessionExpiredReason) {
-      stashSessionEndMessage(sessionExpiredReason, role)
+      stashSessionEndMessage(sessionExpiredReason, isAdminRecovery ? null : role)
     }
     dispatch(
       patchAuth({
         sessionExpired: false,
         sessionExpiredReason: null,
+        ...(isAdminRecovery ? { sessionKind: 'admin' as const } : {}),
       }),
     )
-    navigate(connectWalletPathForRole(role), { replace: true })
+    navigate(isAdminRecovery ? ADMIN_LOGIN_PATH : connectWalletPathForRole(role), { replace: true })
   }
 
   const handleLogOut = () => {
     if (loggingOut) return
     setLoggingOut(true)
+    if (isAdminRecovery) {
+      void logoutAdminSession(dispatch).catch(() => {
+        setLoggingOut(false)
+      })
+      return
+    }
     void logoutUserSession(dispatch, wallet, logout).catch(() => {
       setLoggingOut(false)
     })

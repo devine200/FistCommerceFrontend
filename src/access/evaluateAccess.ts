@@ -153,6 +153,11 @@ export function evaluateAdminDashboardSession(ctx: AccessContext): AccessDecisio
     return { allowed: true, redirectTo: null, reason: 'ok' }
   }
 
+  // Modal owns UX; keep admin on this route until Log in again → /admin/login.
+  if (ctx.sessionExpired && (ctx.sessionKind === 'admin' || isAdminDashboardPath(ctx.pathname))) {
+    return { allowed: false, redirectTo: null, reason: 'session_expired' }
+  }
+
   if (!isAdminSession(ctx.accessToken, ctx.sessionKind)) {
     return {
       allowed: false,

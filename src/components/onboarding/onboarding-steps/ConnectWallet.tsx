@@ -235,13 +235,17 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
       unlockAfterConnectWallet(role)
       await persistor.flush()
 
+      // Embedded (email/Google) wallets must back up their private key before creating a profile.
+      const isEmbedded = walletClientType === 'privy'
+      const nextStep = isEmbedded ? 'secure-key' : 'verify-identity'
+
       if (location.pathname.startsWith('/onboarding/investor')) {
-        navigate('/onboarding/investor/verify-identity')
+        navigate(`/onboarding/investor/${nextStep}`)
         return
       }
 
       if (location.pathname.startsWith('/onboarding/merchant')) {
-        navigate('/onboarding/merchant/verify-identity')
+        navigate(`/onboarding/merchant/${nextStep}`)
         return
       }
     } catch (e) {

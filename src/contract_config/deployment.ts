@@ -8,6 +8,8 @@ type ContractEntry = { address: string; abi: Abi }
 
 type FullDeploymentJson = {
   deploymentBlock?: number
+  acceptedToken?: ContractEntry
+  /** @deprecated legacy alias for `acceptedToken`. */
   MockERC20?: ContractEntry
   ProtocolController: ContractEntry
   investorVerificationNFT: ContractEntry
@@ -23,7 +25,9 @@ type FullDeploymentJson = {
 
 type LocalDeploymentJson = {
   deploymentBlock?: number
-  MockERC20: { address: string }
+  acceptedToken?: { address: string }
+  /** @deprecated legacy alias for `acceptedToken`. */
+  MockERC20?: { address: string }
   ProtocolController: { address: string }
   investorVerificationNFT: { address: string }
   loanVerificationNFT: { address: string }
@@ -101,15 +105,18 @@ function resolveMockErc20Entry(
   raw: Partial<FullDeploymentJson>,
   localAddresses?: LocalDeploymentJson,
 ): ContractEntry {
-  if (raw.MockERC20?.address) {
+  // Prefer the `acceptedToken` key; fall back to the legacy `MockERC20` alias.
+  const rawToken = raw.acceptedToken ?? raw.MockERC20
+  if (rawToken?.address) {
     return {
-      address: raw.MockERC20.address,
-      abi: raw.MockERC20.abi ?? MINIMAL_ERC20_ABI,
+      address: rawToken.address,
+      abi: rawToken.abi ?? MINIMAL_ERC20_ABI,
     }
   }
-  if (localAddresses?.MockERC20?.address) {
+  const localToken = localAddresses?.acceptedToken ?? localAddresses?.MockERC20
+  if (localToken?.address) {
     return {
-      address: localAddresses.MockERC20.address,
+      address: localToken.address,
       abi: MINIMAL_ERC20_ABI,
     }
   }
@@ -118,7 +125,7 @@ function resolveMockErc20Entry(
     return { address: envAddr, abi: MINIMAL_ERC20_ABI }
   }
   console.warn(
-    '[deployment] MockERC20 missing from config; set VITE_MOCK_ERC20_ADDRESS for token reads.',
+    '[deployment] acceptedToken missing from config; set VITE_MOCK_ERC20_ADDRESS for token reads.',
   )
   return {
     address: '0x0000000000000000000000000000000000000000',
@@ -146,7 +153,7 @@ function withLocalAddresses(
   return {
     deploymentBlock: addresses.deploymentBlock ?? base.deploymentBlock,
     MockERC20: {
-      address: addresses.MockERC20.address,
+      address: (addresses.acceptedToken ?? addresses.MockERC20)?.address ?? base.MockERC20.address,
       abi: base.MockERC20.abi,
     },
     ProtocolController: {

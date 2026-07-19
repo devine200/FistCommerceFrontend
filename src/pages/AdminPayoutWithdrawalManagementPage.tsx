@@ -29,6 +29,7 @@ import {
   approveAdminRequest,
   clearAdminPayoutWithdrawalsActionError,
   clearAdminPayoutWithdrawalsApproveFeedback,
+  clearAdminPayoutWithdrawalsRejectFeedback,
   dismissServicerGasWarning,
   refreshAdminPayoutWithdrawals,
   rejectAdminRequest,
@@ -80,6 +81,7 @@ const AdminPayoutWithdrawalManagementPage = () => {
     actionKind,
     actionError,
     lastApproveOutcome,
+    lastRejectOutcome,
     servicerGasWarning,
   } = useAppSelector((s) => s.adminPayoutWithdrawals)
   const accessToken = useAppSelector((s) => s.auth.accessToken)
@@ -179,17 +181,24 @@ const AdminPayoutWithdrawalManagementPage = () => {
     [dispatchCancellable],
   )
 
+  // operationType is now sourced from the backend proposal response; no client-side guess needed.
   const resolvedApproveOutcome = useMemo(
-    () =>
-      lastApproveOutcome
-        ? resolveAdminWriteOutcome(lastApproveOutcome, { operationType: 'withdrawal_approve' })
-        : null,
+    () => (lastApproveOutcome ? resolveAdminWriteOutcome(lastApproveOutcome) : null),
     [lastApproveOutcome],
   )
+
+  const resolvedRejectOutcome = useMemo(
+    () => (lastRejectOutcome ? resolveAdminWriteOutcome(lastRejectOutcome) : null),
+    [lastRejectOutcome],
+  )
+
+  // Only one of approve/reject is populated at a time (each is cleared on the other's dispatch).
+  const activeResolvedOutcome = resolvedRejectOutcome ?? resolvedApproveOutcome
 
   const handleDismissActionFeedback = useCallback(() => {
     dispatch(clearAdminPayoutWithdrawalsActionError())
     dispatch(clearAdminPayoutWithdrawalsApproveFeedback())
+    dispatch(clearAdminPayoutWithdrawalsRejectFeedback())
   }, [dispatch])
 
   const handleRetryAction = useCallback(() => {
@@ -213,23 +222,25 @@ const AdminPayoutWithdrawalManagementPage = () => {
     actionStatus === 'idle' ? ('idle' as const) : actionStatus
 
   const payoutActionLabels = useMemo(() => {
-    const isReject =
-      actionKind === 'reject' || (actionStatus === 'succeeded' && !lastApproveOutcome)
+    const isReject = actionKind === 'reject' || Boolean(lastRejectOutcome)
     return {
       loadingTitle: isReject ? 'Rejecting request' : 'Approving request',
       loadingDescription: isReject
-        ? 'Submitting your rejection. This may take a moment…'
+        ? 'Submitting your rejection. This may create a governance proposal…'
         : 'Submitting your approval. This may create a governance proposal…',
       errorTitle: isReject ? 'Unable to reject request' : 'Unable to approve request',
       directSuccessTitle: isReject ? 'Request rejected' : 'Request approved',
       directSuccessDescription: isReject
-        ? 'The payout or withdrawal request was rejected successfully.'
+        ? resolvedRejectOutcome?.kind === 'direct_complete'
+          ? resolvedRejectOutcome.message.trim() ||
+            'The payout or withdrawal request was rejected successfully.'
+          : 'The payout or withdrawal request was rejected successfully.'
         : resolvedApproveOutcome?.kind === 'direct_complete'
           ? resolvedApproveOutcome.message.trim() ||
             'The payout or withdrawal request was approved successfully.'
           : undefined,
     }
-  }, [actionKind, actionStatus, lastApproveOutcome, resolvedApproveOutcome])
+  }, [actionKind, lastRejectOutcome, resolvedRejectOutcome, resolvedApproveOutcome])
 
   function isRowGovernanceActive(row: (typeof results)[number]): boolean {
     return Boolean(
@@ -251,7 +262,7 @@ const AdminPayoutWithdrawalManagementPage = () => {
       <PrivilegedActionFeedbackLayer
         phase={actionPhase}
         resolvedOutcome={
-          actionStatus === 'succeeded' && resolvedApproveOutcome ? resolvedApproveOutcome : null
+          actionStatus === 'succeeded' && activeResolvedOutcome ? activeResolvedOutcome : null
         }
         loadingTitle={payoutActionLabels.loadingTitle}
         loadingDescription={payoutActionLabels.loadingDescription}

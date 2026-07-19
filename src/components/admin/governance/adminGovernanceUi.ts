@@ -18,6 +18,16 @@ export function governanceStatusPillVariant(status: ProposalStatus): AdminPillVa
 
 export function governanceOperationLabel(type: OperationType): string {
   switch (type) {
+    case 'withdrawal_approve':
+      return 'Withdrawal approval'
+    case 'withdrawal_reject':
+      return 'Withdrawal rejection'
+    case 'loan_fund':
+      return 'Fund loan'
+    case 'loan_reject_funded':
+      return 'Reject funded loan'
+    case 'payout_receivable':
+      return 'Funding payout'
     case 'kyc_status':
       return 'KYC status'
     case 'risk_tier':
@@ -46,8 +56,10 @@ export function governanceOperationLabel(type: OperationType): string {
       return 'Change multisig threshold'
     case 'multisig_signer_rotation':
       return 'Rotate multisig owners'
+    case 'unknown':
+      return 'Governance proposal'
     default:
-      return 'Withdrawal approval'
+      return 'Governance proposal'
   }
 }
 

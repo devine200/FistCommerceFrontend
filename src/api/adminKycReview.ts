@@ -30,6 +30,7 @@ export type AdminKycRecordDetail = KycReviewListRow & {
 
 const KYC_REVIEW_PATH = '/kyc/admin/kyc-review'
 const KYC_VERIFY_PATH = '/kyc/admin/kyc-verify'
+const KYC_DUMMY_VERIFY_PATH = '/kyc/admin/kyc-dummy-verify'
 
 function authHeaders(accessToken: string | null | undefined): HeadersInit {
   const t = typeof accessToken === 'string' ? accessToken.trim() : ''
@@ -330,6 +331,32 @@ export async function postAdminKycVerify(
       kyc_id: kycId,
       insurance_verified: params.insuranceVerified,
       kyc_verified: params.kycVerified,
+    }),
+    signal: options?.signal,
+  })
+  return parseAdminWriteResponse(res)
+}
+
+/**
+ * `POST /api/kyc/admin/kyc-dummy-verify` — bypass Didit for dev/QA: mints the
+ * verification NFT, creates the on-chain compliance record, and forces the KYC
+ * record to Verified. Identifies the user by wallet + type (no kyc_id needed;
+ * the record is created if missing).
+ */
+export async function postAdminKycDummyVerify(
+  accessToken: string | null | undefined,
+  params: { username: string; userType: KycReviewUserType },
+  options?: { signal?: AbortSignal },
+): Promise<AdminWriteOutcome> {
+  const username = params.username.trim()
+  if (!username) throw new Error('Missing wallet address.')
+
+  const res = await fetchWithAuthRecovery(apiUrl(`${KYC_DUMMY_VERIFY_PATH}`), {
+    method: 'POST',
+    headers: jsonAuthHeaders(accessToken),
+    body: JSON.stringify({
+      username,
+      user_type: params.userType,
     }),
     signal: options?.signal,
   })

@@ -13,7 +13,8 @@ export function resolveAdminWriteOutcome(
       kind: 'proposal_queued',
       proposalId: outcome.proposalId,
       message: outcome.message,
-      operationType: options?.operationType,
+      // Backend-provided operationType is authoritative; the caller hint is only a fallback.
+      operationType: outcome.operationType ?? options?.operationType,
     }
   }
 

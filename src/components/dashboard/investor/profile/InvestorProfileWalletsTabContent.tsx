@@ -3,6 +3,7 @@ import { useLogout } from '@privy-io/react-auth'
 import { arbitrum, arbitrumSepolia, mainnet } from 'viem/chains'
 
 import walletIcon from '@/assets/Icon (1).png'
+import EmbeddedWalletKeyBackup from '@/components/wallet/EmbeddedWalletKeyBackup'
 import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { disconnectPrivySession } from '@/session/disconnectPrivySession'
@@ -200,6 +201,8 @@ const InvestorProfileWalletsTabContent = () => {
           </article>
         )}
       </section>
+
+      <EmbeddedWalletKeyBackup />
 
       <section className="rounded-[8px] border border-[#E6E8EC] bg-white p-4 sm:p-5">
         <h2 className="text-[#4D5D80] text-[22px] font-semibold leading-tight">Testnet token faucet</h2>

@@ -49,6 +49,7 @@ export type AdminPayoutWithdrawalsState = AdminListRequestState & {
   actionType: AdminRequestType | null
   actionKind: AdminPayoutWithdrawalsActionKind | null
   lastApproveOutcome: AdminWriteOutcome | null
+  lastRejectOutcome: AdminWriteOutcome | null
   servicerGasWarning: string | null
 }
 
@@ -80,6 +81,7 @@ const initialState: AdminPayoutWithdrawalsState = {
   actionType: null,
   actionKind: null,
   lastApproveOutcome: null,
+  lastRejectOutcome: null,
   servicerGasWarning: null,
 }
 
@@ -231,18 +233,30 @@ export const rejectAdminRequest = createAsyncThunk(
     }
 
     try {
+      let outcome: AdminWriteOutcome
       if (params.type === 'withdrawal') {
-        await postRejectWithdrawalRequest(accessToken, actionId, { signal: thunkApi.signal })
+        outcome = await postRejectWithdrawalRequest(accessToken, actionId, { signal: thunkApi.signal })
       } else {
-        await postRejectDisbursementRequest(accessToken, actionId, { signal: thunkApi.signal })
+        outcome = await postRejectDisbursementRequest(accessToken, actionId, { signal: thunkApi.signal })
       }
       if (thunkApi.signal.aborted) {
         throw new DOMException('Aborted', 'AbortError')
       }
-      await thunkApi
-        .dispatch(refreshAdminPayoutWithdrawals(currentPayoutListRefreshParams(state.adminPayoutWithdrawals)))
-        .unwrap()
-      return params
+
+      // Mirror approve: a synchronous completion, or a withdrawal governance proposal, changes the
+      // row's displayed state immediately. A disbursement proposal (loan_reject_funded) does not,
+      // so we skip the refresh to avoid a redundant flash while it awaits signatures.
+      const shouldRefreshList =
+        outcome.kind === 'completed' ||
+        (outcome.kind === 'governance_queued' && params.type === 'withdrawal')
+
+      if (shouldRefreshList) {
+        await thunkApi
+          .dispatch(refreshAdminPayoutWithdrawals(currentPayoutListRefreshParams(state.adminPayoutWithdrawals)))
+          .unwrap()
+      }
+
+      return { params, outcome }
     } catch (e) {
       if (thunkApi.signal.aborted || isAbortError(e)) {
         throw e
@@ -269,6 +283,9 @@ const adminPayoutWithdrawalsSlice = createSlice({
     },
     clearAdminPayoutWithdrawalsApproveFeedback: (state) => {
       state.lastApproveOutcome = null
+    },
+    clearAdminPayoutWithdrawalsRejectFeedback: (state) => {
+      state.lastRejectOutcome = null
     },
     dismissServicerGasWarning: (state) => {
       state.servicerGasWarning = null
@@ -372,6 +389,7 @@ const adminPayoutWithdrawalsSlice = createSlice({
         state.actionType = action.meta.arg.type
         state.actionKind = 'approve'
         state.lastApproveOutcome = null
+        state.lastRejectOutcome = null
       })
       .addCase(approveAdminRequest.fulfilled, (state, action) => {
         state.actionStatus = 'succeeded'
@@ -406,11 +424,14 @@ const adminPayoutWithdrawalsSlice = createSlice({
         state.actionRequestId = action.meta.arg.actionId
         state.actionType = action.meta.arg.type
         state.actionKind = 'reject'
+        state.lastApproveOutcome = null
+        state.lastRejectOutcome = null
       })
-      .addCase(rejectAdminRequest.fulfilled, (state) => {
+      .addCase(rejectAdminRequest.fulfilled, (state, action) => {
         state.actionStatus = 'succeeded'
         state.actionError = null
         state.actionKind = null
+        state.lastRejectOutcome = action.payload.outcome
       })
       .addCase(rejectAdminRequest.rejected, (state, action) => {
         if (isAbortedThunkAction(action)) {
@@ -434,6 +455,7 @@ export const {
   resetAdminPayoutWithdrawals,
   clearAdminPayoutWithdrawalsActionError,
   clearAdminPayoutWithdrawalsApproveFeedback,
+  clearAdminPayoutWithdrawalsRejectFeedback,
   dismissServicerGasWarning,
 } = adminPayoutWithdrawalsSlice.actions
 export const adminPayoutWithdrawalsReducer = adminPayoutWithdrawalsSlice.reducer

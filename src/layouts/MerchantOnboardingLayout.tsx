@@ -3,14 +3,20 @@ import OnboardingStepOutletGuard from '@/components/session/OnboardingStepOutlet
 import logo from '@/assets/logo.png'
 import { v4 as uuidv4 } from 'uuid'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useActiveWallet } from '@/wallet/useActiveWallet'
 
 const MerchantLayout = () => {
     const { pathname } = useLocation()
     const navigate = useNavigate()
+    const { walletClientType } = useActiveWallet()
+
+    // Embedded (email/Google) wallets get an extra "Secure Your Key" step before identity.
+    const isEmbedded = walletClientType === 'privy'
 
     const stepRoutes = [
         '/onboarding/choose-role',
         '/onboarding/merchant/connect-wallet',
+        ...(isEmbedded ? ['/onboarding/merchant/secure-key'] : []),
         '/onboarding/merchant/verify-identity',
         '/onboarding/merchant/business-profile',
     ]
@@ -35,6 +41,15 @@ const MerchantLayout = () => {
             description:
                 'Link your Web3 wallet to securely manage transactions, investments, and loan repayments on the platform.',
         },
+        ...(isEmbedded
+            ? [
+                  {
+                      title: 'Secure Your Key',
+                      description:
+                          'Back up your embedded wallet’s private key somewhere safe before continuing—only you can recover it.',
+                  },
+              ]
+            : []),
         {
             title: 'Verify Your Identity',
             description:
@@ -76,7 +91,7 @@ const MerchantLayout = () => {
                 <div className="mt-6 flex justify-center">
                     <div className="w-full max-w-[420px]">
                         <div className="flex items-center">
-                            {[0, 1, 2, 3].map((i) => (
+                            {steps.map((_, i) => (
                                 <div key={i} className="flex items-center flex-1 min-w-0">
                                     <button
                                         type="button"
@@ -92,7 +107,7 @@ const MerchantLayout = () => {
                                     >
                                         {i + 1}
                                     </button>
-                                    {i < 3 ? (
+                                    {i < steps.length - 1 ? (
                                         <div
                                             className={[
                                                 'h-[2px] flex-1',

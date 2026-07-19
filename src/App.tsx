@@ -20,6 +20,8 @@ import InvestorLayout from '@/layouts/InvestorOnboardingLayout'
 
 import ChooseRole from '@/components/onboarding/onboarding-steps/ChooseRole'
 import ConnectWallet from '@/components/onboarding/onboarding-steps/ConnectWallet'
+import SecureYourKey from '@/components/onboarding/onboarding-steps/SecureYourKey'
+import SecureKeyOnboardingGate from '@/components/session/SecureKeyOnboardingGate'
 import InvestorRegistration from '@/components/onboarding/onboarding-steps/investor/InvestorRegistration'
 import InvestmentExplainer from '@/components/onboarding/onboarding-steps/investor/InvestmentExplainer'
 import MerchantIdVerification from '@/components/onboarding/onboarding-steps/merchant/MerchantIdVerification'
@@ -172,8 +174,16 @@ const router = createBrowserRouter([
             element: <ConnectWallet />
           },
           {
+            path: 'secure-key',
+            element: <SecureYourKey />
+          },
+          {
             path: 'verify-identity',
-            element: <MerchantIdVerification />
+            element: (
+              <SecureKeyOnboardingGate role="merchant">
+                <MerchantIdVerification />
+              </SecureKeyOnboardingGate>
+            )
           },
           {
             path: 'business-profile',
@@ -194,8 +204,16 @@ const router = createBrowserRouter([
             element: <ConnectWallet />
           },
           {
+            path: 'secure-key',
+            element: <SecureYourKey />
+          },
+          {
             path: 'verify-identity',
-            element: <InvestorRegistration />
+            element: (
+              <SecureKeyOnboardingGate role="investor">
+                <InvestorRegistration />
+              </SecureKeyOnboardingGate>
+            )
           },
           {
             path: 'investment-explainer',

@@ -7,6 +7,10 @@ export type ProposalStatus =
 
 export type OperationType =
   | 'withdrawal_approve'
+  | 'withdrawal_reject'
+  | 'loan_fund'
+  | 'loan_reject_funded'
+  | 'payout_receivable'
   | 'kyc_status'
   | 'risk_tier'
   | 'protocol_pause'
@@ -21,9 +25,19 @@ export type OperationType =
   | 'multisig_remove_signers'
   | 'multisig_set_threshold'
   | 'multisig_signer_rotation'
+  /** Fallback for operation types the backend introduces before the UI models them. */
+  | 'unknown'
 
+/**
+ * Operation types the backend can emit. `unknown` is intentionally excluded — it is a
+ * client-only fallback, never a value sent by (or requested from) the API.
+ */
 export const MULTISIG_OPERATION_TYPES = [
   'withdrawal_approve',
+  'withdrawal_reject',
+  'loan_fund',
+  'loan_reject_funded',
+  'payout_receivable',
   'kyc_status',
   'risk_tier',
   'protocol_pause',
