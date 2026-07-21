@@ -10,10 +10,13 @@ import {
 import {
   addressesEqual,
   assertValidEthAddress,
+  assertValidTokenAmount,
   fetchProtocolSettingsState,
   postMultisigCreatePayoutRouterAcceptedTokenProposal,
   postMultisigCreatePayoutRouterAllocatorProposal,
   postMultisigCreatePayoutRouterFundingPoolProposal,
+  postMultisigCreatePayoutRouterMinRepaymentProposal,
+  tokenAmountsEqual,
 } from '@/api/adminProtocolSettings'
 import {
   DEFAULT_PAYOUT_ROUTER,
@@ -35,7 +38,7 @@ function toPayoutRouterDraft(
     fundingPool: api.payoutRouter.fundingPool || DEFAULT_PAYOUT_ROUTER.fundingPool,
     allocator: api.payoutRouter.allocator || DEFAULT_PAYOUT_ROUTER.allocator,
     acceptedToken: api.payoutRouter.acceptedToken || DEFAULT_PAYOUT_ROUTER.acceptedToken,
-    minRepayment: DEFAULT_PAYOUT_ROUTER.minRepayment,
+    minRepayment: api.payoutRouter.minRepayment || DEFAULT_PAYOUT_ROUTER.minRepayment,
   }
 }
 
@@ -93,8 +96,9 @@ const PayoutRouterPanel = () => {
     const fundingPoolChanged = !addressesEqual(draft.fundingPool, baseline.fundingPool)
     const allocatorChanged = !addressesEqual(draft.allocator, baseline.allocator)
     const acceptedTokenChanged = !addressesEqual(draft.acceptedToken, baseline.acceptedToken)
+    const minRepaymentChanged = !tokenAmountsEqual(draft.minRepayment, baseline.minRepayment)
 
-    if (!fundingPoolChanged && !allocatorChanged && !acceptedTokenChanged) {
+    if (!fundingPoolChanged && !allocatorChanged && !acceptedTokenChanged && !minRepaymentChanged) {
       setSaveNotice('No payout router changes to submit.')
       return
     }
@@ -108,6 +112,9 @@ const PayoutRouterPanel = () => {
       }
       if (acceptedTokenChanged) {
         assertValidEthAddress(draft.acceptedToken, 'Accepted token address')
+      }
+      if (minRepaymentChanged) {
+        assertValidTokenAmount(draft.minRepayment, 'Min repayment')
       }
     } catch (e) {
       setSaveNotice(toUserFacingError(e, 'Invalid payout router values.'))
@@ -128,6 +135,7 @@ const PayoutRouterPanel = () => {
           | 'payout_router_funding_pool'
           | 'payout_router_allocator'
           | 'payout_router_accepted_token'
+          | 'payout_router_min_repayment'
         run: () => Promise<ResolvedGovernanceOutcome>
       }[] = []
 
@@ -169,6 +177,21 @@ const PayoutRouterPanel = () => {
                   { signal: controller.signal },
                 ),
               { operationType: 'payout_router_accepted_token' },
+            ),
+        })
+      }
+      if (minRepaymentChanged) {
+        tasks.push({
+          operationType: 'payout_router_min_repayment',
+          run: () =>
+            submitAdminAction(
+              () =>
+                postMultisigCreatePayoutRouterMinRepaymentProposal(
+                  accessToken,
+                  draft.minRepayment.trim(),
+                  { signal: controller.signal },
+                ),
+              { operationType: 'payout_router_min_repayment' },
             ),
         })
       }
@@ -314,8 +337,9 @@ const PayoutRouterPanel = () => {
             id="minRepayment"
             label="Min repayment"
             value={draft.minRepayment}
-            readOnly
-            hint="Declared in contract but unused — no setter."
+            suffix="tokens"
+            hint="Maps to setMinRepayment."
+            onChange={(v) => setField('minRepayment', v)}
           />
         </div>
       </SettingsPanel>

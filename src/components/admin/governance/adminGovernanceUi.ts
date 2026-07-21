@@ -34,20 +34,38 @@ export function governanceOperationLabel(type: OperationType): string {
       return 'Risk tier'
     case 'protocol_pause':
       return 'Protocol pause'
+    case 'protocol_deposits_pause':
+      return 'Deposits pause'
+    case 'protocol_withdrawals_pause':
+      return 'Withdrawals pause'
+    case 'protocol_funding_pause':
+      return 'Funding pause'
+    case 'protocol_repayments_pause':
+      return 'Repayments pause'
     case 'max_merchant_bps':
       return 'Max merchant concentration'
+    case 'allocation_banker_year_days':
+      return 'Banker year days'
+    case 'allocation_max_tenor_rate_bps':
+      return 'Max tenor rate'
     case 'funding_pool_min_deposit':
       return 'Funding pool min deposit'
     case 'funding_pool_payout_router':
       return 'Funding pool payout router'
     case 'funding_pool_allocator':
       return 'Funding pool allocator'
+    case 'funding_pool_withdrawal_duration':
+      return 'Withdrawal request duration'
+    case 'funding_pool_withdrawal_gap':
+      return 'Withdrawal request gap'
     case 'payout_router_funding_pool':
       return 'Payout router funding pool'
     case 'payout_router_allocator':
       return 'Payout router allocator'
     case 'payout_router_accepted_token':
       return 'Payout router accepted token'
+    case 'payout_router_min_repayment':
+      return 'Payout router min repayment'
     case 'multisig_add_signers':
       return 'Add multisig owner'
     case 'multisig_remove_signers':

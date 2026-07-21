@@ -8,6 +8,10 @@ Global protocol pause goes through the **multisig governance pipeline**. The fro
 |--------|------|---------|
 | `GET` | `/api/multisig/protocol-safety/` | Read on-chain `ProtocolController` pause flags |
 | `POST` | `/api/multisig/proposals/protocol-pause/` | Create a governance proposal for `setPaused(bool)` |
+| `POST` | `/api/multisig/proposals/protocol-deposits-pause/` | Create a proposal for deposits pause |
+| `POST` | `/api/multisig/proposals/protocol-withdrawals-pause/` | Create a proposal for withdrawals pause |
+| `POST` | `/api/multisig/proposals/protocol-funding-pause/` | Create a proposal for funding pause |
+| `POST` | `/api/multisig/proposals/protocol-repayments-pause/` | Create a proposal for repayments pause |
 
 **Auth:** `Authorization: Token <admin-token>` (admin session; owner wallet required only for signing).
 
@@ -29,7 +33,7 @@ GET /api/multisig/protocol-safety/
 }
 ```
 
-Only **global `paused`** is writable via this API today. Other flags are returned for display/future use.
+Global **paused** and granular pause flags (`depositsPaused`, `withdrawalsPaused`, `fundingPaused`, `repaymentsPaused`) are writable via multisig proposals. The settings UI loads all flags from `GET /api/multisig/protocol-safety/` and creates one proposal per changed flag on Apply.
 
 ### Write — create pause/unpause proposal
 
@@ -55,11 +59,16 @@ Proposal responses include `proposalId` (and on direct create, full proposal det
 import {
   fetchProtocolSafetyState,
   postMultisigCreateProtocolPauseProposal,
+  postMultisigCreateProtocolDepositsPauseProposal,
+  postMultisigCreateProtocolWithdrawalsPauseProposal,
+  postMultisigCreateProtocolFundingPauseProposal,
+  postMultisigCreateProtocolRepaymentsPauseProposal,
 } from '@/api/protocolSafety'
 ```
 
 - `fetchProtocolSafetyState(accessToken)` → `ProtocolSafetyState`
-- `postMultisigCreateProtocolPauseProposal(accessToken, paused, { signal? })` → `AdminWriteOutcome` via `parseAdminWriteResponse`
+- `postMultisigCreateProtocolPauseProposal(accessToken, paused, { signal? })` → `AdminWriteOutcome`
+- Granular helpers follow the same shape: `postMultisigCreateProtocolDepositsPauseProposal`, etc.
 
 ## Recommended UI flow
 

@@ -11,9 +11,14 @@ import {
   addressesEqual,
   assertValidEthAddress,
   assertValidTokenAmount,
+  assertValidWithdrawalDurationSeconds,
+  assertValidWithdrawalGapSeconds,
   fetchProtocolSettingsState,
   postMultisigCreateFundingPoolMinDepositProposal,
   postMultisigCreateFundingPoolPayoutRouterProposal,
+  postMultisigCreateFundingPoolWithdrawalDurationProposal,
+  postMultisigCreateFundingPoolWithdrawalGapProposal,
+  secondsToHumanDuration,
   tokenAmountsEqual,
 } from '@/api/adminProtocolSettings'
 import {
@@ -36,8 +41,11 @@ function toFundingPoolDraft(
     minDeposit: api.fundingPool.minDeposit || DEFAULT_FUNDING_POOL.minDeposit,
     payoutRouter: api.fundingPool.payoutRouter || DEFAULT_FUNDING_POOL.payoutRouter,
     acceptedToken: api.fundingPool.acceptedToken || DEFAULT_FUNDING_POOL.acceptedToken,
-    withdrawalRequestDuration: DEFAULT_FUNDING_POOL.withdrawalRequestDuration,
-    withdrawalRequestGap: DEFAULT_FUNDING_POOL.withdrawalRequestGap,
+    withdrawalRequestDurationSeconds:
+      api.fundingPool.withdrawalRequestDurationSeconds ||
+      DEFAULT_FUNDING_POOL.withdrawalRequestDurationSeconds,
+    withdrawalRequestGapSeconds:
+      api.fundingPool.withdrawalRequestGapSeconds || DEFAULT_FUNDING_POOL.withdrawalRequestGapSeconds,
   }
 }
 
@@ -94,8 +102,11 @@ const FundingPoolPanel = () => {
     const baseline = baselineRef.current
     const minDepositChanged = !tokenAmountsEqual(draft.minDeposit, baseline.minDeposit)
     const payoutRouterChanged = !addressesEqual(draft.payoutRouter, baseline.payoutRouter)
+    const durationChanged =
+      draft.withdrawalRequestDurationSeconds !== baseline.withdrawalRequestDurationSeconds
+    const gapChanged = draft.withdrawalRequestGapSeconds !== baseline.withdrawalRequestGapSeconds
 
-    if (!minDepositChanged && !payoutRouterChanged) {
+    if (!minDepositChanged && !payoutRouterChanged && !durationChanged && !gapChanged) {
       setSaveNotice('No funding pool changes to submit.')
       return
     }
@@ -106,6 +117,12 @@ const FundingPoolPanel = () => {
       }
       if (payoutRouterChanged) {
         assertValidEthAddress(draft.payoutRouter, 'Payout router address')
+      }
+      if (durationChanged) {
+        assertValidWithdrawalDurationSeconds(draft.withdrawalRequestDurationSeconds)
+      }
+      if (gapChanged) {
+        assertValidWithdrawalGapSeconds(draft.withdrawalRequestGapSeconds)
       }
     } catch (e) {
       setSaveNotice(toUserFacingError(e, 'Invalid funding pool values.'))
@@ -125,6 +142,8 @@ const FundingPoolPanel = () => {
         operationType:
           | 'funding_pool_min_deposit'
           | 'funding_pool_payout_router'
+          | 'funding_pool_withdrawal_duration'
+          | 'funding_pool_withdrawal_gap'
         run: () => Promise<ResolvedGovernanceOutcome>
       }[] = []
 
@@ -151,6 +170,36 @@ const FundingPoolPanel = () => {
                   signal: controller.signal,
                 }),
               { operationType: 'funding_pool_payout_router' },
+            ),
+        })
+      }
+      if (durationChanged) {
+        tasks.push({
+          operationType: 'funding_pool_withdrawal_duration',
+          run: () =>
+            submitAdminAction(
+              () =>
+                postMultisigCreateFundingPoolWithdrawalDurationProposal(
+                  accessToken,
+                  draft.withdrawalRequestDurationSeconds,
+                  { signal: controller.signal },
+                ),
+              { operationType: 'funding_pool_withdrawal_duration' },
+            ),
+        })
+      }
+      if (gapChanged) {
+        tasks.push({
+          operationType: 'funding_pool_withdrawal_gap',
+          run: () =>
+            submitAdminAction(
+              () =>
+                postMultisigCreateFundingPoolWithdrawalGapProposal(
+                  accessToken,
+                  draft.withdrawalRequestGapSeconds,
+                  { signal: controller.signal },
+                ),
+              { operationType: 'funding_pool_withdrawal_gap' },
             ),
         })
       }
@@ -295,16 +344,24 @@ const FundingPoolPanel = () => {
           <SettingsField
             id="withdrawalRequestDuration"
             label="Withdrawal request duration"
-            value={draft.withdrawalRequestDuration}
-            readOnly
-            hint="Hardcoded on-chain — contract upgrade required to change."
+            value={String(draft.withdrawalRequestDurationSeconds)}
+            suffix="seconds"
+            hint={`Maps to setWithdrawalRequestDuration (${secondsToHumanDuration(draft.withdrawalRequestDurationSeconds)}). Range: 1 hour – 30 days.`}
+            onChange={(v) => {
+              const n = Number(v.trim())
+              setField('withdrawalRequestDurationSeconds', Number.isFinite(n) ? n : 0)
+            }}
           />
           <SettingsField
             id="withdrawalRequestGap"
             label="Withdrawal request gap"
-            value={draft.withdrawalRequestGap}
-            readOnly
-            hint="Hardcoded on-chain — contract upgrade required to change."
+            value={String(draft.withdrawalRequestGapSeconds)}
+            suffix="seconds"
+            hint={`Maps to setWithdrawalRequestGap (${secondsToHumanDuration(draft.withdrawalRequestGapSeconds)}). Range: 1 minute – 1 day.`}
+            onChange={(v) => {
+              const n = Number(v.trim())
+              setField('withdrawalRequestGapSeconds', Number.isFinite(n) ? n : 0)
+            }}
           />
         </div>
       </SettingsPanel>

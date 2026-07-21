@@ -23,10 +23,16 @@ export type ProtocolRiskTier = {
 
 export type ProtocolSafetyState = {
   paused: boolean
+  depositsPaused: boolean
+  withdrawalsPaused: boolean
+  fundingPaused: boolean
+  repaymentsPaused: boolean
 }
 
 export type RiskAllocationState = {
   maxMerchantPercent: string
+  bankerYearDays: string
+  maxTenorRatePercent: string
   tiers: ProtocolRiskTier[]
 }
 
@@ -34,8 +40,8 @@ export type FundingPoolSettingsState = {
   minDeposit: string
   payoutRouter: string
   acceptedToken: string
-  withdrawalRequestDuration: string
-  withdrawalRequestGap: string
+  withdrawalRequestDurationSeconds: number
+  withdrawalRequestGapSeconds: number
 }
 
 export type PayoutRouterSettingsState = {
@@ -66,10 +72,16 @@ const ADMIN_PLACEHOLDER = '0x0000000000000000000000000000000000000001'
 
 export const DEFAULT_PROTOCOL_SAFETY: ProtocolSafetyState = {
   paused: false,
+  depositsPaused: false,
+  withdrawalsPaused: false,
+  fundingPaused: false,
+  repaymentsPaused: false,
 }
 
 export const DEFAULT_RISK_ALLOCATION: RiskAllocationState = {
   maxMerchantPercent: '50',
+  bankerYearDays: '360',
+  maxTenorRatePercent: '50',
   tiers: [
     { id: 1, interestPercent: '10', maxTenorDays: '90', active: true },
   ],
@@ -79,15 +91,15 @@ export const DEFAULT_FUNDING_POOL: FundingPoolSettingsState = {
   minDeposit: '100',
   payoutRouter: d.PayoutRouter.address,
   acceptedToken: d.MockERC20.address,
-  withdrawalRequestDuration: '2 days',
-  withdrawalRequestGap: '20 minutes',
+  withdrawalRequestDurationSeconds: 172800,
+  withdrawalRequestGapSeconds: 1200,
 }
 
 export const DEFAULT_PAYOUT_ROUTER: PayoutRouterSettingsState = {
   fundingPool: d.FundingPool.address,
   allocator: d.AllocationController.address,
   acceptedToken: d.MockERC20.address,
-  minRepayment: '0 (unused)',
+  minRepayment: '0',
 }
 
 export const DEFAULT_CONTRACT_REGISTRY: RegistryGroup[] = [
@@ -145,29 +157,4 @@ export const DEFAULT_CONTRACT_REGISTRY: RegistryGroup[] = [
   },
 ]
 
-export const DEFAULT_PROTOCOL_CONSTANTS: ProtocolConstantRow[] = [
-  {
-    label: 'BANKER_YEAR',
-    value: '360',
-    contract: 'AllocationController',
-    note: 'Interest day count',
-  },
-  {
-    label: 'withdrawalRequestDuration',
-    value: '2 days',
-    contract: 'FundingPool',
-    note: 'Approved withdrawal validity window',
-  },
-  {
-    label: 'withdrawalRequestGap',
-    value: '20 minutes',
-    contract: 'FundingPool',
-    note: 'Minimum time between withdrawal requests',
-  },
-  {
-    label: 'minRepayment',
-    value: '0 (declared, unused)',
-    contract: 'PayoutRouter',
-    note: 'No setter in contract',
-  },
-]
+export const DEFAULT_PROTOCOL_CONSTANTS: ProtocolConstantRow[] = []

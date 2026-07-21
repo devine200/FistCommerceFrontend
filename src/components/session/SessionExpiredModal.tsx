@@ -42,7 +42,7 @@ export default function SessionExpiredModal() {
     sessionKind,
     pathname,
   })
-  const message = getSessionEndMessage(sessionExpiredReason)
+  const message = getSessionEndMessage(sessionExpiredReason, { isAdmin: isAdminRecovery })
 
   const handleLogInAgain = () => {
     if (loggingOut) return

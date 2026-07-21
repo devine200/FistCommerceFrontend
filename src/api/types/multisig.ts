@@ -14,13 +14,22 @@ export type OperationType =
   | 'kyc_status'
   | 'risk_tier'
   | 'protocol_pause'
+  | 'protocol_deposits_pause'
+  | 'protocol_withdrawals_pause'
+  | 'protocol_funding_pause'
+  | 'protocol_repayments_pause'
   | 'max_merchant_bps'
+  | 'allocation_banker_year_days'
+  | 'allocation_max_tenor_rate_bps'
   | 'funding_pool_min_deposit'
   | 'funding_pool_payout_router'
   | 'funding_pool_allocator'
+  | 'funding_pool_withdrawal_duration'
+  | 'funding_pool_withdrawal_gap'
   | 'payout_router_funding_pool'
   | 'payout_router_allocator'
   | 'payout_router_accepted_token'
+  | 'payout_router_min_repayment'
   | 'multisig_add_signers'
   | 'multisig_remove_signers'
   | 'multisig_set_threshold'
@@ -41,13 +50,22 @@ export const MULTISIG_OPERATION_TYPES = [
   'kyc_status',
   'risk_tier',
   'protocol_pause',
+  'protocol_deposits_pause',
+  'protocol_withdrawals_pause',
+  'protocol_funding_pause',
+  'protocol_repayments_pause',
   'max_merchant_bps',
+  'allocation_banker_year_days',
+  'allocation_max_tenor_rate_bps',
   'funding_pool_min_deposit',
   'funding_pool_payout_router',
   'funding_pool_allocator',
+  'funding_pool_withdrawal_duration',
+  'funding_pool_withdrawal_gap',
   'payout_router_funding_pool',
   'payout_router_allocator',
   'payout_router_accepted_token',
+  'payout_router_min_repayment',
   'multisig_add_signers',
   'multisig_remove_signers',
   'multisig_set_threshold',

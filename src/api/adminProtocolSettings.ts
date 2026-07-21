@@ -6,6 +6,8 @@ import { isAddress } from 'viem'
 export type ProtocolSettingsState = {
   fundingPool: {
     minDeposit: string
+    withdrawalRequestDurationSeconds: number
+    withdrawalRequestGapSeconds: number
     payoutRouter: string
     allocator: string
     acceptedToken: string
@@ -14,9 +16,12 @@ export type ProtocolSettingsState = {
     fundingPool: string
     allocator: string
     acceptedToken: string
+    minRepayment: string
   }
   riskAllocator: {
     maxMerchantBps: number
+    bankerYearDays: number
+    maxTenorRateBps: number
   }
 }
 
@@ -67,11 +72,27 @@ function normalizeProtocolSettingsState(raw: unknown): ProtocolSettingsState {
   const r = asRecord(raw)
   const fundingPool = asRecord(r.fundingPool ?? r.funding_pool)
   const payoutRouter = asRecord(r.payoutRouter ?? r.payout_router)
-  const riskAllocator = asRecord(r.riskAllocator ?? r.risk_allocator)
+  const riskAllocator = asRecord(
+    r.riskAllocator ?? r.risk_allocator ?? r.allocationController ?? r.allocation_controller,
+  )
+
+  const maxMerchantBps =
+    pickNumber(riskAllocator, 'maxMerchantBps', 'max_merchant_bps') ||
+    pickNumber(r, 'maxMerchantBps', 'max_merchant_bps')
 
   return {
     fundingPool: {
       minDeposit: pickStr(fundingPool, 'minDeposit', 'min_deposit'),
+      withdrawalRequestDurationSeconds: pickNumber(
+        fundingPool,
+        'withdrawalRequestDurationSeconds',
+        'withdrawal_request_duration_seconds',
+      ),
+      withdrawalRequestGapSeconds: pickNumber(
+        fundingPool,
+        'withdrawalRequestGapSeconds',
+        'withdrawal_request_gap_seconds',
+      ),
       payoutRouter: pickStr(fundingPool, 'payoutRouter', 'payout_router'),
       allocator: pickStr(fundingPool, 'allocator'),
       acceptedToken: pickStr(fundingPool, 'acceptedToken', 'accepted_token'),
@@ -80,9 +101,12 @@ function normalizeProtocolSettingsState(raw: unknown): ProtocolSettingsState {
       fundingPool: pickStr(payoutRouter, 'fundingPool', 'funding_pool'),
       allocator: pickStr(payoutRouter, 'allocator'),
       acceptedToken: pickStr(payoutRouter, 'acceptedToken', 'accepted_token'),
+      minRepayment: pickStr(payoutRouter, 'minRepayment', 'min_repayment'),
     },
     riskAllocator: {
-      maxMerchantBps: pickNumber(riskAllocator, 'maxMerchantBps', 'max_merchant_bps'),
+      maxMerchantBps,
+      bankerYearDays: pickNumber(riskAllocator, 'bankerYearDays', 'banker_year_days'),
+      maxTenorRateBps: pickNumber(riskAllocator, 'maxTenorRateBps', 'max_tenor_rate_bps'),
     },
   }
 }
@@ -195,6 +219,132 @@ export function postMultisigCreatePayoutRouterAcceptedTokenProposal(
     { accepted_token: acceptedToken.trim() },
     options,
   )
+}
+
+/** `POST /api/multisig/proposals/funding-pool-withdrawal-duration/` */
+export function postMultisigCreateFundingPoolWithdrawalDurationProposal(
+  accessToken: string | null | undefined,
+  durationSeconds: number,
+  options?: { signal?: AbortSignal },
+) {
+  return postProposal(
+    accessToken,
+    '/multisig/proposals/funding-pool-withdrawal-duration/',
+    { duration_seconds: durationSeconds },
+    options,
+  )
+}
+
+/** `POST /api/multisig/proposals/funding-pool-withdrawal-gap/` */
+export function postMultisigCreateFundingPoolWithdrawalGapProposal(
+  accessToken: string | null | undefined,
+  gapSeconds: number,
+  options?: { signal?: AbortSignal },
+) {
+  return postProposal(
+    accessToken,
+    '/multisig/proposals/funding-pool-withdrawal-gap/',
+    { gap_seconds: gapSeconds },
+    options,
+  )
+}
+
+/** `POST /api/multisig/proposals/allocation-banker-year-days/` */
+export function postMultisigCreateAllocationBankerYearDaysProposal(
+  accessToken: string | null | undefined,
+  bankerYearDays: number,
+  options?: { signal?: AbortSignal },
+) {
+  return postProposal(
+    accessToken,
+    '/multisig/proposals/allocation-banker-year-days/',
+    { banker_year_days: bankerYearDays },
+    options,
+  )
+}
+
+/** `POST /api/multisig/proposals/allocation-max-tenor-rate-bps/` */
+export function postMultisigCreateAllocationMaxTenorRateBpsProposal(
+  accessToken: string | null | undefined,
+  maxTenorRateBps: number,
+  options?: { signal?: AbortSignal },
+) {
+  return postProposal(
+    accessToken,
+    '/multisig/proposals/allocation-max-tenor-rate-bps/',
+    { max_tenor_rate_bps: maxTenorRateBps },
+    options,
+  )
+}
+
+/** `POST /api/multisig/proposals/payout-router-min-repayment/` */
+export function postMultisigCreatePayoutRouterMinRepaymentProposal(
+  accessToken: string | null | undefined,
+  minRepayment: string,
+  options?: { signal?: AbortSignal },
+) {
+  return postProposal(
+    accessToken,
+    '/multisig/proposals/payout-router-min-repayment/',
+    { min_repayment: minRepayment.trim() },
+    options,
+  )
+}
+
+export function secondsToHumanDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return `${seconds} seconds`
+  if (seconds % 86400 === 0) return `${seconds / 86400} days`
+  if (seconds % 3600 === 0) return `${seconds / 3600} hours`
+  if (seconds % 60 === 0) return `${seconds / 60} minutes`
+  return `${seconds} seconds`
+}
+
+export function assertValidWithdrawalDurationSeconds(seconds: number): void {
+  if (!Number.isInteger(seconds) || seconds < 3600 || seconds > 2592000) {
+    throw new Error('Withdrawal duration must be between 3,600 and 2,592,000 seconds (1 hour to 30 days).')
+  }
+}
+
+export function assertValidWithdrawalGapSeconds(seconds: number): void {
+  if (!Number.isInteger(seconds) || seconds < 60 || seconds > 86400) {
+    throw new Error('Withdrawal gap must be between 60 and 86,400 seconds (1 minute to 1 day).')
+  }
+}
+
+export function assertValidBankerYearDays(days: number): void {
+  if (!Number.isInteger(days) || days < 360 || days > 366) {
+    throw new Error('Banker year days must be between 360 and 366.')
+  }
+}
+
+export function assertValidMaxTenorRateBps(bps: number): void {
+  if (!Number.isInteger(bps) || bps < 0 || bps > 10000) {
+    throw new Error('Max tenor rate must be between 0% and 100%.')
+  }
+}
+
+export function assertValidMaxMerchantBps(bps: number): void {
+  if (!Number.isInteger(bps) || bps < 0 || bps > 10000) {
+    throw new Error('Max merchant concentration must be between 0% and 100%.')
+  }
+}
+
+/** Map on-chain bps to a display percent string; falls back when GET returns 0 / missing. */
+export function resolveMaxMerchantPercentFromBps(
+  maxMerchantBps: number,
+  fallbackPercent = '50',
+): string {
+  if (!Number.isFinite(maxMerchantBps) || maxMerchantBps <= 0) {
+    return fallbackPercent
+  }
+  return bpsToPercent(maxMerchantBps)
+}
+
+export function percentValuesEqual(a: string, b: string): boolean {
+  const aBps = percentToBps(a)
+  const bBps = percentToBps(b)
+  if (!Number.isFinite(aBps) || !Number.isFinite(bBps)) return a.trim() === b.trim()
+  return aBps === bBps
 }
 
 export function percentToBps(percent: string): number {

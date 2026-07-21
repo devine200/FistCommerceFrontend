@@ -37,6 +37,8 @@ export type SessionState = {
    */
   sessionExpired: boolean
   sessionExpiredReason: SessionExpiredReason | null
+  /** When the current access token was issued (ms). Used to ignore stale 401 handlers after re-login. */
+  authIssuedAt: number | null
   /** @deprecated Prefer kyc slice + selectIsKycVerified; kept for redux-persist migration */
   kycVerified: boolean
 }
@@ -50,6 +52,7 @@ const DEFAULT_SESSION: SessionState = {
   sessionKind: null,
   sessionExpired: false,
   sessionExpiredReason: null,
+  authIssuedAt: null,
   kycVerified: false,
 }
 
@@ -65,10 +68,26 @@ const authSlice = createSlice({
       sessionKind: action.payload.sessionKind ?? null,
       sessionExpired: Boolean(action.payload.sessionExpired),
       sessionExpiredReason: action.payload.sessionExpiredReason ?? null,
+      authIssuedAt:
+        typeof action.payload.authIssuedAt === 'number' && Number.isFinite(action.payload.authIssuedAt)
+          ? action.payload.authIssuedAt
+          : null,
     }),
     patchAuth: (state, action: PayloadAction<Partial<SessionState>>) => {
       if (action.payload.accessToken !== undefined) {
-        state.accessToken = sanitizeAccessToken(action.payload.accessToken)
+        const next = sanitizeAccessToken(action.payload.accessToken)
+        if (next && next !== state.accessToken) {
+          state.authIssuedAt = Date.now()
+          state.sessionExpired = false
+          state.sessionExpiredReason = null
+        }
+        state.accessToken = next
+      }
+      if (action.payload.authIssuedAt !== undefined) {
+        state.authIssuedAt =
+          typeof action.payload.authIssuedAt === 'number' && Number.isFinite(action.payload.authIssuedAt)
+            ? action.payload.authIssuedAt
+            : null
       }
       if (action.payload.refreshToken !== undefined) {
         state.refreshToken = sanitizeRefreshToken(action.payload.refreshToken)

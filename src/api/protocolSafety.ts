@@ -64,17 +64,61 @@ export async function fetchProtocolSafetyState(
   return normalizeProtocolSafetyState(raw)
 }
 
-/** `POST /api/multisig/proposals/protocol-pause/` — create global pause governance proposal. */
-export async function postMultisigCreateProtocolPauseProposal(
+function postPauseProposal(
   accessToken: string | null | undefined,
+  path: string,
   paused: boolean,
   options?: { signal?: AbortSignal },
 ) {
-  const res = await fetchWithAuthRecovery(apiUrl('/multisig/proposals/protocol-pause/'), {
+  return fetchWithAuthRecovery(apiUrl(path), {
     method: 'POST',
     headers: jsonAuthHeaders(accessToken),
     body: JSON.stringify({ paused }),
     signal: options?.signal,
-  })
-  return parseAdminWriteResponse(res)
+  }).then((res) => parseAdminWriteResponse(res))
+}
+
+/** `POST /api/multisig/proposals/protocol-pause/` — create global pause governance proposal. */
+export function postMultisigCreateProtocolPauseProposal(
+  accessToken: string | null | undefined,
+  paused: boolean,
+  options?: { signal?: AbortSignal },
+) {
+  return postPauseProposal(accessToken, '/multisig/proposals/protocol-pause/', paused, options)
+}
+
+/** `POST /api/multisig/proposals/protocol-deposits-pause/` */
+export function postMultisigCreateProtocolDepositsPauseProposal(
+  accessToken: string | null | undefined,
+  paused: boolean,
+  options?: { signal?: AbortSignal },
+) {
+  return postPauseProposal(accessToken, '/multisig/proposals/protocol-deposits-pause/', paused, options)
+}
+
+/** `POST /api/multisig/proposals/protocol-withdrawals-pause/` */
+export function postMultisigCreateProtocolWithdrawalsPauseProposal(
+  accessToken: string | null | undefined,
+  paused: boolean,
+  options?: { signal?: AbortSignal },
+) {
+  return postPauseProposal(accessToken, '/multisig/proposals/protocol-withdrawals-pause/', paused, options)
+}
+
+/** `POST /api/multisig/proposals/protocol-funding-pause/` */
+export function postMultisigCreateProtocolFundingPauseProposal(
+  accessToken: string | null | undefined,
+  paused: boolean,
+  options?: { signal?: AbortSignal },
+) {
+  return postPauseProposal(accessToken, '/multisig/proposals/protocol-funding-pause/', paused, options)
+}
+
+/** `POST /api/multisig/proposals/protocol-repayments-pause/` */
+export function postMultisigCreateProtocolRepaymentsPauseProposal(
+  accessToken: string | null | undefined,
+  paused: boolean,
+  options?: { signal?: AbortSignal },
+) {
+  return postPauseProposal(accessToken, '/multisig/proposals/protocol-repayments-pause/', paused, options)
 }

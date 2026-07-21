@@ -2,10 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { postMultisigCreateRiskTierProposal } from '@/api/multisig/proposals'
 import {
+  assertValidBankerYearDays,
+  assertValidMaxMerchantBps,
+  assertValidMaxTenorRateBps,
   bpsToPercent,
   fetchProtocolSettingsState,
   percentToBps,
+  percentValuesEqual,
+  postMultisigCreateAllocationBankerYearDaysProposal,
+  postMultisigCreateAllocationMaxTenorRateBpsProposal,
   postMultisigCreateMaxMerchantBpsProposal,
+  resolveMaxMerchantPercentFromBps,
 } from '@/api/adminProtocolSettings'
 import { fetchRiskTiers } from '@/api/riskTiers'
 import { toUserFacingError } from '@/api/client'
@@ -62,6 +69,10 @@ const RiskAllocationPanel = () => {
   const [draft, setDraft] = useState<RiskAllocationState>(() => structuredClone(DEFAULT_RISK_ALLOCATION))
   const baselineTiersRef = useRef<ProtocolRiskTier[]>(DEFAULT_RISK_ALLOCATION.tiers)
   const baselineMaxMerchantRef = useRef<string>(DEFAULT_RISK_ALLOCATION.maxMerchantPercent)
+  const baselineMaxMerchantBpsRef = useRef<number>(percentToBps(DEFAULT_RISK_ALLOCATION.maxMerchantPercent))
+  const [onChainMaxMerchantBps, setOnChainMaxMerchantBps] = useState<number | null>(null)
+  const baselineBankerYearDaysRef = useRef<string>(DEFAULT_RISK_ALLOCATION.bankerYearDays)
+  const baselineMaxTenorRateRef = useRef<string>(DEFAULT_RISK_ALLOCATION.maxTenorRatePercent)
   const submitAbortRef = useRef<AbortController | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveNotice, setSaveNotice] = useState<string | null>(null)
@@ -69,17 +80,71 @@ const RiskAllocationPanel = () => {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<ResolvedGovernanceOutcome | null>(null)
 
-  const syncBaseline = useCallback((next: RiskAllocationState) => {
+  const syncBaseline = useCallback((next: RiskAllocationState, maxMerchantBps?: number | null) => {
     setDraft(next)
     baselineTiersRef.current = structuredClone(next.tiers)
     baselineMaxMerchantRef.current = next.maxMerchantPercent
+    baselineMaxMerchantBpsRef.current = percentToBps(next.maxMerchantPercent)
+    baselineBankerYearDaysRef.current = next.bankerYearDays
+    baselineMaxTenorRateRef.current = next.maxTenorRatePercent
+    if (maxMerchantBps != null && maxMerchantBps > 0) {
+      setOnChainMaxMerchantBps(maxMerchantBps)
+    }
   }, [])
 
+  const mapSettingsToDraft = useCallback(
+    (
+      tiers: ProtocolRiskTier[],
+      settings: Awaited<ReturnType<typeof fetchProtocolSettingsState>> | null,
+    ): RiskAllocationState => {
+      const maxMerchantBps = settings?.riskAllocator.maxMerchantBps ?? 0
+      return {
+        maxMerchantPercent: settings
+          ? resolveMaxMerchantPercentFromBps(
+              maxMerchantBps,
+              DEFAULT_RISK_ALLOCATION.maxMerchantPercent,
+            )
+          : DEFAULT_RISK_ALLOCATION.maxMerchantPercent,
+        bankerYearDays: settings
+          ? String(settings.riskAllocator.bankerYearDays || DEFAULT_RISK_ALLOCATION.bankerYearDays)
+          : DEFAULT_RISK_ALLOCATION.bankerYearDays,
+        maxTenorRatePercent: settings
+          ? bpsToPercent(settings.riskAllocator.maxTenorRateBps)
+          : DEFAULT_RISK_ALLOCATION.maxTenorRatePercent,
+        tiers,
+      }
+    },
+    [],
+  )
+
+  const applyLoadedState = useCallback(
+    (
+      tiers: ProtocolRiskTier[],
+      settings: Awaited<ReturnType<typeof fetchProtocolSettingsState>> | null,
+      settingsError: string | null,
+    ) => {
+      const next = mapSettingsToDraft(tiers, settings)
+      syncBaseline(next, settings?.riskAllocator.maxMerchantBps ?? null)
+      setLoadError(settingsError)
+    },
+    [mapSettingsToDraft, syncBaseline],
+  )
+
   const refreshChainState = useCallback(async () => {
-    const [tiers, settings] = await Promise.all([
+    const [tiersResult, settingsResult] = await Promise.allSettled([
       fetchRiskTiers(),
       accessToken?.trim() ? fetchProtocolSettingsState(accessToken) : Promise.resolve(null),
     ])
+
+    const tiers = tiersResult.status === 'fulfilled' ? tiersResult.value : []
+    const settings = settingsResult.status === 'fulfilled' ? settingsResult.value : null
+    const settingsError =
+      settingsResult.status === 'rejected'
+        ? toUserFacingError(settingsResult.reason, 'Could not load on-chain allocation settings.')
+        : tiersResult.status === 'rejected'
+          ? toUserFacingError(tiersResult.reason, 'Could not load risk tiers.')
+          : null
+
     const mapped =
       tiers.length > 0
         ? tiers.map((t) => ({
@@ -89,46 +154,44 @@ const RiskAllocationPanel = () => {
             active: t.active,
           }))
         : structuredClone(DEFAULT_RISK_ALLOCATION.tiers)
-    const maxMerchantPercent = settings
-      ? bpsToPercent(settings.riskAllocator.maxMerchantBps)
-      : DEFAULT_RISK_ALLOCATION.maxMerchantPercent
-    syncBaseline({ maxMerchantPercent, tiers: mapped })
-    setLoadError(null)
-  }, [accessToken, syncBaseline])
+
+    applyLoadedState(mapped, settings, settingsError)
+  }, [accessToken, applyLoadedState])
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      try {
-        const [tiers, settings] = await Promise.all([
-          fetchRiskTiers(),
-          accessToken?.trim() ? fetchProtocolSettingsState(accessToken) : Promise.resolve(null),
-        ])
-        if (cancelled) return
-        const mapped =
-          tiers.length > 0
-            ? tiers.map((t) => ({
-                id: t.id,
-                interestPercent: String(t.interest_percent),
-                maxTenorDays: String(t.duration_days),
-                active: t.active,
-              }))
-            : structuredClone(DEFAULT_RISK_ALLOCATION.tiers)
-        const maxMerchantPercent = settings
-          ? bpsToPercent(settings.riskAllocator.maxMerchantBps)
-          : DEFAULT_RISK_ALLOCATION.maxMerchantPercent
-        syncBaseline({ maxMerchantPercent, tiers: mapped })
-        setLoadError(null)
-      } catch (e) {
-        if (!cancelled) {
-          setLoadError(toUserFacingError(e, 'Could not load on-chain risk settings.'))
-        }
-      }
+      const [tiersResult, settingsResult] = await Promise.allSettled([
+        fetchRiskTiers(),
+        accessToken?.trim() ? fetchProtocolSettingsState(accessToken) : Promise.resolve(null),
+      ])
+      if (cancelled) return
+
+      const tiers = tiersResult.status === 'fulfilled' ? tiersResult.value : []
+      const settings = settingsResult.status === 'fulfilled' ? settingsResult.value : null
+      const settingsError =
+        settingsResult.status === 'rejected'
+          ? toUserFacingError(settingsResult.reason, 'Could not load on-chain allocation settings.')
+          : tiersResult.status === 'rejected'
+            ? toUserFacingError(tiersResult.reason, 'Could not load risk tiers.')
+            : null
+
+      const mapped =
+        tiers.length > 0
+          ? tiers.map((t) => ({
+              id: t.id,
+              interestPercent: String(t.interest_percent),
+              maxTenorDays: String(t.duration_days),
+              active: t.active,
+            }))
+          : structuredClone(DEFAULT_RISK_ALLOCATION.tiers)
+
+      applyLoadedState(mapped, settings, settingsError)
     })()
     return () => {
       cancelled = true
     }
-  }, [accessToken, syncBaseline])
+  }, [accessToken, applyLoadedState])
 
   const handleSave = useCallback(async () => {
     setSaveNotice(null)
@@ -138,11 +201,36 @@ const RiskAllocationPanel = () => {
     }
 
     const changedTiers = findChangedTiers(baselineTiersRef.current, draft.tiers)
-    const maxMerchantChanged =
-      draft.maxMerchantPercent.trim() !== baselineMaxMerchantRef.current.trim()
+    const draftMaxMerchantBps = percentToBps(draft.maxMerchantPercent)
+    const maxMerchantChanged = draftMaxMerchantBps !== baselineMaxMerchantBpsRef.current
+    const bankerYearChanged =
+      draft.bankerYearDays.trim() !== baselineBankerYearDaysRef.current.trim()
+    const maxTenorRateChanged =
+      !percentValuesEqual(draft.maxTenorRatePercent, baselineMaxTenorRateRef.current)
 
-    if (changedTiers.length === 0 && !maxMerchantChanged) {
+    if (
+      changedTiers.length === 0 &&
+      !maxMerchantChanged &&
+      !bankerYearChanged &&
+      !maxTenorRateChanged
+    ) {
       setSaveNotice('No risk allocation changes to submit.')
+      return
+    }
+
+    try {
+      if (maxMerchantChanged) {
+        assertValidMaxMerchantBps(draftMaxMerchantBps)
+      }
+      if (bankerYearChanged) {
+        const days = Number(draft.bankerYearDays.trim())
+        assertValidBankerYearDays(days)
+      }
+      if (maxTenorRateChanged) {
+        assertValidMaxTenorRateBps(percentToBps(draft.maxTenorRatePercent))
+      }
+    } catch (e) {
+      setSaveNotice(toUserFacingError(e, 'Invalid risk allocation values.'))
       return
     }
 
@@ -155,53 +243,100 @@ const RiskAllocationPanel = () => {
 
     try {
       const createdProposalIds: string[] = []
+      const tasks: {
+        operationType:
+          | 'max_merchant_bps'
+          | 'allocation_banker_year_days'
+          | 'allocation_max_tenor_rate_bps'
+          | 'risk_tier'
+        run: () => Promise<ResolvedGovernanceOutcome>
+      }[] = []
 
       if (maxMerchantChanged) {
-        if (controller.signal.aborted) return
-        const resolved = await submitAdminAction(
-          () =>
-            postMultisigCreateMaxMerchantBpsProposal(
-              accessToken,
-              percentToBps(draft.maxMerchantPercent),
-              { signal: controller.signal },
+        tasks.push({
+          operationType: 'max_merchant_bps',
+          run: () =>
+            submitAdminAction(
+              () =>
+                postMultisigCreateMaxMerchantBpsProposal(
+                  accessToken,
+                  draftMaxMerchantBps,
+                  { signal: controller.signal },
+                ),
+              { operationType: 'max_merchant_bps' },
             ),
-          { operationType: 'max_merchant_bps' },
-        )
-        if (controller.signal.aborted) return
-        if (resolved.kind === 'direct_complete') {
-          setOutcome(resolved)
-          setSubmitPhase('succeeded')
-          baselineMaxMerchantRef.current = draft.maxMerchantPercent.trim()
-          baselineTiersRef.current = structuredClone(draft.tiers)
-          return
-        }
-        if (resolved.kind === 'proposal_queued') {
-          createdProposalIds.push(resolved.proposalId)
-        }
+        })
+      }
+
+      if (bankerYearChanged) {
+        tasks.push({
+          operationType: 'allocation_banker_year_days',
+          run: () =>
+            submitAdminAction(
+              () =>
+                postMultisigCreateAllocationBankerYearDaysProposal(
+                  accessToken,
+                  Number(draft.bankerYearDays.trim()),
+                  { signal: controller.signal },
+                ),
+              { operationType: 'allocation_banker_year_days' },
+            ),
+        })
+      }
+
+      if (maxTenorRateChanged) {
+        tasks.push({
+          operationType: 'allocation_max_tenor_rate_bps',
+          run: () =>
+            submitAdminAction(
+              () =>
+                postMultisigCreateAllocationMaxTenorRateBpsProposal(
+                  accessToken,
+                  percentToBps(draft.maxTenorRatePercent),
+                  { signal: controller.signal },
+                ),
+              { operationType: 'allocation_max_tenor_rate_bps' },
+            ),
+        })
       }
 
       for (const tier of changedTiers) {
-        if (controller.signal.aborted) return
-        const resolved = await submitAdminAction(
-          () =>
-            postMultisigCreateRiskTierProposal(
-              accessToken,
-              buildRiskTierProposalBody({
-                tierId: tier.id,
-                interestPercent: Number(tier.interestPercent),
-                maxTenorDays: Number(tier.maxTenorDays),
-                active: tier.active,
-              }),
-              { signal: controller.signal },
+        tasks.push({
+          operationType: 'risk_tier',
+          run: () =>
+            submitAdminAction(
+              () =>
+                postMultisigCreateRiskTierProposal(
+                  accessToken,
+                  buildRiskTierProposalBody({
+                    tierId: tier.id,
+                    interestPercent: Number(tier.interestPercent),
+                    maxTenorDays: Number(tier.maxTenorDays),
+                    active: tier.active,
+                  }),
+                  { signal: controller.signal },
+                ),
+              { operationType: 'risk_tier' },
             ),
-          { operationType: 'risk_tier' },
-        )
+        })
+      }
+
+      const syncBaselinesFromDraft = () => {
+        baselineMaxMerchantRef.current = draft.maxMerchantPercent.trim()
+        baselineMaxMerchantBpsRef.current = draftMaxMerchantBps
+        baselineBankerYearDaysRef.current = draft.bankerYearDays.trim()
+        baselineMaxTenorRateRef.current = draft.maxTenorRatePercent.trim()
+        baselineTiersRef.current = structuredClone(draft.tiers)
+      }
+
+      for (const task of tasks) {
+        if (controller.signal.aborted) return
+        const resolved = await task.run()
         if (controller.signal.aborted) return
         if (resolved.kind === 'direct_complete') {
           setOutcome(resolved)
           setSubmitPhase('succeeded')
-          baselineMaxMerchantRef.current = draft.maxMerchantPercent.trim()
-          baselineTiersRef.current = structuredClone(draft.tiers)
+          syncBaselinesFromDraft()
           return
         }
         if (resolved.kind === 'proposal_queued') {
@@ -219,7 +354,7 @@ const RiskAllocationPanel = () => {
             createdProposalIds.length === 1
               ? 'Risk allocation change proposal created.'
               : `Created ${createdProposalIds.length} governance proposals. Review the first proposal; others are in the governance queue.`,
-          operationType: maxMerchantChanged ? 'max_merchant_bps' : 'risk_tier',
+          operationType: tasks[0]?.operationType ?? 'max_merchant_bps',
         })
         setSubmitPhase('succeeded')
       } else {
@@ -248,6 +383,8 @@ const RiskAllocationPanel = () => {
     void refreshChainState().catch(() => {
       setDraft({
         maxMerchantPercent: baselineMaxMerchantRef.current,
+        bankerYearDays: baselineBankerYearDaysRef.current,
+        maxTenorRatePercent: baselineMaxTenorRateRef.current,
         tiers: structuredClone(baselineTiersRef.current),
       })
     })
@@ -264,6 +401,8 @@ const RiskAllocationPanel = () => {
   const handleCancelDraft = useCallback(() => {
     setDraft({
       maxMerchantPercent: baselineMaxMerchantRef.current,
+      bankerYearDays: baselineBankerYearDaysRef.current,
+      maxTenorRatePercent: baselineMaxTenorRateRef.current,
       tiers: structuredClone(baselineTiersRef.current),
     })
     setSaveNotice(null)
@@ -335,9 +474,34 @@ const RiskAllocationPanel = () => {
           label="Max merchant concentration"
           value={draft.maxMerchantPercent}
           suffix="%"
-          hint="Maps to setMaxMerchantBps (0–100%)."
+          hint={
+            onChainMaxMerchantBps != null
+              ? `On-chain: ${onChainMaxMerchantBps} bps (${bpsToPercent(onChainMaxMerchantBps)}%). Apply creates a max_merchant_bps governance proposal via setMaxMerchantBps.`
+              : 'Maps to setMaxMerchantBps (0–100%). Apply creates a max_merchant_bps governance proposal.'
+          }
           onChange={(v) => {
             setDraft((prev) => ({ ...prev, maxMerchantPercent: v }))
+            setSaveNotice(null)
+          }}
+        />
+        <SettingsField
+          id="bankerYearDays"
+          label="Banker year days"
+          value={draft.bankerYearDays}
+          hint="Maps to setBankerYearDays (360–366)."
+          onChange={(v) => {
+            setDraft((prev) => ({ ...prev, bankerYearDays: v }))
+            setSaveNotice(null)
+          }}
+        />
+        <SettingsField
+          id="maxTenorRatePercent"
+          label="Max tenor rate"
+          value={draft.maxTenorRatePercent}
+          suffix="%"
+          hint="Maps to setMaxTenorRateBps (0–100%)."
+          onChange={(v) => {
+            setDraft((prev) => ({ ...prev, maxTenorRatePercent: v }))
             setSaveNotice(null)
           }}
         />

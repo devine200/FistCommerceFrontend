@@ -4,6 +4,9 @@ import type { SessionEndReason } from '@/session/sessionEnd'
 /** Marks that token refresh already ran for this logical request (prevents refresh loops). */
 const AUTH_RETRIED = Symbol('authRetried')
 
+/** Ignore session-expiry side effects briefly after a fresh login (stale 401 races). */
+const FRESH_AUTH_GRACE_MS = 15_000
+
 type AuthRecoveryInit = RequestInit & {
   [AUTH_RETRIED]?: boolean
 }
@@ -31,6 +34,13 @@ function authorizationHeaderFromInit(headers: RequestInit['headers']): string | 
   const rec = headers as Record<string, string>
   const a = rec.Authorization ?? rec.authorization
   return typeof a === 'string' ? a : null
+}
+
+function accessTokenFromAuthHeader(authHeader: string | null | undefined): string | null {
+  if (!authHeader) return null
+  const trimmed = authHeader.trim()
+  const match = /^Token\s+(\S+)/i.exec(trimmed)
+  return match?.[1]?.trim() ?? null
 }
 
 function usesDrfTokenAuth(headers: RequestInit['headers']): boolean {
@@ -62,9 +72,30 @@ function coalescedRefreshSessionTokens(): Promise<RefreshSessionResult> {
   return refreshCoalesce
 }
 
-async function endSessionAfterAuthFailure(reason: SessionEndReason): Promise<void> {
+function isWithinFreshAuthGrace(authIssuedAt: number | null | undefined): boolean {
+  if (authIssuedAt == null || !Number.isFinite(authIssuedAt)) return false
+  return Date.now() - authIssuedAt < FRESH_AUTH_GRACE_MS
+}
+
+async function endSessionAfterAuthFailure(
+  reason: SessionEndReason,
+  options?: { failedAccessToken?: string | null },
+): Promise<void> {
   const { store } = await import('@/store')
-  const { role: roleRaw, accessToken, sessionKind } = store.getState().auth
+  const { role: roleRaw, accessToken, sessionKind, authIssuedAt } = store.getState().auth
+
+  if (options?.failedAccessToken) {
+    const current = accessToken?.trim()
+    const failed = options.failedAccessToken.trim()
+    if (current && failed && current !== failed) {
+      return
+    }
+  }
+
+  if (isWithinFreshAuthGrace(authIssuedAt)) {
+    return
+  }
+
   const { markAppSessionExpired } = await import('@/session/sessionEnd')
   await markAppSessionExpired(store.dispatch, {
     reason,
@@ -83,6 +114,7 @@ async function endSessionAfterAuthFailure(reason: SessionEndReason): Promise<voi
  *   end and redirect (no refresh).
  * - **401** + `Authorization: Token …`: with refresh token → refresh and retry once; a second
  *   401 on that retry, missing refresh token, or failed refresh → mark session expired (choice modal).
+ *   Admin sessions skip refresh (wallet sign-in is the source of truth).
  * - **403** is treated as a permission/resource error for the caller (does not clear the session).
  *
  * Uses dynamic `import()` for the Redux store and session refresh so this module does not create a
@@ -92,10 +124,14 @@ export async function fetchWithAuthRecovery(
   input: RequestInfo | URL,
   init: AuthRecoveryInit = {},
 ): Promise<Response> {
+  const requestAuthHeader = authorizationHeaderFromInit(init.headers)
+  const requestAccessToken = accessTokenFromAuthHeader(requestAuthHeader)
+
   if (usesDrfTokenAuth(init.headers)) {
-    const authLine = authorizationHeaderFromInit(init.headers)
-    if (authLine && authLine.length > MAX_AUTHORIZATION_HEADER_CHARS) {
-      await endSessionAfterAuthFailure('header_too_large')
+    if (requestAuthHeader && requestAuthHeader.length > MAX_AUTHORIZATION_HEADER_CHARS) {
+      await endSessionAfterAuthFailure('header_too_large', {
+        failedAccessToken: requestAccessToken,
+      })
       return new Response(null, { status: 431 })
     }
   }
@@ -107,14 +143,18 @@ export async function fetchWithAuthRecovery(
 
   const tokenAuth = usesDrfTokenAuth(init.headers)
   if (tokenAuth && (res.status === 431 || res.status === 413)) {
-    await endSessionAfterAuthFailure('header_too_large')
+    await endSessionAfterAuthFailure('header_too_large', {
+      failedAccessToken: requestAccessToken,
+    })
     return res
   }
 
   if (tokenAuth && res.status === 400) {
     const bodySnippet = await res.clone().text()
     if (isLikelyProxyRequestHeaderTooLargeBody(bodySnippet)) {
-      await endSessionAfterAuthFailure('header_too_large')
+      await endSessionAfterAuthFailure('header_too_large', {
+        failedAccessToken: requestAccessToken,
+      })
       return res
     }
   }
@@ -127,21 +167,40 @@ export async function fetchWithAuthRecovery(
     return res
   }
 
-  if (hasAuthRetried(init)) {
-    await endSessionAfterAuthFailure('refresh_expired')
+  const { store } = await import('@/store')
+  const { sessionKind, authIssuedAt } = store.getState().auth
+
+  // Admin API tokens come from wallet sign-in; do not rotate via the user refresh-token endpoint.
+  if (sessionKind === 'admin') {
+    if (isWithinFreshAuthGrace(authIssuedAt)) {
+      return res
+    }
+    await endSessionAfterAuthFailure('refresh_expired', {
+      failedAccessToken: requestAccessToken,
+    })
     return res
   }
 
-  const { store } = await import('@/store')
+  if (hasAuthRetried(init)) {
+    await endSessionAfterAuthFailure('refresh_expired', {
+      failedAccessToken: requestAccessToken,
+    })
+    return res
+  }
+
   const { refreshToken } = store.getState().auth
   if (!refreshToken?.trim()) {
-    await endSessionAfterAuthFailure('missing_refresh')
+    await endSessionAfterAuthFailure('missing_refresh', {
+      failedAccessToken: requestAccessToken,
+    })
     return res
   }
 
   const tokens = await coalescedRefreshSessionTokens()
   if (!tokens) {
-    await endSessionAfterAuthFailure('refresh_failed')
+    await endSessionAfterAuthFailure('refresh_failed', {
+      failedAccessToken: requestAccessToken,
+    })
     return res
   }
 

@@ -30,11 +30,25 @@ export const SESSION_END_MESSAGES: Record<SessionEndReason, string> = {
   privy_logout: 'You were signed out. Sign in again with your wallet to continue.',
 }
 
-export function getSessionEndMessage(reason: SessionEndReason | null | undefined): string {
-  if (!reason || !(reason in SESSION_END_MESSAGES)) {
-    return SESSION_END_MESSAGES.refresh_expired
+export const ADMIN_SESSION_END_MESSAGES: Record<SessionEndReason, string> = {
+  refresh_expired: 'Your admin session expired. Sign in again with your multisig owner wallet to continue.',
+  refresh_failed: 'Your admin session could not be renewed. Sign in again with your multisig owner wallet.',
+  missing_refresh: 'Your admin session is no longer valid. Sign in again with your multisig owner wallet.',
+  header_too_large: 'Your saved admin session was corrupted. Sign in again with your multisig owner wallet.',
+  wallet_disconnected: 'Your wallet disconnected. Reconnect and sign in again to continue.',
+  wallet_changed: 'Wallet changed. Sign in again with your multisig owner wallet to continue.',
+  privy_logout: 'You were signed out. Sign in again with your multisig owner wallet to continue.',
+}
+
+export function getSessionEndMessage(
+  reason: SessionEndReason | null | undefined,
+  options?: { isAdmin?: boolean },
+): string {
+  const messages = options?.isAdmin ? ADMIN_SESSION_END_MESSAGES : SESSION_END_MESSAGES
+  if (!reason || !(reason in messages)) {
+    return messages.refresh_expired
   }
-  return SESSION_END_MESSAGES[reason]
+  return messages[reason]
 }
 
 export function stashSessionEndMessage(reason: SessionEndReason, role: UserRole | null = null): void {
