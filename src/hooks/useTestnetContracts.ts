@@ -8,6 +8,10 @@ import {
   MOCK_ERC20_ADDRESS,
   PAYOUT_ROUTER_ADDRESS,
 } from '@/contract_config/deployment'
+import {
+  canMintTestTokens,
+  getAcceptedTokenDefaultDecimals,
+} from '@/contract_config/contractNetwork'
 import { postMerchantRepaymentSubmit } from '@/api/payout'
 import { displayDashboardMetricString } from '@/api/metrics'
 import { useAppSelector } from '@/store/hooks'
@@ -51,6 +55,16 @@ function humanAmountToUnits(humanAmount: number, decimals: number): bigint {
   const s = humanAmount.toFixed(frac).replace(/\.?0+$/, '')
   if (!s || s === '0') return 0n
   return parseUnits(s, decimals)
+}
+
+function normalizeTokenDecimals(raw: unknown, fallback: number): number {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 && raw <= 36) {
+    return Math.trunc(raw)
+  }
+  if (typeof raw === 'bigint' && raw >= 0n && raw <= 36n) {
+    return Number(raw)
+  }
+  return fallback
 }
 
 /** Approximate shares to burn for a token-denominated withdrawal (pool accounting). */
@@ -100,7 +114,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const writesEnabled = Boolean(readsEnabled && isCorrectNetwork)
 
   const decimalsQuery = useQuery({
-    queryKey: ['testnet-erc20-decimals', APP_CONTRACTS_CHAIN.id],
+    queryKey: ['accepted-token-decimals', APP_CONTRACTS_CHAIN.id, MOCK_ERC20_ADDRESS],
     enabled: Boolean(publicClient),
     staleTime: 60_000,
     queryFn: async () =>
@@ -111,7 +125,10 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       }),
   })
 
-  const tokenDecimals = typeof decimalsQuery.data === 'number' ? decimalsQuery.data : 18
+  const tokenDecimals = normalizeTokenDecimals(
+    decimalsQuery.data,
+    getAcceptedTokenDefaultDecimals(),
+  )
 
   const balanceQuery = useQuery({
     queryKey: ['testnet-erc20-balance', APP_CONTRACTS_CHAIN.id, address],
@@ -534,6 +551,9 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
 
   const mintMockTokens = useCallback(
     async (humanAmount: number): Promise<Hash> => {
+      if (!canMintTestTokens()) {
+        throw new Error('Test token minting is not available on mainnet.')
+      }
       if (!isConnected || !address) throw new Error('Connect your wallet to mint test tokens.')
       if (!wallet) throw new Error('Wallet required')
       if (!isCorrectNetwork) {

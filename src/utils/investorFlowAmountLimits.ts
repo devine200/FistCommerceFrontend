@@ -1,4 +1,5 @@
 import { displayDashboardMetricString } from '@/api/metrics'
+import { canMintTestTokens, getAcceptedTokenDisplayName } from '@/contract_config/contractNetwork'
 
 export const INSUFFICIENT_BALANCE_ORDER_HINT = 'Insufficient balance to fulfil order.'
 
@@ -30,7 +31,10 @@ export function validateInvestDepositAmount(
   }
   if (maxWalletHuman == null) return null
   if (maxWalletHuman <= 0) {
-    return 'Your wallet has no tokens available to deposit. Mint test tokens first.'
+    const token = getAcceptedTokenDisplayName()
+    return canMintTestTokens()
+      ? `Your wallet has no ${token} available to deposit. Mint test tokens first.`
+      : `Your wallet has no ${token} available to deposit.`
   }
   if (amount > maxWalletHuman + 1e-9) {
     return `Amount cannot exceed your wallet balance of ${displayDashboardMetricString(maxWalletHuman)}.`

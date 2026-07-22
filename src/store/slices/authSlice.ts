@@ -22,6 +22,7 @@ export type SessionExpiredReason =
   | 'wallet_disconnected'
   | 'wallet_changed'
   | 'privy_logout'
+  | 'chain_mismatch'
 
 export type SessionState = {
   accessToken: string | null
@@ -39,6 +40,13 @@ export type SessionState = {
   sessionExpiredReason: SessionExpiredReason | null
   /** When the current access token was issued (ms). Used to ignore stale 401 handlers after re-login. */
   authIssuedAt: number | null
+  /**
+   * Chain id bound to the API session at login (`AuthSession.chain_id`).
+   * Must match `APP_CHAIN.id`; mismatch forces re-login (e.g. after env flip).
+   */
+  chainId: number | null
+  /** Bare wallet from login response when present. */
+  wallet: string | null
   /** @deprecated Prefer kyc slice + selectIsKycVerified; kept for redux-persist migration */
   kycVerified: boolean
 }
@@ -53,6 +61,8 @@ const DEFAULT_SESSION: SessionState = {
   sessionExpired: false,
   sessionExpiredReason: null,
   authIssuedAt: null,
+  chainId: null,
+  wallet: null,
   kycVerified: false,
 }
 
@@ -71,6 +81,14 @@ const authSlice = createSlice({
       authIssuedAt:
         typeof action.payload.authIssuedAt === 'number' && Number.isFinite(action.payload.authIssuedAt)
           ? action.payload.authIssuedAt
+          : null,
+      chainId:
+        typeof action.payload.chainId === 'number' && Number.isFinite(action.payload.chainId)
+          ? Math.trunc(action.payload.chainId)
+          : null,
+      wallet:
+        typeof action.payload.wallet === 'string' && action.payload.wallet.trim()
+          ? action.payload.wallet.trim()
           : null,
     }),
     patchAuth: (state, action: PayloadAction<Partial<SessionState>>) => {
@@ -99,6 +117,18 @@ const authSlice = createSlice({
       if (action.payload.sessionExpired !== undefined) state.sessionExpired = action.payload.sessionExpired
       if (action.payload.sessionExpiredReason !== undefined) {
         state.sessionExpiredReason = action.payload.sessionExpiredReason
+      }
+      if (action.payload.chainId !== undefined) {
+        state.chainId =
+          typeof action.payload.chainId === 'number' && Number.isFinite(action.payload.chainId)
+            ? Math.trunc(action.payload.chainId)
+            : null
+      }
+      if (action.payload.wallet !== undefined) {
+        state.wallet =
+          typeof action.payload.wallet === 'string' && action.payload.wallet.trim()
+            ? action.payload.wallet.trim()
+            : null
       }
       if (action.payload.kycVerified !== undefined) state.kycVerified = action.payload.kycVerified
     },

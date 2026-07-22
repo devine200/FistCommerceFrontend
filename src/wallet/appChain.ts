@@ -1,8 +1,8 @@
-import { arbitrumSepolia } from 'viem/chains'
+import { arbitrum, arbitrumSepolia } from 'viem/chains'
 import { defineChain, type Chain } from 'viem'
 
 import localConfig from '@/contract_config/local-deployment-config.json'
-import { isLocalContractNetwork } from '@/contract_config/contractNetwork'
+import { getContractNetworkMode } from '@/contract_config/contractNetwork'
 
 type LocalChainConfig = {
   chainId: number
@@ -54,8 +54,20 @@ export const LOCAL_CHAIN: Chain = defineChain({
 /** Arbitrum Sepolia testnet — used when `VITE_CONTRACT_NETWORK=testnet` (default). */
 export const TESTNET_CHAIN = arbitrumSepolia
 
+/** Arbitrum One — used when `VITE_CONTRACT_NETWORK=mainnet`. */
+export const MAINNET_CHAIN = arbitrum
+
 /**
  * Active EVM chain for Privy, wallet enforcement, EIP-712 login, and contract calls.
- * Controlled by `VITE_CONTRACT_NETWORK` (`local` | `testnet`).
+ * Controlled by `VITE_CONTRACT_NETWORK` (`local` | `testnet` | `mainnet`).
  */
-export const APP_CHAIN: Chain = isLocalContractNetwork() ? LOCAL_CHAIN : TESTNET_CHAIN
+export const APP_CHAIN: Chain = (() => {
+  switch (getContractNetworkMode()) {
+    case 'local':
+      return LOCAL_CHAIN
+    case 'mainnet':
+      return MAINNET_CHAIN
+    default:
+      return TESTNET_CHAIN
+  }
+})()

@@ -74,11 +74,11 @@ function seedLegacyAuthIntoPersist() {
 
 seedLegacyAuthIntoPersist()
 
-/** v1: clear legacy kycVerified. v2: refreshToken. v3: coerce invalid persisted `role` to null. v4: reject oversize/corrupt accessToken. v5: keep refresh when access sanitize fails; sanitize refresh independently. v6: sessionExpired flags. v7: authIssuedAt. */
+/** v1: clear legacy kycVerified. v2: refreshToken. v3: coerce invalid persisted `role` to null. v4: reject oversize/corrupt accessToken. v5: keep refresh when access sanitize fails; sanitize refresh independently. v6: sessionExpired flags. v7: authIssuedAt. v8: session chainId/wallet; wipe tokens without chainId. */
 const authPersistConfig = {
   key: AUTH_PERSIST_KEY,
   storage: authPersistStorage,
-  version: 7,
+  version: 8,
   migrate: async (state: PersistedState): Promise<PersistedState> => {
     if (!state || typeof state !== 'object') return undefined
     const next = { ...state, kycVerified: false } as Record<string, unknown>
@@ -102,6 +102,25 @@ const authPersistConfig = {
     ) {
       next.sessionExpired = false
       next.sessionExpiredReason = null
+    }
+    const chainId =
+      typeof next.chainId === 'number' && Number.isFinite(next.chainId) && next.chainId > 0
+        ? Math.trunc(next.chainId)
+        : null
+    next.chainId = chainId
+    next.wallet =
+      typeof next.wallet === 'string' && next.wallet.trim() ? next.wallet.trim() : null
+    // Pre-v8 sessions have no chain binding — force re-login rather than guessing from env.
+    if (chainId == null && (next.accessToken || next.refreshToken)) {
+      next.accessToken = null
+      next.refreshToken = null
+      next.onboarded = false
+      next.sessionKind = null
+      next.sessionExpired = false
+      next.sessionExpiredReason = null
+      next.authIssuedAt = null
+      next.user = null
+      next.wallet = null
     }
     return next as PersistedState
   },

@@ -8,11 +8,12 @@ import type { AuthUser, UserRole } from '@/store/slices/authSlice'
  * Auth endpoints per OpenAPI (`basePath` `/api` — use `VITE_API_BASE_URL` like `http://127.0.0.1:8000/api`).
  * Docs: http://127.0.0.1:8000/redoc/ — schema: http://127.0.0.1:8000/swagger.json
  *
- * - `POST /api/auth/login` — body: `signedMessage`, `signature`, `signerAddress`, **`role`** (`investor` | `merchant`)
- * - `POST /api/auth/refresh-token` — body: `refresh_token`
+ * - `POST /api/auth/login` — body: `signedMessage`, `signature`, `signerAddress`, **`role`**, **`chainId`**
+ *   (`chainId` must match the EIP-712 domain chainId used to sign).
+ * - `POST /api/auth/refresh-token` — body: `refresh_token` (chain stays on the server session).
  *
  * Successful responses use **`access_token`** and **`refresh_token`** (snake_case in JSON), and may include
- * **`has_registered_profile`** to indicate returning users who can skip registration.
+ * **`has_registered_profile`**, **`chain_id`**, and **`wallet`**.
  */
 
 const LOGIN_PATH = '/api/auth/login'
@@ -36,6 +37,10 @@ export type AuthLoginResponseBody = {
   kycStatus?: string
   user?: AuthUser
   role?: string
+  /** Session-bound chain from login (must match the `chainId` sent in the request). */
+  chain_id?: number
+  /** Bare wallet address for this session (not a composite `wallet:chainId` key). */
+  wallet?: string
 }
 
 /** OpenAPI 200 body for `POST /auth/refresh-token`. */
@@ -74,6 +79,10 @@ export type WalletLoginResult = WalletSessionTokens & {
   user: AuthUser | null
   /** Role returned by the API, if any — otherwise use the role chosen in onboarding. */
   roleFromApi: UserRole | null
+  /** Prefer API `chain_id`; null when the backend omits it. */
+  chainId: number | null
+  /** Bare wallet from API when present. */
+  wallet: string | null
 }
 
 function normalizeSessionTokens(
@@ -176,12 +185,23 @@ export function createWalletLoginSignable(chainId: number, wallet: Address): Wal
   }
 }
 
+function parseChainIdFromLoginBody(body: AuthLoginResponseBody): number | null {
+  const raw = body.chain_id
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return Math.trunc(raw)
+  return null
+}
+
 export async function postWalletLogin(params: {
   signedMessage: WalletLoginSignable['signedMessageForApi']
   signature: Hex
   signerAddress: string
   /** Required by API — must match the onboarding role the user selected. */
   role: UserRole
+  /**
+   * Required by API — must match the EIP-712 domain `chainId` used to sign
+   * (and the active `APP_CHAIN.id`).
+   */
+  chainId: number
 }): Promise<WalletLoginResult> {
   const base = requireApiBaseUrl()
   const res = await fetch(`${base}${LOGIN_PATH}`, {
@@ -195,6 +215,7 @@ export async function postWalletLogin(params: {
       signature: params.signature,
       signerAddress: getAddress(params.signerAddress as Address),
       role: params.role,
+      chainId: params.chainId,
     }),
   })
   const body = await parseJsonResponse<AuthLoginResponseBody & { token?: string }>(res)
@@ -203,6 +224,8 @@ export async function postWalletLogin(params: {
     body.has_registered_profile ?? body.registered ?? body.is_registered,
   )
   const onboarded = Boolean(body.onboarded ?? body.is_onboarded)
+  const wallet =
+    typeof body.wallet === 'string' && body.wallet.trim() ? body.wallet.trim() : null
   return {
     ...tokens,
     registered,
@@ -210,6 +233,8 @@ export async function postWalletLogin(params: {
     kycStatus: parseKycStatusFromLoginBody(body),
     user: body.user ?? null,
     roleFromApi: parseRoleFromLoginBody(body),
+    chainId: parseChainIdFromLoginBody(body),
+    wallet,
   }
 }
 

@@ -1,3 +1,5 @@
+import { getAcceptedTokenDisplayName } from '@/contract_config/contractNetwork'
+
 interface InvestorBalanceSummaryBoxesProps {
   walletBalanceDisplay: string
   investmentBalanceDisplay: string
@@ -15,7 +17,7 @@ const InvestorBalanceSummaryBoxes = ({
       <p className="text-[#0B1220] text-[22px] sm:text-[26px] font-semibold leading-tight mt-1">
         {walletBalanceDisplay}
       </p>
-      <p className="mt-1 text-[#8B92A3] text-[11px]">Mock ERC-20 token balance</p>
+      <p className="mt-1 text-[#8B92A3] text-[11px]">{getAcceptedTokenDisplayName()} token balance</p>
     </div>
     <div className="rounded-[6px] border border-[#195EBC] bg-[#E8EFFB] px-4 py-3 text-left">
       <p className="text-[#8B92A3] text-[12px] sm:text-[14px]">Investment balance</p>

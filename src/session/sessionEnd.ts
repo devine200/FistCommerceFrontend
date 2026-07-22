@@ -28,6 +28,8 @@ export const SESSION_END_MESSAGES: Record<SessionEndReason, string> = {
   wallet_disconnected: 'Your wallet disconnected. Reconnect and sign in again to continue.',
   wallet_changed: 'Wallet changed. Sign in again with the new wallet to continue.',
   privy_logout: 'You were signed out. Sign in again with your wallet to continue.',
+  chain_mismatch:
+    'This session was created on a different network. Sign in again to continue on the current network.',
 }
 
 export const ADMIN_SESSION_END_MESSAGES: Record<SessionEndReason, string> = {
@@ -38,6 +40,8 @@ export const ADMIN_SESSION_END_MESSAGES: Record<SessionEndReason, string> = {
   wallet_disconnected: 'Your wallet disconnected. Reconnect and sign in again to continue.',
   wallet_changed: 'Wallet changed. Sign in again with your multisig owner wallet to continue.',
   privy_logout: 'You were signed out. Sign in again with your multisig owner wallet to continue.',
+  chain_mismatch:
+    'This admin session was created on a different network. Sign in again to continue on the current network.',
 }
 
 export function getSessionEndMessage(
@@ -112,6 +116,8 @@ function clearAdminSessionKeepingKind(dispatch: AppDispatch, reason: SessionEndR
       sessionKind: 'admin',
       sessionExpired: true,
       sessionExpiredReason: reason,
+      chainId: null,
+      wallet: null,
     }),
   )
 }

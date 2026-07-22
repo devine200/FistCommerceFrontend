@@ -6,7 +6,7 @@ import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
 import {
   FUNDING_POOL_ADDRESS,
 } from '@/contract_config/deployment'
-import { isLocalContractNetwork } from '@/contract_config/contractNetwork'
+import { isLocalContractNetwork, isMainnetContractNetwork } from '@/contract_config/contractNetwork'
 import type { RecentTx } from '@/components/dashboard/investor/lending-pool-detail/types'
 import { resolvePaginatedListTotal } from '@/utils/listPagination'
 
@@ -58,9 +58,15 @@ export function getDefaultArbitrumSepoliaBlockExplorerBase(): string | null {
   return raw.replace(/\/+$/, '')
 }
 
+/** Vite: Arbitrum One explorer origin (no trailing slash), e.g. `https://arbiscan.io` */
+export function getDefaultArbitrumOneBlockExplorerBase(): string | null {
+  const raw = readEnvTrim('VITE_ARBITRUM_BLOCK_EXPLORER_URL') || 'https://arbiscan.io'
+  return raw.replace(/\/+$/, '')
+}
+
 /** Optional pool smart contract when the payout API does not return one on the envelope. */
 export function getDefaultPoolContractAddress(): string | null {
-  if (isLocalContractNetwork()) {
+  if (isLocalContractNetwork() || isMainnetContractNetwork()) {
     return FUNDING_POOL_ADDRESS
   }
   return getDefaultArbitrumSepoliaPoolContractAddress()
@@ -72,6 +78,9 @@ export function getDefaultBlockExplorerBase(): string | null {
     const raw = readEnvTrim('VITE_LOCAL_BLOCK_EXPLORER_URL')
     if (!raw) return null
     return raw.replace(/\/+$/, '')
+  }
+  if (isMainnetContractNetwork()) {
+    return getDefaultArbitrumOneBlockExplorerBase()
   }
   return getDefaultArbitrumSepoliaBlockExplorerBase()
 }

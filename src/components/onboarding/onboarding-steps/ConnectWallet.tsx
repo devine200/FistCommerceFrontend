@@ -200,7 +200,11 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
         signature,
         signerAddress: address,
         role,
+        chainId: APP_CHAIN.id,
       })
+
+      const sessionChainId = loginRes.chainId ?? APP_CHAIN.id
+      const sessionWallet = loginRes.wallet ?? address
 
       const returningUser = loginRes.registered || loginRes.onboarded
       if (returningUser) {
@@ -214,6 +218,8 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
             kycStatus: loginRes.kycStatus,
             user: loginRes.user ?? undefined,
             role: loginRes.roleFromApi ?? undefined,
+            chain_id: sessionChainId,
+            wallet: sessionWallet,
           },
           { fallbackRole: role },
         )
@@ -230,6 +236,8 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
           sessionKind: 'app',
           sessionExpired: false,
           sessionExpiredReason: null,
+          chainId: sessionChainId,
+          wallet: sessionWallet,
         }),
       )
       unlockAfterConnectWallet(role)

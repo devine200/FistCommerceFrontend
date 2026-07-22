@@ -1,7 +1,8 @@
 import type { Abi, Address } from 'viem'
 
-import { isLocalContractNetwork } from '@/contract_config/contractNetwork'
+import { getContractNetworkMode } from '@/contract_config/contractNetwork'
 import localConfig from '@/contract_config/local-deployment-config.json'
+import mainnetDeployment from '@/contract_config/mainnet-deployment-config.json'
 import testnetDeployment from '@/contract_config/testnet-deployment-config.json'
 
 type ContractEntry = { address: string; abi: Abi }
@@ -188,10 +189,22 @@ function withLocalAddresses(
 }
 
 const testnetBase = normalizeDeployment(testnetRaw)
+const mainnetBase = normalizeDeployment(mainnetDeployment as FullDeploymentJson)
 
-/** Active deployment (local addresses + shared ABIs, or full testnet JSON). */
+function resolveActiveDeployment(): FullDeploymentJson & { MockERC20: ContractEntry } {
+  switch (getContractNetworkMode()) {
+    case 'local':
+      return withLocalAddresses(testnetBase, local)
+    case 'mainnet':
+      return mainnetBase
+    default:
+      return testnetBase
+  }
+}
+
+/** Active deployment (local addresses + shared ABIs, mainnet JSON, or testnet JSON). */
 export const ACTIVE_DEPLOYMENT: FullDeploymentJson & { MockERC20: ContractEntry } =
-  isLocalContractNetwork() ? withLocalAddresses(testnetBase, local) : testnetBase
+  resolveActiveDeployment()
 
 export const MOCK_ERC20_ADDRESS = ACTIVE_DEPLOYMENT.MockERC20.address as Address
 export const FUNDING_POOL_ADDRESS = ACTIVE_DEPLOYMENT.FundingPool.address as Address

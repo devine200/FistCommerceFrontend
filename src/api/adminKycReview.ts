@@ -1,6 +1,7 @@
 import { apiUrl, parseJsonResponse } from '@/api/client'
 import { parseAdminWriteResponse, type AdminWriteOutcome } from '@/api/adminActionResponse'
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
+import { walletFromUserKey } from '@/utils/walletFromUserKey'
 
 export type KycReviewUserType = 'investor' | 'merchant'
 
@@ -116,9 +117,11 @@ function normalizeKycRecordDetail(raw: unknown): AdminKycRecordDetail | null {
   const base = normalizeKycReviewRow(raw)
   if (!base) return null
   const r = asRecord(raw)
+  // Detail serializer may still expose composite `wallet:chainId` as `username`.
+  const usernameRaw = pickStr(r, 'username')
   return {
     ...base,
-    username: pickStr(r, 'username'),
+    username: walletFromUserKey(usernameRaw),
     documentHash: pickNullableStr(r, 'document_hash', 'documentHash'),
     adminStatus: pickNullableStr(r, 'admin_status', 'adminStatus'),
     verificationUrl: pickNullableStr(r, 'verification_url', 'verificationUrl'),

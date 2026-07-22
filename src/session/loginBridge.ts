@@ -18,6 +18,10 @@ export type WalletProfileLoginResponse = {
   kycStatus: KycStatus
   user?: { id?: string; email?: string }
   role?: UserRole
+  /** Session-bound chain from login (`chain_id`). */
+  chain_id?: number | null
+  /** Bare wallet from login when present. */
+  wallet?: string | null
 }
 
 export type ApplyWalletLoginOptions = {
@@ -48,6 +52,12 @@ export function applyWalletLoginResponse(
   }
   if ('refresh_token' in res) {
     authPatch.refreshToken = res.refresh_token ?? null
+  }
+  if (typeof res.chain_id === 'number' && Number.isFinite(res.chain_id)) {
+    authPatch.chainId = Math.trunc(res.chain_id)
+  }
+  if (typeof res.wallet === 'string' && res.wallet.trim()) {
+    authPatch.wallet = res.wallet.trim()
   }
   dispatch(patchAuth(authPatch))
   dispatch(setKycStatus(res.kycStatus))

@@ -139,6 +139,7 @@ const AdminLoginPage = () => {
         signedMessage: signable.signedMessageForApi,
         signature,
         signerAddress: address,
+        chainId: APP_CHAIN.id,
       })
 
       dispatch(
@@ -151,6 +152,8 @@ const AdminLoginPage = () => {
           sessionExpired: false,
           sessionExpiredReason: null,
           user: { id: address },
+          chainId: result.chainId ?? APP_CHAIN.id,
+          wallet: result.wallet ?? address,
         }),
       )
       await persistor.flush()
