@@ -6,8 +6,12 @@ import { Provider } from 'react-redux'
 import { PersistGate } from 'redux-persist/integration/react'
 
 import App from './App.tsx'
-import { getContractNetworkLabel, isLocalContractNetwork } from '@/contract_config/contractNetwork'
-import { APP_CHAIN } from '@/wallet/appChain'
+import { isLocalOnlyDeployMode } from '@/contract_config/contractNetwork'
+import {
+  DEFAULT_APP_CHAIN,
+  getSupportedAppChains,
+  LOCAL_CHAIN,
+} from '@/wallet/appChain'
 import WalletReduxSync from '@/components/session/WalletReduxSync'
 import AuthStorageSync from '@/store/AuthStorageSync'
 import FullPageLoading from '@/components/app/FullPageLoading'
@@ -27,18 +31,20 @@ if (import.meta.env.DEV && !googleOauthClientIdForDocs) {
   )
 }
 
+const supportedChains = [...getSupportedAppChains()]
+
 if (import.meta.env.DEV) {
   console.info(
-    `[contracts] ${getContractNetworkLabel()} — chain ${APP_CHAIN.name} (${APP_CHAIN.id})${
-      isLocalContractNetwork() ? ` @ ${APP_CHAIN.rpcUrls.default.http[0]}` : ''
+    `[contracts] dual-chain ready — supported: ${supportedChains.map((c) => `${c.name} (${c.id})`).join(', ')}${
+      isLocalOnlyDeployMode() ? ` @ ${LOCAL_CHAIN.rpcUrls.default.http[0]}` : ''
     }`,
   )
 }
 
 const privyConfig: PrivyClientConfig = {
   /** Embedded wallets initialize here; must be listed in `supportedChains` (Privy docs). */
-  defaultChain: APP_CHAIN,
-  supportedChains: [APP_CHAIN],
+  defaultChain: DEFAULT_APP_CHAIN,
+  supportedChains,
   loginMethods: ['email', 'google', 'wallet'],
   embeddedWallets: {
     ethereum: {
@@ -47,10 +53,8 @@ const privyConfig: PrivyClientConfig = {
   },
   externalWallets: {
     walletConnect: { enabled: true },
-    // coinbaseWallet: { config: { /* optional overrides */ } },
   },
   appearance: {
-    // Ensure the Privy modal surfaces the wallets you want users to connect.
     walletList: [
       'detected_ethereum_wallets',
       'metamask',

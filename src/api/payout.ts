@@ -5,10 +5,12 @@ import { displayDashboardMetricString } from '@/api/metrics'
 import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
 import {
   FUNDING_POOL_ADDRESS,
+  getFundingPoolAddress,
 } from '@/contract_config/deployment'
-import { isLocalContractNetwork, isMainnetContractNetwork } from '@/contract_config/contractNetwork'
+import { isLocalContractNetwork, isMainnetContractNetwork, modeFromChainId } from '@/contract_config/contractNetwork'
 import type { RecentTx } from '@/components/dashboard/investor/lending-pool-detail/types'
 import { resolvePaginatedListTotal } from '@/utils/listPagination'
+import { store } from '@/store'
 
 const RECENT_TRANSACTIONS_PATH = '/api/payout/recent-transactions/'
 
@@ -64,8 +66,26 @@ export function getDefaultArbitrumOneBlockExplorerBase(): string | null {
   return raw.replace(/\/+$/, '')
 }
 
+function resolveExplorerChainId(explicit?: number | null): number | null {
+  if (explicit != null && Number.isFinite(explicit)) return Math.trunc(explicit)
+  try {
+    const { auth, wallet } = store.getState()
+    if (auth.chainId != null) return auth.chainId
+    if (wallet.chainId != null) return wallet.chainId
+  } catch {
+    /* store unavailable */
+  }
+  return null
+}
+
 /** Optional pool smart contract when the payout API does not return one on the envelope. */
-export function getDefaultPoolContractAddress(): string | null {
+export function getDefaultPoolContractAddress(chainId?: number | null): string | null {
+  const id = resolveExplorerChainId(chainId)
+  if (id != null) {
+    const mode = modeFromChainId(id)
+    if (mode === 'local' || mode === 'mainnet') return getFundingPoolAddress(id)
+    if (mode === 'testnet') return getDefaultArbitrumSepoliaPoolContractAddress() ?? getFundingPoolAddress(id)
+  }
   if (isLocalContractNetwork() || isMainnetContractNetwork()) {
     return FUNDING_POOL_ADDRESS
   }
@@ -73,13 +93,15 @@ export function getDefaultPoolContractAddress(): string | null {
 }
 
 /** Block explorer origin when the API does not send one. */
-export function getDefaultBlockExplorerBase(): string | null {
-  if (isLocalContractNetwork()) {
+export function getDefaultBlockExplorerBase(chainId?: number | null): string | null {
+  const id = resolveExplorerChainId(chainId)
+  const mode = id != null ? modeFromChainId(id) : null
+  if (mode === 'local' || (mode == null && isLocalContractNetwork())) {
     const raw = readEnvTrim('VITE_LOCAL_BLOCK_EXPLORER_URL')
     if (!raw) return null
     return raw.replace(/\/+$/, '')
   }
-  if (isMainnetContractNetwork()) {
+  if (mode === 'mainnet' || (mode == null && isMainnetContractNetwork())) {
     return getDefaultArbitrumOneBlockExplorerBase()
   }
   return getDefaultArbitrumSepoliaBlockExplorerBase()

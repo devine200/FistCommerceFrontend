@@ -42,7 +42,7 @@ export type SessionState = {
   authIssuedAt: number | null
   /**
    * Chain id bound to the API session at login (`AuthSession.chain_id`).
-   * Must match `APP_CHAIN.id`; mismatch forces re-login (e.g. after env flip).
+   * Must match the wallet's chain while logged in; mismatch forces logout / re-login.
    */
   chainId: number | null
   /** Bare wallet from login response when present. */

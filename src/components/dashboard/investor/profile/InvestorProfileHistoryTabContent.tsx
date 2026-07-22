@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 
 import { fetchInvestorTransactionsList, type InvestorTransactionApi } from '@/api/metrics'
-import { blockExplorerTxUrl, getDefaultArbitrumSepoliaBlockExplorerBase } from '@/api/payout'
+import { blockExplorerTxUrl, getDefaultBlockExplorerBase } from '@/api/payout'
 import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
 import { useListPageState } from '@/hooks/useListPageState'
 import { useAppSelector } from '@/store/hooks'
@@ -61,7 +61,7 @@ function filterToApiType(filter: ActivityFilter): 'all' | 'deposit' | 'withdrawa
 
 function mapInvestorTransactionToActivity(tx: InvestorTransactionApi, idx: number): ActivityItem {
   const poolName = 'Fist Commerce Pool'
-  const explorerBase = getDefaultArbitrumSepoliaBlockExplorerBase()
+  const explorerBase = getDefaultBlockExplorerBase()
   const rawType = String(tx.transaction_type ?? '').trim().toLowerCase()
   const txType: ActivityItem['transactionType'] =
     rawType.includes('deposit') ? 'deposit' : rawType.includes('withdraw') ? 'withdrawal' : 'deposit'

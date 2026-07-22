@@ -23,8 +23,9 @@ interface ImportMetaEnv {
   readonly VITE_AUTH_EIP712_DOMAIN_VERSION?: string
   readonly VITE_AUTH_EIP712_VERIFYING_CONTRACT?: `0x${string}`
   /**
-   * Smart contract network: `testnet` (default, Arbitrum Sepolia), `mainnet` (Arbitrum One),
-   * or `local` (Anvil + local-deployment-config.json).
+   * Smart contract network preference.
+   * Deployed apps support Arbitrum One + Sepolia dynamically from the wallet.
+   * `local` pins Anvil-only. `testnet`/`mainnet` are legacy defaults for Privy defaultChain only.
    */
   readonly VITE_CONTRACT_NETWORK?: 'local' | 'testnet' | 'mainnet'
   /** Local Anvil RPC URL when `VITE_CONTRACT_NETWORK=local`. Default: http://127.0.0.1:8545 */
@@ -33,9 +34,11 @@ interface ImportMetaEnv {
   readonly VITE_LOCAL_CHAIN_ID?: string
   /** Optional block explorer for local mode (usually empty). */
   readonly VITE_LOCAL_BLOCK_EXPLORER_URL?: string
+  /** Arbitrum One JSON-RPC URL for public client reads when on mainnet. */
+  readonly VITE_MAINNET_RPC_URL?: string
   readonly VITE_ARBITRUM_SEPOLIA_BLOCK_EXPLORER_URL?: string
   readonly VITE_ARBITRUM_SEPOLIA_POOL_CONTRACT_ADDRESS?: string
-  /** Arbitrum One block explorer origin when `VITE_CONTRACT_NETWORK=mainnet`. Default: https://arbiscan.io */
+  /** Arbitrum One block explorer origin. Default: https://arbiscan.io */
   readonly VITE_ARBITRUM_BLOCK_EXPLORER_URL?: string
   /** @deprecated Use `VITE_ARBITRUM_SEPOLIA_BLOCK_EXPLORER_URL` */
   readonly VITE_ETH_SEPOLIA_BLOCK_EXPLORER_URL?: string

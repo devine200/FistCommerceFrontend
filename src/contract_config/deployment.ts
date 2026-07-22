@@ -1,13 +1,19 @@
 import type { Abi, Address } from 'viem'
 
-import { getContractNetworkMode } from '@/contract_config/contractNetwork'
+import {
+  isLocalOnlyDeployMode,
+  MAINNET_CHAIN_ID,
+  modeFromChainId,
+  TESTNET_CHAIN_ID,
+} from '@/contract_config/contractNetwork'
 import localConfig from '@/contract_config/local-deployment-config.json'
 import mainnetDeployment from '@/contract_config/mainnet-deployment-config.json'
 import testnetDeployment from '@/contract_config/testnet-deployment-config.json'
+import { LOCAL_CHAIN } from '@/wallet/appChain'
 
 type ContractEntry = { address: string; abi: Abi }
 
-type FullDeploymentJson = {
+export type FullDeploymentJson = {
   deploymentBlock?: number
   acceptedToken?: ContractEntry
   /** @deprecated legacy alias for `acceptedToken`. */
@@ -24,7 +30,7 @@ type FullDeploymentJson = {
   fistMultisigAccount?: ContractEntry
 }
 
-type LocalDeploymentJson = {
+export type LocalDeploymentJson = {
   deploymentBlock?: number
   acceptedToken?: { address: string }
   /** @deprecated legacy alias for `acceptedToken`. */
@@ -106,7 +112,6 @@ function resolveMockErc20Entry(
   raw: Partial<FullDeploymentJson>,
   localAddresses?: LocalDeploymentJson,
 ): ContractEntry {
-  // Prefer the `acceptedToken` key; fall back to the legacy `MockERC20` alias.
   const rawToken = raw.acceptedToken ?? raw.MockERC20
   if (rawToken?.address) {
     return {
@@ -190,32 +195,55 @@ function withLocalAddresses(
 
 const testnetBase = normalizeDeployment(testnetRaw)
 const mainnetBase = normalizeDeployment(mainnetDeployment as FullDeploymentJson)
+const localBase = withLocalAddresses(testnetBase, local)
 
-function resolveActiveDeployment(): FullDeploymentJson & { MockERC20: ContractEntry } {
-  switch (getContractNetworkMode()) {
-    case 'local':
-      return withLocalAddresses(testnetBase, local)
-    case 'mainnet':
-      return mainnetBase
-    default:
-      return testnetBase
+export type ActiveDeployment = FullDeploymentJson & { MockERC20: ContractEntry }
+
+/** Deployment JSON for a supported chain id. Falls back to testnet when unknown. */
+export function getDeploymentForChainId(chainId: number | null | undefined): ActiveDeployment {
+  if (chainId == null || !Number.isFinite(chainId)) {
+    return isLocalOnlyDeployMode() ? localBase : testnetBase
   }
+  const id = Math.trunc(chainId)
+  if (id === MAINNET_CHAIN_ID) return mainnetBase
+  if (id === TESTNET_CHAIN_ID) return testnetBase
+  if (id === LOCAL_CHAIN.id || modeFromChainId(id) === 'local') return localBase
+  return isLocalOnlyDeployMode() ? localBase : testnetBase
 }
 
-/** Active deployment (local addresses + shared ABIs, mainnet JSON, or testnet JSON). */
-export const ACTIVE_DEPLOYMENT: FullDeploymentJson & { MockERC20: ContractEntry } =
-  resolveActiveDeployment()
+export function getAcceptedTokenAddress(chainId: number | null | undefined): Address {
+  return getDeploymentForChainId(chainId).MockERC20.address as Address
+}
 
+export function getFundingPoolAddress(chainId: number | null | undefined): Address {
+  return getDeploymentForChainId(chainId).FundingPool.address as Address
+}
+
+export function getPayoutRouterAddress(chainId: number | null | undefined): Address {
+  return getDeploymentForChainId(chainId).PayoutRouter.address as Address
+}
+
+/**
+ * @deprecated Prefer `getDeploymentForChainId(walletChainId)`.
+ * Defaults to env/local preference for import-time callers.
+ */
+export const ACTIVE_DEPLOYMENT: ActiveDeployment = getDeploymentForChainId(
+  isLocalOnlyDeployMode() ? LOCAL_CHAIN.id : TESTNET_CHAIN_ID,
+)
+
+/** @deprecated Prefer `getAcceptedTokenAddress(chainId)`. */
 export const MOCK_ERC20_ADDRESS = ACTIVE_DEPLOYMENT.MockERC20.address as Address
+/** @deprecated Prefer `getFundingPoolAddress(chainId)`. */
 export const FUNDING_POOL_ADDRESS = ACTIVE_DEPLOYMENT.FundingPool.address as Address
+/** @deprecated Prefer `getPayoutRouterAddress(chainId)`. */
 export const PAYOUT_ROUTER_ADDRESS = ACTIVE_DEPLOYMENT.PayoutRouter.address as Address
 export const MOCK_ERC20_ABI = ACTIVE_DEPLOYMENT.MockERC20.abi
 export const FUNDING_POOL_ABI = ACTIVE_DEPLOYMENT.FundingPool.abi
 export const PAYOUT_ROUTER_ABI = ACTIVE_DEPLOYMENT.PayoutRouter.abi
 
 /** Full deployment record for admin protocol settings panels. */
-export function getActiveDeploymentAddresses(): LocalDeploymentJson {
-  const d = ACTIVE_DEPLOYMENT
+export function getActiveDeploymentAddresses(chainId?: number | null): LocalDeploymentJson {
+  const d = getDeploymentForChainId(chainId)
   return {
     deploymentBlock: d.deploymentBlock,
     MockERC20: { address: d.MockERC20.address },

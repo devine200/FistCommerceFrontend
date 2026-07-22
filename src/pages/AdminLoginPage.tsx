@@ -14,9 +14,12 @@ import { useAppDispatch } from '@/store/hooks'
 import { persistor } from '@/store'
 import { patchAuth } from '@/store/slices/authSlice'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
-import { APP_CHAIN } from '@/wallet/appChain'
+import { getAppChainById, isSupportedAppChainId } from '@/wallet/appChain'
 import { isUserRejectedWalletRequest } from '@/wallet/walletChainErrors'
-import { ensureWalletChain, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
+import {
+  getWalletClientFromPrivyWallet,
+  readWalletProviderChainId,
+} from '@/wallet/viemClients'
 
 function truncateAddress(address: string) {
   if (address.length <= 12) return address
@@ -113,20 +116,22 @@ const AdminLoginPage = () => {
     setErrorMessage(null)
     setAuthInFlight(true)
     try {
-      try {
-        await ensureWalletChain(wallet, APP_CHAIN.id)
-      } catch (e) {
-        if (isWalletSignRejected(e)) {
-          setErrorMessage(
-            `Switch to ${APP_CHAIN.name} was cancelled. Approve the network change to sign in.`,
-          )
-          return
-        }
-        throw e
+      const providerChainId = await readWalletProviderChainId(wallet)
+      const loginChainId = providerChainId
+      if (loginChainId == null || !isSupportedAppChainId(loginChainId)) {
+        setErrorMessage(
+          'Your wallet is on an unsupported network. Switch to Arbitrum One (mainnet) or Arbitrum Sepolia (testnet), then try again.',
+        )
+        return
+      }
+      const loginChain = getAppChainById(loginChainId)
+      if (!loginChain) {
+        setErrorMessage('Unsupported network. Switch to Arbitrum One or Arbitrum Sepolia.')
+        return
       }
 
-      const signable = createWalletLoginSignable(APP_CHAIN.id, address as `0x${string}`)
-      const walletClient = await getWalletClientFromPrivyWallet(wallet)
+      const signable = createWalletLoginSignable(loginChain.id, address as `0x${string}`)
+      const walletClient = await getWalletClientFromPrivyWallet(wallet, loginChain.id)
       const signature = await walletClient.signTypedData({
         domain: signable.domain,
         types: signable.types as any,
@@ -139,7 +144,7 @@ const AdminLoginPage = () => {
         signedMessage: signable.signedMessageForApi,
         signature,
         signerAddress: address,
-        chainId: APP_CHAIN.id,
+        chainId: loginChain.id,
       })
 
       dispatch(
@@ -152,7 +157,7 @@ const AdminLoginPage = () => {
           sessionExpired: false,
           sessionExpiredReason: null,
           user: { id: address },
-          chainId: result.chainId ?? APP_CHAIN.id,
+          chainId: result.chainId ?? loginChain.id,
           wallet: result.wallet ?? address,
         }),
       )

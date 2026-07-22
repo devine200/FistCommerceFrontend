@@ -1,7 +1,17 @@
 import { displayDashboardMetricString } from '@/api/metrics'
 import { canMintTestTokens, getAcceptedTokenDisplayName } from '@/contract_config/contractNetwork'
+import { store } from '@/store'
 
 export const INSUFFICIENT_BALANCE_ORDER_HINT = 'Insufficient balance to fulfil order.'
+
+function activeChainIdForCopy(): number | null {
+  try {
+    const { auth, wallet } = store.getState()
+    return auth.chainId ?? wallet.chainId ?? null
+  } catch {
+    return null
+  }
+}
 
 export function isInvestAmountOverMax(
   amount: number,
@@ -31,8 +41,9 @@ export function validateInvestDepositAmount(
   }
   if (maxWalletHuman == null) return null
   if (maxWalletHuman <= 0) {
-    const token = getAcceptedTokenDisplayName()
-    return canMintTestTokens()
+    const chainId = activeChainIdForCopy()
+    const token = getAcceptedTokenDisplayName(chainId)
+    return canMintTestTokens(chainId)
       ? `Your wallet has no ${token} available to deposit. Mint test tokens first.`
       : `Your wallet has no ${token} available to deposit.`
   }

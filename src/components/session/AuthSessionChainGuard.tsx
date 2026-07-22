@@ -2,12 +2,12 @@ import { useEffect, useRef } from 'react'
 
 import { markAppSessionExpired } from '@/session/sessionEnd'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
-import { APP_CHAIN } from '@/wallet/appChain'
+import { isSupportedAppChainId } from '@/wallet/appChain'
 
 /**
- * Invalidates a persisted API session when its bound `chainId` no longer matches
- * the env-pinned `APP_CHAIN` (e.g. after flipping `VITE_CONTRACT_NETWORK`).
- * Separate from wallet wrong-network UX in `ArbitrumSepoliaWalletEnforcer`.
+ * Safety net for persisted sessions on an unsupported/missing chain binding.
+ * Wallet↔session chain switches while logged in are handled by `WalletReduxSync`
+ * (automatic logout).
  */
 export default function AuthSessionChainGuard() {
   const dispatch = useAppDispatch()
@@ -25,23 +25,21 @@ export default function AuthSessionChainGuard() {
       return
     }
     const hasTokens = Boolean(accessToken || refreshToken)
-    if (!hasTokens || authChainId == null) return
-    if (authChainId === APP_CHAIN.id) {
-      handledKeyRef.current = null
-      return
+    if (!hasTokens) return
+
+    // Pre-v8 / corrupt: tokens without a valid supported session chain → re-login.
+    if (authChainId == null || !isSupportedAppChainId(authChainId)) {
+      const key = `invalid:${authChainId ?? 'null'}:${sessionKind ?? 'none'}`
+      if (handledKeyRef.current === key) return
+      handledKeyRef.current = key
+      void markAppSessionExpired(dispatch, {
+        reason: 'chain_mismatch',
+        accessToken,
+        sessionKind,
+        role,
+        keepRole: true,
+      })
     }
-
-    const key = `${authChainId}:${APP_CHAIN.id}:${sessionKind ?? 'none'}`
-    if (handledKeyRef.current === key) return
-    handledKeyRef.current = key
-
-    void markAppSessionExpired(dispatch, {
-      reason: 'chain_mismatch',
-      accessToken,
-      sessionKind,
-      role,
-      keepRole: true,
-    })
   }, [dispatch, accessToken, refreshToken, authChainId, sessionExpired, sessionKind, role])
 
   return null

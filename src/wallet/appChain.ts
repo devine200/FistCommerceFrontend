@@ -2,7 +2,7 @@ import { arbitrum, arbitrumSepolia } from 'viem/chains'
 import { defineChain, type Chain } from 'viem'
 
 import localConfig from '@/contract_config/local-deployment-config.json'
-import { getContractNetworkMode } from '@/contract_config/contractNetwork'
+import { isLocalOnlyDeployMode } from '@/contract_config/contractNetwork'
 
 type LocalChainConfig = {
   chainId: number
@@ -38,6 +38,10 @@ function resolveLocalExplorerUrl(): string | undefined {
   return url || undefined
 }
 
+function resolveMainnetRpcUrl(): string {
+  return readEnvTrim('VITE_MAINNET_RPC_URL') || arbitrum.rpcUrls.default.http[0]
+}
+
 /** Anvil / Hardhat — used when `VITE_CONTRACT_NETWORK=local`. */
 export const LOCAL_CHAIN: Chain = defineChain({
   id: resolveLocalChainId(),
@@ -51,23 +55,55 @@ export const LOCAL_CHAIN: Chain = defineChain({
     : {}),
 })
 
-/** Arbitrum Sepolia testnet — used when `VITE_CONTRACT_NETWORK=testnet` (default). */
+/** Arbitrum Sepolia testnet. */
 export const TESTNET_CHAIN = arbitrumSepolia
 
-/** Arbitrum One — used when `VITE_CONTRACT_NETWORK=mainnet`. */
-export const MAINNET_CHAIN = arbitrum
+/** Arbitrum One — RPC overridable via `VITE_MAINNET_RPC_URL`. */
+export const MAINNET_CHAIN: Chain = defineChain({
+  ...arbitrum,
+  rpcUrls: {
+    ...arbitrum.rpcUrls,
+    default: { http: [resolveMainnetRpcUrl()] },
+  },
+})
+
+/** Privy / wrong-network default when no preference is set. */
+export const DEFAULT_APP_CHAIN: Chain = TESTNET_CHAIN
 
 /**
- * Active EVM chain for Privy, wallet enforcement, EIP-712 login, and contract calls.
- * Controlled by `VITE_CONTRACT_NETWORK` (`local` | `testnet` | `mainnet`).
+ * Chains the product allows for login + contracts.
+ * Local-only mode: Anvil only. Otherwise: Arbitrum One + Sepolia.
  */
-export const APP_CHAIN: Chain = (() => {
-  switch (getContractNetworkMode()) {
-    case 'local':
-      return LOCAL_CHAIN
-    case 'mainnet':
-      return MAINNET_CHAIN
-    default:
-      return TESTNET_CHAIN
-  }
-})()
+export function getSupportedAppChains(): readonly Chain[] {
+  if (isLocalOnlyDeployMode()) return [LOCAL_CHAIN]
+  return [MAINNET_CHAIN, TESTNET_CHAIN]
+}
+
+export function getSupportedAppChainIds(): readonly number[] {
+  return getSupportedAppChains().map((c) => c.id)
+}
+
+export function isSupportedAppChainId(chainId: number | null | undefined): boolean {
+  if (chainId == null || !Number.isFinite(chainId)) return false
+  return getSupportedAppChainIds().includes(Math.trunc(chainId))
+}
+
+export function getAppChainById(chainId: number | null | undefined): Chain | null {
+  if (chainId == null || !Number.isFinite(chainId)) return null
+  const id = Math.trunc(chainId)
+  return getSupportedAppChains().find((c) => c.id === id) ?? null
+}
+
+/**
+ * Resolve the active app chain from the wallet.
+ * Returns null when chain is unknown or unsupported.
+ */
+export function resolveActiveAppChain(walletChainId: number | null | undefined): Chain | null {
+  return getAppChainById(walletChainId)
+}
+
+/**
+ * @deprecated Prefer `resolveActiveAppChain(walletChainId)` / `DEFAULT_APP_CHAIN`.
+ * Kept as Privy default + legacy import alias (Sepolia, or local when local-only).
+ */
+export const APP_CHAIN: Chain = isLocalOnlyDeployMode() ? LOCAL_CHAIN : DEFAULT_APP_CHAIN

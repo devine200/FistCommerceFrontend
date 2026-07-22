@@ -11,13 +11,14 @@ import {
   shouldRedirectToAdminLogin,
 } from '@/auth/adminSession'
 import { store } from '@/store'
-import { useAppDispatch } from '@/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import type { AppDispatch } from '@/store'
 import { patchAuth } from '@/store/slices/authSlice'
 import { setWalletFromProvider } from '@/store/slices/walletSlice'
 import { syncWalletChainIdFromProviderToRedux } from '@/wallet/syncWalletChainToRedux'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 import type { SessionEndReason } from '@/session/sessionEnd'
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 
 /**
  * After idle, Privy/the wallet provider can briefly report an empty wallet list while `ready` is
@@ -43,12 +44,12 @@ function resetWalletAppSessionAndRedirect(dispatch: AppDispatch, reason: Session
   // Admin sign-in screen: disconnect/reconnect is expected; stay on `/admin/login`.
   if (isAdminLoginPath(pathname)) return
 
-  // Mid-onboarding: wallet flicker / swap must not wipe progress or bounce to choose-role.
-  // Tokens are wallet-bound — clear them so Continue re-signs; keep role + step progress.
+  // Mid-onboarding: wallet flicker / swap / chain change must not wipe progress or bounce to choose-role.
+  // Tokens are wallet+chain-bound — clear them so Continue re-signs; keep role + step progress.
   if (
     pathname &&
     isOnboardingPath(pathname) &&
-    (reason === 'wallet_disconnected' || reason === 'wallet_changed')
+    (reason === 'wallet_disconnected' || reason === 'wallet_changed' || reason === 'chain_mismatch')
   ) {
     if (reason === 'wallet_disconnected') {
       dispatch(setWalletFromProvider({ isConnected: false, address: null, chainId: undefined }))
@@ -220,6 +221,63 @@ export default function WalletReduxSync() {
     }
     wasAuthenticated.current = authenticated
   }, [dispatch, privyReady, walletsReady, authenticated, isConnected, address])
+
+  // Chain change while logged in → automatic logout (app + admin).
+  const authChainId = useAppSelector((s) => s.auth.chainId)
+  const accessToken = useAppSelector((s) => s.auth.accessToken)
+  const refreshToken = useAppSelector((s) => s.auth.refreshToken)
+  const walletChainId = useAppSelector((s) => s.wallet.chainId)
+  const lastBoundChainRef = useRef<number | null>(null)
+  const chainLogoutTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (chainLogoutTimerRef.current) {
+        clearTimeout(chainLogoutTimerRef.current)
+        chainLogoutTimerRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const hasTokens =
+      Boolean(refreshToken?.trim()) || isUsableApiAccessToken(accessToken)
+    if (!hasTokens || authChainId == null) {
+      lastBoundChainRef.current = authChainId
+      return
+    }
+    if (walletChainId == null) return
+
+    // Establish baseline after login without treating first sync as a change.
+    if (lastBoundChainRef.current == null) {
+      lastBoundChainRef.current = authChainId
+    }
+
+    if (walletChainId === authChainId) {
+      lastBoundChainRef.current = authChainId
+      if (chainLogoutTimerRef.current) {
+        clearTimeout(chainLogoutTimerRef.current)
+        chainLogoutTimerRef.current = null
+      }
+      return
+    }
+
+    // Debounce brief provider flicker before logging out.
+    if (chainLogoutTimerRef.current) clearTimeout(chainLogoutTimerRef.current)
+    chainLogoutTimerRef.current = window.setTimeout(() => {
+      chainLogoutTimerRef.current = null
+      const state = store.getState()
+      const stillHasTokens =
+        Boolean(state.auth.refreshToken?.trim()) ||
+        isUsableApiAccessToken(state.auth.accessToken)
+      if (!stillHasTokens) return
+      if (state.auth.chainId == null) return
+      if (state.wallet.chainId == null) return
+      if (state.wallet.chainId === state.auth.chainId) return
+      lastBoundChainRef.current = null
+      resetWalletAppSessionAndRedirect(dispatch, 'chain_mismatch')
+    }, 250)
+  }, [dispatch, authChainId, accessToken, refreshToken, walletChainId])
 
   return null
 }

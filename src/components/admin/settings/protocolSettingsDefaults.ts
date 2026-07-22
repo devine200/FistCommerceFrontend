@@ -1,4 +1,5 @@
 import { getActiveDeploymentAddresses } from '@/contract_config/deployment'
+import { store } from '@/store'
 
 type DeploymentAddresses = {
   MockERC20: { address: string }
@@ -12,7 +13,16 @@ type DeploymentAddresses = {
   FundingPool: { address: string }
 }
 
-const d = getActiveDeploymentAddresses() as DeploymentAddresses
+function deploymentAddresses(): DeploymentAddresses {
+  try {
+    const chainId = store.getState().auth.chainId ?? store.getState().wallet.chainId
+    return getActiveDeploymentAddresses(chainId) as DeploymentAddresses
+  } catch {
+    return getActiveDeploymentAddresses() as DeploymentAddresses
+  }
+}
+
+const d = deploymentAddresses()
 
 export type ProtocolRiskTier = {
   id: number

@@ -28,7 +28,7 @@ import {
   type AdminTabItem,
 } from '@/components/admin/primitives'
 import { proposalStatusLabel } from '@/api/multisig/normalize'
-import { getDefaultArbitrumSepoliaBlockExplorerBase, blockExplorerTxUrl } from '@/api/payout'
+import { getDefaultBlockExplorerBase, blockExplorerTxUrl } from '@/api/payout'
 import { shortAddress } from '@/components/admin/settings/SettingsPanel'
 import type { ProposalStatus } from '@/api/types/multisig'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
@@ -172,7 +172,7 @@ const AdminGovernanceQueuePage = () => {
     [isConnected, address, signPending, config?.signers],
   )
 
-  const explorerBase = getDefaultArbitrumSepoliaBlockExplorerBase()
+  const explorerBase = getDefaultBlockExplorerBase()
   const tableLoading = listStatus === 'loading' && allProposals.length === 0
 
   return (

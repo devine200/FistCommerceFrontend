@@ -1,7 +1,20 @@
 import type { ConnectedWallet } from '@privy-io/react-auth'
-import { createPublicClient, createWalletClient, custom, http, type PublicClient, type WalletClient } from 'viem'
+import {
+  createPublicClient,
+  createWalletClient,
+  custom,
+  http,
+  type Chain,
+  type PublicClient,
+  type WalletClient,
+} from 'viem'
 
-import { APP_CHAIN } from '@/wallet/appChain'
+import {
+  APP_CHAIN,
+  DEFAULT_APP_CHAIN,
+  getAppChainById,
+  isSupportedAppChainId,
+} from '@/wallet/appChain'
 import { syncWalletChainIdFromProviderToRedux } from '@/wallet/syncWalletChainToRedux'
 import {
   isChainAlreadyAddedError,
@@ -10,45 +23,60 @@ import {
   WalletChainSwitchError,
 } from '@/wallet/walletChainErrors'
 
+/** @deprecated Prefer `DEFAULT_APP_CHAIN` or `getAppChainById`. */
 export const DEFAULT_EVM_CHAIN = APP_CHAIN
 
 type EthereumProvider = Awaited<ReturnType<ConnectedWallet['getEthereumProvider']>>
+
+const publicClientByChainId = new Map<number, PublicClient>()
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
-export async function getWalletClientFromPrivyWallet(wallet: ConnectedWallet): Promise<WalletClient> {
+function resolveChain(chainId?: number | null): Chain {
+  return getAppChainById(chainId) ?? DEFAULT_APP_CHAIN
+}
+
+export async function getWalletClientFromPrivyWallet(
+  wallet: ConnectedWallet,
+  chainId?: number | null,
+): Promise<WalletClient> {
   const provider = await wallet.getEthereumProvider()
+  const chain = resolveChain(chainId)
   return createWalletClient({
-    chain: DEFAULT_EVM_CHAIN,
+    chain,
     transport: custom(provider),
     account: wallet.address as `0x${string}`,
   })
 }
 
-export function getPublicClient(): PublicClient {
-  const rpcUrl = APP_CHAIN.rpcUrls.default.http[0]
-  return createPublicClient({
-    chain: DEFAULT_EVM_CHAIN,
+export function getPublicClient(chainId?: number | null): PublicClient {
+  const chain = resolveChain(chainId)
+  const cached = publicClientByChainId.get(chain.id)
+  if (cached) return cached
+  const rpcUrl = chain.rpcUrls.default.http[0]
+  const client = createPublicClient({
+    chain,
     transport: http(rpcUrl),
   })
+  publicClientByChainId.set(chain.id, client)
+  return client
 }
 
-/** EIP-3085 params for `wallet_addEthereumChain`. */
-function appChainAddEthereumChainParams(): {
+function addEthereumChainParams(chain: Chain): {
   chainId: string
   chainName: string
   nativeCurrency: { name: string; symbol: string; decimals: number }
   rpcUrls: string[]
   blockExplorerUrls?: string[]
 } {
-  const rpcUrl = APP_CHAIN.rpcUrls.default.http[0]
-  const explorer = APP_CHAIN.blockExplorers?.default?.url
+  const rpcUrl = chain.rpcUrls.default.http[0]
+  const explorer = chain.blockExplorers?.default?.url
   return {
-    chainId: `0x${APP_CHAIN.id.toString(16)}`,
-    chainName: APP_CHAIN.name,
-    nativeCurrency: APP_CHAIN.nativeCurrency,
+    chainId: `0x${chain.id.toString(16)}`,
+    chainName: chain.name,
+    nativeCurrency: chain.nativeCurrency,
     rpcUrls: [rpcUrl],
     ...(explorer ? { blockExplorerUrls: [explorer] } : {}),
   }
@@ -61,7 +89,11 @@ async function readProviderChainId(provider: EthereumProvider): Promise<number |
   return Number.isFinite(current) ? current : undefined
 }
 
-async function verifyProviderChain(provider: EthereumProvider, expectedChainId: number): Promise<void> {
+async function verifyProviderChain(
+  provider: EthereumProvider,
+  expectedChainId: number,
+  chainName: string,
+): Promise<void> {
   const delaysMs = [0, 250, 500, 900]
   for (let i = 0; i < delaysMs.length; i++) {
     if (delaysMs[i] > 0) await sleep(delaysMs[i])
@@ -75,7 +107,7 @@ async function verifyProviderChain(provider: EthereumProvider, expectedChainId: 
         })
       }
       throw new WalletChainSwitchError(
-        `Could not switch wallet to ${APP_CHAIN.name}.`,
+        `Could not switch wallet to ${chainName}.`,
         new Error(`chainId ${current ?? 'unknown'} !== ${expectedChainId}`),
       )
     }
@@ -87,11 +119,11 @@ async function requestSwitchChain(provider: EthereumProvider, chainId: number): 
   await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hex }] })
 }
 
-async function requestAddAppChain(provider: EthereumProvider): Promise<void> {
+async function requestAddChain(provider: EthereumProvider, chain: Chain): Promise<void> {
   try {
     await provider.request({
       method: 'wallet_addEthereumChain',
-      params: [appChainAddEthereumChainParams()],
+      params: [addEthereumChainParams(chain)],
     })
   } catch (e) {
     if (isChainAlreadyAddedError(e)) return
@@ -99,26 +131,30 @@ async function requestAddAppChain(provider: EthereumProvider): Promise<void> {
   }
 }
 
-async function switchWithOptionalAdd(provider: EthereumProvider, chainId: number): Promise<void> {
+async function switchWithOptionalAdd(
+  provider: EthereumProvider,
+  chain: Chain,
+): Promise<void> {
+  const chainId = chain.id
   const hex = `0x${chainId.toString(16)}`
   try {
     await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hex }] })
   } catch (e) {
     if (isUserRejectedWalletRequest(e)) {
       throw new WalletChainSwitchError(
-        `Network switch to ${APP_CHAIN.name} was cancelled. Approve the prompt in your wallet app.`,
+        `Network switch to ${chain.name} was cancelled. Approve the prompt in your wallet app.`,
         e,
         true,
       )
     }
-    if (chainId === APP_CHAIN.id && shouldTryAddEthereumChain(e)) {
+    if (isSupportedAppChainId(chainId) && shouldTryAddEthereumChain(e)) {
       try {
-        await requestAddAppChain(provider)
+        await requestAddChain(provider, chain)
         await requestSwitchChain(provider, chainId)
       } catch (addOrSwitchErr) {
         if (isUserRejectedWalletRequest(addOrSwitchErr)) {
           throw new WalletChainSwitchError(
-            `Network switch to ${APP_CHAIN.name} was cancelled. Approve the prompt in your wallet app.`,
+            `Network switch to ${chain.name} was cancelled. Approve the prompt in your wallet app.`,
             addOrSwitchErr,
             true,
           )
@@ -132,6 +168,11 @@ async function switchWithOptionalAdd(provider: EthereumProvider, chainId: number
 }
 
 export async function ensureWalletChain(wallet: ConnectedWallet, chainId: number): Promise<void> {
+  const chain = getAppChainById(chainId)
+  if (!chain) {
+    throw new WalletChainSwitchError(`Unsupported chain id ${chainId}.`, new Error('unsupported_chain'))
+  }
+
   const provider = await wallet.getEthereumProvider()
 
   const current = await readProviderChainId(provider)
@@ -144,21 +185,20 @@ export async function ensureWalletChain(wallet: ConnectedWallet, chainId: number
     return
   }
 
-  await switchWithOptionalAdd(provider, chainId)
+  await switchWithOptionalAdd(provider, chain)
 
   try {
-    await verifyProviderChain(provider, chainId)
+    await verifyProviderChain(provider, chainId, chain.name)
   } catch (verifyErr) {
-    // Some mobile wallets report switch success but stay on the old chain — retry add + switch once.
-    if (chainId === APP_CHAIN.id) {
+    if (isSupportedAppChainId(chainId)) {
       try {
-        await requestAddAppChain(provider)
+        await requestAddChain(provider, chain)
         await requestSwitchChain(provider, chainId)
-        await verifyProviderChain(provider, chainId)
+        await verifyProviderChain(provider, chainId, chain.name)
       } catch (retryErr) {
         if (isUserRejectedWalletRequest(retryErr)) {
           throw new WalletChainSwitchError(
-            `Network switch to ${APP_CHAIN.name} was cancelled. Approve the prompt in your wallet app.`,
+            `Network switch to ${chain.name} was cancelled. Approve the prompt in your wallet app.`,
             retryErr,
             true,
           )
@@ -175,4 +215,12 @@ export async function ensureWalletChain(wallet: ConnectedWallet, chainId: number
   } catch {
     /* Redux mirror is best-effort; chain switch already succeeded. */
   }
+}
+
+/** Read the provider chain id without trusting Redux. */
+export async function readWalletProviderChainId(
+  wallet: ConnectedWallet,
+): Promise<number | undefined> {
+  const provider = await wallet.getEthereumProvider()
+  return readProviderChainId(provider)
 }

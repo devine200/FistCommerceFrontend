@@ -20,9 +20,12 @@ import { setInvestorWalletDisplay } from '@/store/slices/investorDashboardSlice'
 import { setMerchantWalletDisplay } from '@/store/slices/merchantDashboardSlice'
 import { parseUserRole } from '@/utils/userRole'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
-import { APP_CHAIN } from '@/wallet/appChain'
+import { getAppChainById, isSupportedAppChainId } from '@/wallet/appChain'
 import { isUserRejectedWalletRequest } from '@/wallet/walletChainErrors'
-import { ensureWalletChain, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
+import {
+  getWalletClientFromPrivyWallet,
+  readWalletProviderChainId,
+} from '@/wallet/viemClients'
 
 function truncateAddress(address: string) {
   if (address.length <= 12) return address
@@ -58,7 +61,7 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
   const [loggingOut, setLoggingOut] = React.useState(false)
 
   const wrongNetwork =
-    isConnected && chainId != null && chainId !== APP_CHAIN.id
+    isConnected && chainId != null && !isSupportedAppChainId(chainId)
 
   React.useLayoutEffect(() => {
     const from = (location.state as { from?: string } | null)?.from
@@ -173,20 +176,22 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
     setRowError(null)
     setAuthInFlight(true)
     try {
-      try {
-        await ensureWalletChain(wallet, APP_CHAIN.id)
-      } catch (e) {
-        if (isWalletSignRejected(e)) {
-          setRowError(
-            `Switch to ${APP_CHAIN.name} was cancelled. Approve the network change to sign in.`,
-          )
-          return
-        }
-        throw e
+      const providerChainId = await readWalletProviderChainId(wallet)
+      const loginChainId = providerChainId ?? chainId
+      if (loginChainId == null || !isSupportedAppChainId(loginChainId)) {
+        setRowError(
+          'Your wallet is on an unsupported network. Switch to Arbitrum One (mainnet) or Arbitrum Sepolia (testnet), then try again.',
+        )
+        return
+      }
+      const loginChain = getAppChainById(loginChainId)
+      if (!loginChain) {
+        setRowError('Unsupported network. Switch to Arbitrum One or Arbitrum Sepolia.')
+        return
       }
 
-      const signable = createWalletLoginSignable(APP_CHAIN.id, address as `0x${string}`)
-      const walletClient = await getWalletClientFromPrivyWallet(wallet)
+      const signable = createWalletLoginSignable(loginChain.id, address as `0x${string}`)
+      const walletClient = await getWalletClientFromPrivyWallet(wallet, loginChain.id)
       const signature = await walletClient.signTypedData({
         domain: signable.domain,
         types: signable.types as any,
@@ -200,10 +205,10 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
         signature,
         signerAddress: address,
         role,
-        chainId: APP_CHAIN.id,
+        chainId: loginChain.id,
       })
 
-      const sessionChainId = loginRes.chainId ?? APP_CHAIN.id
+      const sessionChainId = loginRes.chainId ?? loginChain.id
       const sessionWallet = loginRes.wallet ?? address
 
       const returningUser = loginRes.registered || loginRes.onboarded
@@ -300,7 +305,8 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
 
         {wrongNetwork ? (
           <p className="text-[14px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4" role="status">
-            Your wallet is on a different network. Press Continue to switch to {APP_CHAIN.name}, or disconnect and choose another wallet.
+            Your wallet is on an unsupported network. Switch to Arbitrum One (mainnet) or Arbitrum Sepolia
+            (testnet), then press Continue — or disconnect and choose another wallet.
           </p>
         ) : null}
 

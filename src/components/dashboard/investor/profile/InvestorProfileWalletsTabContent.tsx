@@ -51,9 +51,11 @@ const InvestorProfileWalletsTabContent = () => {
   const [mintError, setMintError] = useState<string | null>(null)
   const [mintSuccess, setMintSuccess] = useState<string | null>(null)
 
-  const showMintFaucet = canMintTestTokens()
-  const acceptedTokenName = getAcceptedTokenDisplayName()
   const contracts = useTestnetContracts()
+  const showMintFaucet = canMintTestTokens(contracts.isConnected ? contracts.chainId : undefined)
+  const acceptedTokenName = getAcceptedTokenDisplayName(
+    contracts.isConnected ? contracts.chainId : undefined,
+  )
   const { investmentBalanceDisplay, poolPositionLoading } = useInvestorOnChainBalances()
 
   const walletBalanceDisplay = useMemo(() => {
