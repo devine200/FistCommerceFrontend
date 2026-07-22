@@ -26,6 +26,7 @@ import {
   getWalletClientFromPrivyWallet,
   readWalletProviderChainId,
 } from '@/wallet/viemClients'
+import NetworkModeSwitcher from '@/components/session/NetworkModeSwitcher'
 
 function truncateAddress(address: string) {
   if (address.length <= 12) return address
@@ -277,12 +278,14 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
   }
 
   return (
-    <div className="w-full flex justify-center lg:justify-start">
+    <div className="relative w-full flex justify-center lg:justify-start">
+      <NetworkModeSwitcher className="fixed top-4 right-4 z-30 sm:top-5 sm:right-6" compact />
       <div className="w-full max-w-[560px] lg:max-w-none flex flex-col min-h-[520px] sm:min-h-[560px] lg:min-h-0">
         <div className="flex flex-col gap-2 mb-6 lg:mb-8">
           <h3 className="text-black font-bold text-[20px]">Connect Your Wallet</h3>
           <p className="text-[#6B7488]">
             Use email/Google to create an embedded wallet, or connect an external wallet (MetaMask, WalletConnect, Phantom EVM).
+            Choose Testnet or Mainnet at the top right before signing in.
           </p>
         </div>
 

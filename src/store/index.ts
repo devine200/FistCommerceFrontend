@@ -74,11 +74,11 @@ function seedLegacyAuthIntoPersist() {
 
 seedLegacyAuthIntoPersist()
 
-/** v1: clear legacy kycVerified. v2: refreshToken. v3: coerce invalid persisted `role` to null. v4: reject oversize/corrupt accessToken. v5: keep refresh when access sanitize fails; sanitize refresh independently. v6: sessionExpired flags. v7: authIssuedAt. v8: session chainId/wallet; wipe tokens without chainId. */
+/** v1: clear legacy kycVerified. v2: refreshToken. v3: coerce invalid persisted `role` to null. v4: reject oversize/corrupt accessToken. v5: keep refresh when access sanitize fails; sanitize refresh independently. v6: sessionExpired flags. v7: authIssuedAt. v8: session chainId/wallet; wipe tokens without chainId. v9: clear sticky sessionExpired when no tokens. */
 const authPersistConfig = {
   key: AUTH_PERSIST_KEY,
   storage: authPersistStorage,
-  version: 8,
+  version: 9,
   migrate: async (state: PersistedState): Promise<PersistedState> => {
     if (!state || typeof state !== 'object') return undefined
     const next = { ...state, kycVerified: false } as Record<string, unknown>
@@ -121,6 +121,16 @@ const authPersistConfig = {
       next.authIssuedAt = null
       next.user = null
       next.wallet = null
+    }
+    // Sticky expired modal with no credentials — treat as logged out.
+    const hasToken =
+      (typeof next.accessToken === 'string' && next.accessToken.trim()) ||
+      (typeof next.refreshToken === 'string' && next.refreshToken.trim())
+    if (next.sessionExpired && !hasToken) {
+      next.sessionExpired = false
+      next.sessionExpiredReason = null
+      next.sessionKind = null
+      next.onboarded = false
     }
     return next as PersistedState
   },

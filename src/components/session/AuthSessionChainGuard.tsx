@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react'
 
-import { markAppSessionExpired } from '@/session/sessionEnd'
+import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { patchAuth, resetAuth } from '@/store/slices/authSlice'
 import { isSupportedAppChainId } from '@/wallet/appChain'
 
 /**
- * Safety net for persisted sessions on an unsupported/missing chain binding.
- * Wallet↔session chain switches while logged in are handled by `WalletReduxSync`
- * (automatic logout).
+ * Clears corrupt persisted sessions and sticky “session expired” with no credentials.
+ * Wallet↔session chain switches while logged in are handled by `WalletReduxSync`.
  */
 export default function AuthSessionChainGuard() {
   const dispatch = useAppDispatch()
@@ -15,32 +15,36 @@ export default function AuthSessionChainGuard() {
   const refreshToken = useAppSelector((s) => s.auth.refreshToken)
   const authChainId = useAppSelector((s) => s.auth.chainId)
   const sessionExpired = useAppSelector((s) => s.auth.sessionExpired)
-  const sessionKind = useAppSelector((s) => s.auth.sessionKind)
-  const role = useAppSelector((s) => s.auth.role)
   const handledKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (sessionExpired) {
-      handledKeyRef.current = null
+    const hasUsableTokens =
+      Boolean(refreshToken?.trim()) || isUsableApiAccessToken(accessToken)
+
+    // Sticky expired flag with no session — dismiss modal without wiping onboarding role.
+    if (sessionExpired && !hasUsableTokens) {
+      dispatch(
+        patchAuth({
+          sessionExpired: false,
+          sessionExpiredReason: null,
+          accessToken: null,
+          refreshToken: null,
+          chainId: null,
+          wallet: null,
+        }),
+      )
       return
     }
-    const hasTokens = Boolean(accessToken || refreshToken)
-    if (!hasTokens) return
 
-    // Pre-v8 / corrupt: tokens without a valid supported session chain → re-login.
+    if (!hasUsableTokens) return
+
     if (authChainId == null || !isSupportedAppChainId(authChainId)) {
-      const key = `invalid:${authChainId ?? 'null'}:${sessionKind ?? 'none'}`
+      const key = `invalid:${authChainId ?? 'null'}`
       if (handledKeyRef.current === key) return
       handledKeyRef.current = key
-      void markAppSessionExpired(dispatch, {
-        reason: 'chain_mismatch',
-        accessToken,
-        sessionKind,
-        role,
-        keepRole: true,
-      })
+      dispatch(resetAuth())
     }
-  }, [dispatch, accessToken, refreshToken, authChainId, sessionExpired, sessionKind, role])
+  }, [dispatch, accessToken, refreshToken, authChainId, sessionExpired])
 
   return null
 }

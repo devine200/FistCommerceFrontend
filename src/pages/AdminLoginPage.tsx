@@ -8,6 +8,7 @@ import { createWalletLoginSignable } from '@/api/walletSession'
 import privyIcon from '@/assets/Icon (1).png'
 import { AdminLoginFeedbackModal } from '@/components/admin/AdminLoginFeedbackModal'
 import AdminLoginGuard from '@/components/session/AdminLoginGuard'
+import NetworkModeSwitcher from '@/components/session/NetworkModeSwitcher'
 import { ADMIN_DASHBOARD_OVERVIEW_PATH } from '@/auth/adminSession'
 import { consumeSessionEndMessage } from '@/session/sessionEnd'
 import { useAppDispatch } from '@/store/hooks'
@@ -180,6 +181,7 @@ const AdminLoginPage = () => {
   return (
     <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden px-4 py-10 sm:px-6">
       <AdminLoginGuard />
+      <NetworkModeSwitcher className="fixed top-4 right-4 z-30 sm:top-6 sm:right-6" />
       <div className="pointer-events-none absolute inset-0" aria-hidden>
         <div className="isolate absolute inset-0">
           <div className="absolute inset-0 bg-linear-to-br from-[#EEF1F7] via-[#FAFBFD] to-[#E2E8F3]" />
@@ -202,6 +204,7 @@ const AdminLoginPage = () => {
         </h1>
         <p className="mt-3 text-center text-[15px] leading-relaxed text-[#6B7280] sm:text-base">
           Connect your multisig owner wallet to monitor, manage, and control platform operations.
+          Use the Testnet / Mainnet control at the top right before signing in.
         </p>
 
         {isConnected && address ? (
