@@ -250,9 +250,15 @@ export function normalizeProposalDetail(raw: unknown): ProposalDetail | null {
 export function normalizeSigningPayload(raw: unknown): SigningPayload | null {
   const r = asRecord(raw)
   const proposalId = pickStr(r, 'proposalId', 'proposal_id')
-  const digestRaw = pickStr(r, 'digestToSign', 'digest_to_sign')
+  const digestRaw =
+    pickStr(r, 'userOpHashToSign', 'user_op_hash_to_sign') ||
+    pickStr(r, 'digestToSign', 'digest_to_sign')
   if (!proposalId || !digestRaw) return null
   const digestToSign = (digestRaw.startsWith('0x') ? digestRaw : `0x${digestRaw}`) as `0x${string}`
+  const userOpRaw = pickStr(r, 'userOpHashToSign', 'user_op_hash_to_sign')
+  const userOpHashToSign = userOpRaw
+    ? ((userOpRaw.startsWith('0x') ? userOpRaw : `0x${userOpRaw}`) as `0x${string}`)
+    : digestToSign
 
   const signers: string[] = []
   if (Array.isArray(r.signers)) {
@@ -273,6 +279,7 @@ export function normalizeSigningPayload(raw: unknown): SigningPayload | null {
   return {
     proposalId,
     digestToSign,
+    userOpHashToSign,
     chainId: pickNumber(r, 'chainId', 'chain_id'),
     nonce: pickNumber(r, 'nonce'),
     multisigAddress: pickStr(r, 'multisigAddress', 'multisig_address'),

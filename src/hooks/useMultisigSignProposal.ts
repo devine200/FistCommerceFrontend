@@ -4,9 +4,10 @@ import { fetchMultisigSigningPayload } from '@/api/multisig/proposals'
 import { isGovernanceSignerAddress } from '@/admin/governance/governanceSigner'
 import { useAppSelector } from '@/store/hooks'
 import { ensureWalletChain, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
+import { signUserOpHashRaw } from '@/wallet/signUserOpHash'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 
-/** Fetches signing payload and returns an EIP-191 signature over digestToSign (no POST). */
+/** Fetches signing payload and returns a raw ECDSA signature over userOpHash (no POST). */
 export function useMultisigSignProposal() {
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const { wallet, address, isConnected } = useActiveWallet()
@@ -38,11 +39,8 @@ export function useMultisigSignProposal() {
           await ensureWalletChain(wallet, effectiveChainId)
         }
         const walletClient = await getWalletClientFromPrivyWallet(wallet)
-        const signature = await walletClient.signMessage({
-          account: address as `0x${string}`,
-          message: { raw: payload.digestToSign },
-        })
-        return signature
+        const hashToSign = (payload.userOpHashToSign || payload.digestToSign) as `0x${string}`
+        return await signUserOpHashRaw(walletClient, address as `0x${string}`, hashToSign)
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Could not sign proposal.'
         setError(message)

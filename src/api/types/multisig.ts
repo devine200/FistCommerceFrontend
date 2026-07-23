@@ -149,6 +149,8 @@ export type ProposalDetail = {
 export type SigningPayload = {
   proposalId: string
   digestToSign: `0x${string}`
+  /** EntryPoint userOpHash — preferred; falls back to digestToSign. */
+  userOpHashToSign?: `0x${string}`
   chainId: number
   nonce: number
   multisigAddress: string
