@@ -11,6 +11,7 @@ import type { LendingPoolDetailConfig } from '@/components/dashboard/merchant/le
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppSelector } from '@/store/hooks'
+import { selectMerchantPoolMetrics } from '@/store/selectors/merchantDashboardSelectors'
 import {
   selectMerchantLoanTableRows,
   selectMerchantReceivablesError,
@@ -60,7 +61,7 @@ function mergeRowsFromPoolMetrics<Row extends { label: string; value: string }>(
 
 const LendingPoolDetailPageContent = ({ config, onApplyToBorrow }: LendingPoolDetailPageContentProps) => {
   const navigate = useNavigate()
-  const poolMetrics = useAppSelector((s) => s.merchantDashboard.poolMetrics)
+  const poolMetrics = useAppSelector(selectMerchantPoolMetrics)
   const loans = useAppSelector(selectMerchantLoanTableRows)
   const status = useAppSelector(selectMerchantReceivablesStatus)
   const error = useAppSelector(selectMerchantReceivablesError)

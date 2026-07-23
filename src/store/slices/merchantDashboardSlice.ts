@@ -31,7 +31,7 @@ export type MerchantDashboardState = {
   lastUpdated: number | null
 }
 
-const initialState: MerchantDashboardState = {
+export const merchantDashboardInitialState: MerchantDashboardState = {
   walletDisplay: '0x7A3F...92C1',
   totalDepositsDisplay: '538,500',
   lendingPools: {
@@ -113,7 +113,7 @@ export const refreshMerchantDashboard = createAsyncThunk(
 
 const merchantDashboardSlice = createSlice({
   name: 'merchantDashboard',
-  initialState,
+  initialState: merchantDashboardInitialState,
   reducers: {
     setMerchantWalletDisplay: (state, action: PayloadAction<string>) => {
       state.walletDisplay = action.payload
@@ -132,7 +132,7 @@ const merchantDashboardSlice = createSlice({
         Object.assign(state.lendingPools, action.payload.patch)
       }
     },
-    resetMerchantDashboard: () => initialState,
+    resetMerchantDashboard: () => merchantDashboardInitialState,
   },
   extraReducers: (builder) => {
     builder

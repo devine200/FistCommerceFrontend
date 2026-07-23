@@ -2,6 +2,7 @@ import LendingPoolOpportunityCard from '@/components/dashboard/LendingPoolOpport
 import DashboardBorderedPanel from '@/components/dashboard/shared/DashboardBorderedPanel'
 import type { MerchantLendingPoolProps } from '@/components/dashboard/shared/types'
 import { useAppSelector } from '@/store/hooks'
+import { selectMerchantLendingPools } from '@/store/selectors/merchantDashboardSelectors'
 
 const InfoCircleIcon = () => (
   <button
@@ -13,10 +14,8 @@ const InfoCircleIcon = () => (
   </button>
 )
 
-const MerchantLendingPool = ({ totalDepositsDisplay: totalDepositsDisplayProp }: MerchantLendingPoolProps) => {
-  const { totalDepositsDisplay: totalFromStore, lendingPools } = useAppSelector((s) => s.merchantDashboard)
-  void (totalDepositsDisplayProp ?? totalFromStore)
-  const pool = lendingPools
+const MerchantLendingPool = (_props: MerchantLendingPoolProps) => {
+  const pool = useAppSelector(selectMerchantLendingPools)
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

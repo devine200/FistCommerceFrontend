@@ -19,6 +19,7 @@ import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/Das
 import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useAppSelector } from '@/store/hooks'
+import { selectInvestorPoolAndMetrics } from '@/store/selectors/investorDashboardSelectors'
 import { formatFlowFailureMessage } from '@/utils/formatFlowFailureMessage'
 import {
   filterQuickAmountsByMax,
@@ -49,9 +50,11 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
   const amountDisplay = formatInvestAmountUsd(displayAmount)
   const resolvedPoolSlug = poolSlug ?? 'fist-commerce-lending-pool'
 
-  const lendingPool = useAppSelector((s) => s.investorDashboard.lendingPools)
-  const poolMetrics = useAppSelector((s) => s.investorDashboard.poolMetrics)
-  const investorMetrics = useAppSelector((s) => s.investorDashboard.investorMetrics)
+  const {
+    lendingPools: lendingPool,
+    poolMetrics,
+    investorMetrics,
+  } = useAppSelector(selectInvestorPoolAndMetrics)
 
   const contracts = useTestnetContracts({
     estimateDepositHumanAmount:

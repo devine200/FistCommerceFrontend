@@ -6,6 +6,7 @@ import { buildDashboardHomeBreadcrumbs } from '@/components/dashboard/shared/das
 import InvestorLendingPool from '@/components/dashboard/investor/InvestorLendingPool'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 import { useAppSelector } from '@/store/hooks'
+import { selectInvestorWalletDisplay } from '@/store/selectors/investorDashboardSelectors'
 import { useSession } from '@/state/useSession'
 
 const InvestorDashboardPage = () => {
@@ -17,7 +18,7 @@ const InvestorDashboardPage = () => {
       buildDashboardHomeBreadcrumbs(pathname, '/dashboard/investor', isKycVerified),
     [pathname, isKycVerified],
   )
-  const walletDisplay = useAppSelector((s) => s.investorDashboard.walletDisplay)
+  const walletDisplay = useAppSelector(selectInvestorWalletDisplay)
 
   return (
     <DashboardLayout

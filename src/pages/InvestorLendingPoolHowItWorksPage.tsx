@@ -5,12 +5,16 @@ import { resolveInvestorPoolLayoutMeta } from '@/components/dashboard/investor/l
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 import InvestorLendingPoolHowItWorksPageContent from '@/components/dashboard/investor/lending-pool-detail/InvestorLendingPoolHowItWorksPageContent'
 import { useAppSelector } from '@/store/hooks'
+import {
+  selectInvestorLendingPools,
+  selectInvestorWalletDisplay,
+} from '@/store/selectors/investorDashboardSelectors'
 
 const InvestorLendingPoolHowItWorksPage = () => {
   const { poolSlug } = useParams<{ poolSlug: string }>()
-  const lendingPool = useAppSelector((s) => s.investorDashboard.lendingPools)
+  const lendingPool = useAppSelector(selectInvestorLendingPools)
   const walletAddress = useAppSelector((s) => s.wallet.address)
-  const walletDisplayFallback = useAppSelector((s) => s.investorDashboard.walletDisplay)
+  const walletDisplayFallback = useAppSelector(selectInvestorWalletDisplay)
 
   const layout = useMemo(
     () => resolveInvestorPoolLayoutMeta(poolSlug, lendingPool, walletAddress, walletDisplayFallback),

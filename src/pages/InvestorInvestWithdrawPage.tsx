@@ -6,6 +6,10 @@ import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/Dashboa
 import InvestorInvestCard from '@/components/dashboard/investor/invest/InvestorInvestCard'
 import InvestorWithdrawFlow from '@/components/dashboard/investor/withdraw/InvestorWithdrawFlow'
 import { useAppSelector } from '@/store/hooks'
+import {
+  selectInvestorLendingPools,
+  selectInvestorWalletDisplay,
+} from '@/store/selectors/investorDashboardSelectors'
 import { WithdrawalStep } from '@/components/dashboard/investor/withdraw/types'
 import { InvestmentStep } from '@/components/dashboard/investor/invest/types'
 
@@ -30,9 +34,9 @@ const InvestorInvestWithdrawPage = () => {
   const { poolSlug } = useParams<{ poolSlug: string }>()
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const lendingPool = useAppSelector((s) => s.investorDashboard.lendingPools)
+  const lendingPool = useAppSelector(selectInvestorLendingPools)
   const walletAddress = useAppSelector((s) => s.wallet.address)
-  const walletDisplayFallback = useAppSelector((s) => s.investorDashboard.walletDisplay)
+  const walletDisplayFallback = useAppSelector(selectInvestorWalletDisplay)
 
   const layout = useMemo(
     () => resolveInvestorPoolLayoutMeta(poolSlug, lendingPool, walletAddress, walletDisplayFallback),

@@ -8,11 +8,15 @@ import MerchantProfileOverviewContent from '@/components/dashboard/merchant/prof
 import { buildProfileOverviewBreadcrumbs } from '@/components/dashboard/shared/dashboardBreadcrumbs'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 import { useAppSelector } from '@/store/hooks'
+import {
+  selectMerchantMetrics,
+  selectMerchantWalletDisplay,
+} from '@/store/selectors/merchantDashboardSelectors'
 
 const MerchantProfileOverviewPage = () => {
   const { pathname } = useLocation()
-  const walletDisplay = useAppSelector((s) => s.merchantDashboard.walletDisplay)
-  const merchantMetrics = useAppSelector((s) => s.merchantDashboard.merchantMetrics)
+  const walletDisplay = useAppSelector(selectMerchantWalletDisplay)
+  const merchantMetrics = useAppSelector(selectMerchantMetrics)
 
   const topBarBreadcrumbs: DashboardBreadcrumbItem[] = buildProfileOverviewBreadcrumbs(
     '/dashboard/merchant',

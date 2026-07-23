@@ -5,6 +5,10 @@ import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/Das
 import DashboardSessionGuard from '@/components/session/DashboardSessionGuard'
 import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import {
+  selectInvestorDashboardError,
+  selectInvestorDashboardStatus,
+} from '@/store/selectors/investorDashboardSelectors'
 import { refreshInvestorDashboard, setInvestorWalletDisplay } from '@/store/slices/investorDashboardSlice'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 
@@ -17,8 +21,8 @@ export default function InvestorDashboardSessionLayout() {
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const role = useAppSelector((s) => s.auth.role)
-  const status = useAppSelector((s) => s.investorDashboard.status)
-  const error = useAppSelector((s) => s.investorDashboard.error)
+  const status = useAppSelector(selectInvestorDashboardStatus)
+  const error = useAppSelector(selectInvestorDashboardError)
   const { isConnected, address } = useActiveWallet()
   const [errorDismissed, setErrorDismissed] = useState(false)
   const [loadingDismissed, setLoadingDismissed] = useState(false)

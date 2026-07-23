@@ -41,6 +41,7 @@ import { onboardingReducer } from '@/store/slices/onboardingSlice'
 import { onboardingProfileDraftReducer } from '@/store/slices/onboardingProfileDraftSlice'
 import { walletReducer } from '@/store/slices/walletSlice'
 import { sanitizeAccessToken, sanitizeRefreshToken } from '@/auth/accessTokenPolicy'
+import { registerAppStore } from '@/store/storeRef'
 import { parseUserRole } from '@/utils/userRole'
 
 type LegacySessionBlob = {
@@ -202,6 +203,8 @@ export const store = configureStore({
 })
 
 export const persistor = persistStore(store)
+
+registerAppStore(store)
 
 export type RootState = ReturnType<typeof store.getState>
 export type AppDispatch = typeof store.dispatch

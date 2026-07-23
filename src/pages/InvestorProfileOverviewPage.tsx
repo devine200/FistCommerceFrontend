@@ -4,10 +4,11 @@ import { buildProfileOverviewBreadcrumbs } from '@/components/dashboard/shared/d
 import InvestorProfileOverviewContent from '@/components/dashboard/investor/profile/InvestorProfileOverviewContent'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 import { useAppSelector } from '@/store/hooks'
+import { selectInvestorWalletDisplay } from '@/store/selectors/investorDashboardSelectors'
 
 const InvestorProfileOverviewPage = () => {
   const { pathname } = useLocation()
-  const walletDisplay = useAppSelector((s) => s.investorDashboard.walletDisplay)
+  const walletDisplay = useAppSelector(selectInvestorWalletDisplay)
 
   const topBarBreadcrumbs: DashboardBreadcrumbItem[] = buildProfileOverviewBreadcrumbs(
     '/dashboard/investor',

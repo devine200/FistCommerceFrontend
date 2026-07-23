@@ -9,6 +9,7 @@ import { convertTimestampToDate, type MerchantTransactionApi } from '@/api/metri
 import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
 import { useListPageState } from '@/hooks/useListPageState'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { selectMerchantLendingPoolTitle } from '@/store/selectors/merchantDashboardSelectors'
 import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
 import {
   merchantTransactionsListCacheKey,
@@ -114,7 +115,7 @@ const MerchantProfileActivitiesTabContent = () => {
   const txItems = useAppSelector((s) => s.merchantTransactions.items)
   const txTotal = useAppSelector((s) => s.merchantTransactions.total)
   const resultsCache = useAppSelector((s) => s.merchantTransactions.resultsCache)
-  const poolName = useAppSelector((s) => s.merchantDashboard.lendingPools.poolTitle) || 'Fist Commerce Pool'
+  const poolName = useAppSelector(selectMerchantLendingPoolTitle) || 'Fist Commerce Pool'
   const [page, setPage] = useListPageState([filter, searchDebounced])
 
   useEffect(() => {

@@ -5,12 +5,15 @@ import {
 } from '@/components/dashboard/merchant/profile/merchantProfileConfig'
 import EmbeddedWalletKeyBackup from '@/components/wallet/EmbeddedWalletKeyBackup'
 import { useAppSelector } from '@/store/hooks'
+import { selectMerchantProfileOverview } from '@/store/selectors/merchantDashboardSelectors'
 import { useMemo } from 'react'
 
 const MerchantProfileOverviewTabContent = () => {
-  const merchantMetrics = useAppSelector((s) => s.merchantDashboard.merchantMetrics)
-  const poolMetrics = useAppSelector((s) => s.merchantDashboard.poolMetrics)
-  const lendingPool = useAppSelector((s) => s.merchantDashboard.lendingPools)
+  const {
+    merchantMetrics,
+    poolMetrics,
+    lendingPools: lendingPool,
+  } = useAppSelector(selectMerchantProfileOverview)
 
   const metrics = useMemo(
     () => buildMerchantPortfolioMetricsFromApi(merchantMetrics, poolMetrics),

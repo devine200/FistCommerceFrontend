@@ -17,6 +17,7 @@ import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/Das
 import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useAppSelector } from '@/store/hooks'
+import { selectInvestorPoolAndMetrics } from '@/store/selectors/investorDashboardSelectors'
 import { formatFlowFailureMessage } from '@/utils/formatFlowFailureMessage'
 import {
   filterQuickAmountsByMax,
@@ -45,9 +46,11 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
   const [internalStep, setInternalStep] = useState<WithdrawalStep>(WithdrawalStep.AmountEntry)
   const withdrawalStep = step ?? internalStep
 
-  const lendingPool = useAppSelector((s) => s.investorDashboard.lendingPools)
-  const poolMetrics = useAppSelector((s) => s.investorDashboard.poolMetrics)
-  const investorMetrics = useAppSelector((s) => s.investorDashboard.investorMetrics)
+  const {
+    lendingPools: lendingPool,
+    poolMetrics,
+    investorMetrics,
+  } = useAppSelector(selectInvestorPoolAndMetrics)
   const walletAddress = useAppSelector((s) => s.wallet.address)
 
   const poolName = lendingPool.poolTitle?.trim() || 'Lending pool'

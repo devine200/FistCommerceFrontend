@@ -13,6 +13,10 @@ import {
 import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
 import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import {
+  selectInvestorDashboardStatus,
+  selectInvestorMetrics,
+} from '@/store/selectors/investorDashboardSelectors'
 import { refreshInvestorDashboard } from '@/store/slices/investorDashboardSlice'
 
 type ProfileLoadState = 'idle' | 'loading' | 'ready' | 'error'
@@ -21,8 +25,8 @@ const InvestorProfileOverviewContent = () => {
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const authUserEmail = useAppSelector((s) => s.auth.user?.email?.trim())
-  const investorMetrics = useAppSelector((s) => s.investorDashboard.investorMetrics)
-  const dashboardMetricsStatus = useAppSelector((s) => s.investorDashboard.status)
+  const investorMetrics = useAppSelector(selectInvestorMetrics)
+  const dashboardMetricsStatus = useAppSelector(selectInvestorDashboardStatus)
   const { investmentBalanceDisplay } = useInvestorOnChainBalances()
 
   const [profile, setProfile] = useState<InvestorProfileInfo | null>(null)

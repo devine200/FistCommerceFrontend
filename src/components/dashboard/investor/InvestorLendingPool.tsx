@@ -1,9 +1,10 @@
 import LendingPoolOpportunityCard from '@/components/dashboard/LendingPoolOpportunityCard'
 import DashboardSectionTitle from '@/components/dashboard/shared/DashboardSectionTitle'
 import { useAppSelector } from '@/store/hooks'
+import { selectInvestorLendingPools } from '@/store/selectors/investorDashboardSelectors'
 
 const InvestorLendingPool = () => {
-  const pool = useAppSelector((s) => s.investorDashboard.lendingPools)
+  const pool = useAppSelector(selectInvestorLendingPools)
 
   return (
     <section className="flex flex-col gap-4">

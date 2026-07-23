@@ -7,6 +7,7 @@ import MerchantLendingPool from '@/components/dashboard/merchant/MerchantLending
 import MerchantAllReceivablesContent from '@/components/dashboard/merchant/receivables/MerchantAllReceivablesContent'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 import { useAppSelector } from '@/store/hooks'
+import { selectMerchantWalletDisplay } from '@/store/selectors/merchantDashboardSelectors'
 import { useSession } from '@/state/useSession'
 
 const MerchantDashboardPage = () => {
@@ -18,7 +19,7 @@ const MerchantDashboardPage = () => {
       buildDashboardHomeBreadcrumbs(pathname, '/dashboard/merchant', isKycVerified),
     [pathname, isKycVerified],
   )
-  const walletDisplay = useAppSelector((s) => s.merchantDashboard.walletDisplay)
+  const walletDisplay = useAppSelector(selectMerchantWalletDisplay)
 
   const verifiedContent = pathname.includes('/receivables') ? (
     <MerchantAllReceivablesContent />

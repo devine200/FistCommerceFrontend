@@ -45,7 +45,7 @@ export type InvestorDashboardState = {
   lastUpdated: number | null
 }
 
-const initialState: InvestorDashboardState = {
+export const investorDashboardInitialState: InvestorDashboardState = {
   walletDisplay: '0x7A3F...92C1',
   lendingPools: {
     id: 'fist-commerce-lending-pool',
@@ -157,7 +157,7 @@ export const refreshInvestorDashboard = createAsyncThunk(
 
 const investorDashboardSlice = createSlice({
   name: 'investorDashboard',
-  initialState,
+  initialState: investorDashboardInitialState,
   reducers: {
     setInvestorWalletDisplay: (state, action: PayloadAction<string>) => {
       state.walletDisplay = action.payload
@@ -173,7 +173,7 @@ const investorDashboardSlice = createSlice({
         Object.assign(state.lendingPools, action.payload.patch)
       }
     },
-    resetInvestorDashboard: () => initialState,
+    resetInvestorDashboard: () => investorDashboardInitialState,
   },
   extraReducers: (builder) => {
     builder

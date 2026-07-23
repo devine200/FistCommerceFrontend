@@ -5,6 +5,10 @@ import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/Das
 import DashboardSessionGuard from '@/components/session/DashboardSessionGuard'
 import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import {
+  selectMerchantDashboardError,
+  selectMerchantDashboardStatus,
+} from '@/store/selectors/merchantDashboardSelectors'
 import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
 import { refreshMerchantDashboard } from '@/store/slices/merchantDashboardSlice'
 import { refreshMerchantReceivables } from '@/store/slices/merchantReceivablesSlice'
@@ -13,8 +17,8 @@ export default function MerchantDashboardSessionLayout() {
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const role = useAppSelector((s) => s.auth.role)
-  const status = useAppSelector((s) => s.merchantDashboard.status)
-  const error = useAppSelector((s) => s.merchantDashboard.error)
+  const status = useAppSelector(selectMerchantDashboardStatus)
+  const error = useAppSelector(selectMerchantDashboardError)
   const kycVerified = useAppSelector(selectIsKycVerified)
   const [errorDismissed, setErrorDismissed] = useState(false)
   const [loadingDismissed, setLoadingDismissed] = useState(false)

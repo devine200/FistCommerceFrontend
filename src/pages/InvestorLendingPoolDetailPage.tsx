@@ -13,6 +13,7 @@ import { useListPageState } from '@/hooks/useListPageState'
 import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import DashboardLayout, { type DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { selectInvestorPoolDetailView } from '@/store/selectors/investorDashboardSelectors'
 import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
 import { refreshInvestorDashboard } from '@/store/slices/investorDashboardSlice'
 import {
@@ -26,13 +27,15 @@ import type { RecentPayoutBundle } from '@/api/payout'
 const InvestorLendingPoolDetailPage = () => {
   const dispatch = useAppDispatch()
   const { poolSlug } = useParams<{ poolSlug: string }>()
-  const lendingPool = useAppSelector((s) => s.investorDashboard.lendingPools)
-  const poolMetrics = useAppSelector((s) => s.investorDashboard.poolMetrics)
-  const investorMetrics = useAppSelector((s) => s.investorDashboard.investorMetrics)
-  const status = useAppSelector((s) => s.investorDashboard.status)
-  const error = useAppSelector((s) => s.investorDashboard.error)
+  const {
+    lendingPools: lendingPool,
+    poolMetrics,
+    investorMetrics,
+    status,
+    error,
+    walletDisplay: walletDisplayFallback,
+  } = useAppSelector(selectInvestorPoolDetailView)
   const walletAddress = useAppSelector((s) => s.wallet.address)
-  const walletDisplayFallback = useAppSelector((s) => s.investorDashboard.walletDisplay)
   const recentTx = useAppSelector((s) => s.recentTransactions)
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const isKycVerified = useAppSelector(selectIsKycVerified)

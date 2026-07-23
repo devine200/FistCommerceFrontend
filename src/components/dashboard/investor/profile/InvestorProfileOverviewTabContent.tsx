@@ -8,11 +8,14 @@ import {
 } from '@/components/dashboard/investor/profile/profileConfig'
 import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useAppSelector } from '@/store/hooks'
+import { selectInvestorPoolAndMetrics } from '@/store/selectors/investorDashboardSelectors'
 
 const InvestorProfileOverviewTabContent = () => {
-  const investorMetrics = useAppSelector((s) => s.investorDashboard.investorMetrics)
-  const poolMetrics = useAppSelector((s) => s.investorDashboard.poolMetrics)
-  const lendingPool = useAppSelector((s) => s.investorDashboard.lendingPools)
+  const {
+    investorMetrics,
+    poolMetrics,
+    lendingPools: lendingPool,
+  } = useAppSelector(selectInvestorPoolAndMetrics)
   const { investmentBalanceDisplay } = useInvestorOnChainBalances()
 
   const metrics = useMemo(

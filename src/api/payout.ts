@@ -10,7 +10,7 @@ import {
 import { isLocalContractNetwork, isMainnetContractNetwork, modeFromChainId } from '@/contract_config/contractNetwork'
 import type { RecentTx } from '@/components/dashboard/investor/lending-pool-detail/types'
 import { resolvePaginatedListTotal } from '@/utils/listPagination'
-import { store } from '@/store'
+import { getAppStore } from '@/store/storeRef'
 
 const RECENT_TRANSACTIONS_PATH = '/api/payout/recent-transactions/'
 
@@ -69,9 +69,11 @@ export function getDefaultArbitrumOneBlockExplorerBase(): string | null {
 function resolveExplorerChainId(explicit?: number | null): number | null {
   if (explicit != null && Number.isFinite(explicit)) return Math.trunc(explicit)
   try {
-    const { auth, wallet } = store.getState()
-    if (auth.chainId != null) return auth.chainId
-    if (wallet.chainId != null) return wallet.chainId
+    const state = getAppStore()?.getState()
+    const authChainId = state?.auth.chainId
+    const walletChainId = state?.wallet.chainId
+    if (authChainId != null) return authChainId
+    if (walletChainId != null) return walletChainId
   } catch {
     /* store unavailable */
   }
