@@ -241,7 +241,6 @@ const AdminGovernanceProposalDetailPage = () => {
 
   const canExecute =
     detail?.readyToExecute &&
-    !detail.simulationError &&
     detail.status !== 'executed' &&
     detail.status !== 'cancelled' &&
     actionStatus !== 'loading'
