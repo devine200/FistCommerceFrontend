@@ -5,8 +5,8 @@ Admin actions that mutate protocol state on testnet/prod flow through multisig u
 ## State machine
 
 1. **Admin action** (KYC review, withdrawal approve, risk tier) → backend `build_calls()` + simulate → proposal stored (`201`/`202`) or direct tx (`200` local bypass).
-2. **Sign** — multisig owners `personal_sign(digestToSign)` from `GET /api/multisig/proposals/{id}/signing-payload/`, then `POST …/sign/`.
-3. **Execute** — when threshold met and simulation passes, `POST …/execute/` (servicer relayer submits on-chain).
+2. **Sign** — multisig owners raw-sign `userOpHashToSign` / `digestToSign` from `GET /api/multisig/proposals/{id}/signing-payload/` (no `personal_sign`), then `POST …/sign/`. Ready when valid owner sigs ≥ threshold.
+3. **Execute** — any connected on-chain owner submits `EntryPoint.handleOps` using `GET …/execution-payload/`, then `POST …/confirm-execute/` with the tx hash. (`POST …/execute/` remains a servicer-relayed fallback for scripts.)
 
 ## Frontend modules
 

@@ -157,6 +157,106 @@ export async function postMultisigProposalExecute(
   }
 }
 
+export type MultisigExecutionPayload = {
+  proposalId: string
+  chainId: number
+  entryPoint: `0x${string}`
+  handleOpsGas: number
+  executionNote: string
+  userOp: {
+    sender: `0x${string}`
+    nonce: bigint
+    initCode: `0x${string}`
+    callData: `0x${string}`
+    accountGasLimits: `0x${string}`
+    preVerificationGas: bigint
+    gasFees: `0x${string}`
+    paymasterAndData: `0x${string}`
+    signature: `0x${string}`
+  }
+}
+
+function asHex(value: unknown, fallback = '0x'): `0x${string}` {
+  const text = typeof value === 'string' ? value.trim() : ''
+  if (!text) return fallback as `0x${string}`
+  return (text.startsWith('0x') ? text : `0x${text}`) as `0x${string}`
+}
+
+function asBigInt(value: unknown): bigint {
+  if (typeof value === 'bigint') return value
+  if (typeof value === 'number' && Number.isFinite(value)) return BigInt(value)
+  if (typeof value === 'string' && value.trim()) return BigInt(value.trim())
+  return 0n
+}
+
+/** `GET /api/multisig/proposals/{id}/execution-payload/` */
+export async function fetchMultisigExecutionPayload(
+  accessToken: string | null | undefined,
+  proposalId: string,
+): Promise<MultisigExecutionPayload> {
+  const id = proposalId.trim()
+  if (!id) throw new Error('Missing proposal id.')
+  const res = await fetchWithAuthRecovery(
+    apiUrl(`${PROPOSALS_PATH}${encodeURIComponent(id)}/execution-payload/`),
+    {
+      method: 'GET',
+      headers: authHeaders(accessToken),
+    },
+  )
+  const raw = await res.json()
+  const r = asRecord(raw)
+  const entryPoint = asHex(pickStr(r, 'entryPoint', 'entry_point'))
+  const userOpRaw = asRecord(r.userOp ?? r.user_op)
+  if (!entryPoint || entryPoint === '0x' || !userOpRaw.sender) {
+    throw new Error('Execution payload response was missing required fields.')
+  }
+  return {
+    proposalId: pickStr(r, 'proposalId', 'proposal_id') || id,
+    chainId: Number(r.chainId ?? r.chain_id ?? 0) || 0,
+    entryPoint,
+    handleOpsGas: Number(r.handleOpsGas ?? r.handle_ops_gas ?? 3_000_000) || 3_000_000,
+    executionNote: pickStr(r, 'executionNote', 'execution_note'),
+    userOp: {
+      sender: asHex(userOpRaw.sender),
+      nonce: asBigInt(userOpRaw.nonce),
+      initCode: asHex(userOpRaw.initCode ?? userOpRaw.init_code),
+      callData: asHex(userOpRaw.callData ?? userOpRaw.call_data),
+      accountGasLimits: asHex(userOpRaw.accountGasLimits ?? userOpRaw.account_gas_limits),
+      preVerificationGas: asBigInt(userOpRaw.preVerificationGas ?? userOpRaw.pre_verification_gas),
+      gasFees: asHex(userOpRaw.gasFees ?? userOpRaw.gas_fees),
+      paymasterAndData: asHex(userOpRaw.paymasterAndData ?? userOpRaw.paymaster_and_data),
+      signature: asHex(userOpRaw.signature),
+    },
+  }
+}
+
+/** `POST /api/multisig/proposals/{id}/confirm-execute/` */
+export async function postMultisigProposalConfirmExecute(
+  accessToken: string | null | undefined,
+  proposalId: string,
+  txHash: string,
+): Promise<ExecuteProposalResult> {
+  const id = proposalId.trim()
+  if (!id) throw new Error('Missing proposal id.')
+  const hash = txHash.trim()
+  if (!hash) throw new Error('Missing execution tx hash.')
+  const res = await fetchWithAuthRecovery(
+    apiUrl(`${PROPOSALS_PATH}${encodeURIComponent(id)}/confirm-execute/`),
+    {
+      method: 'POST',
+      headers: jsonAuthHeaders(accessToken),
+      body: JSON.stringify({ txHash: hash, tx_hash: hash }),
+    },
+  )
+  const outcome = await parseAdminWriteResponse(res)
+  const data = outcome.raw
+  return {
+    message: outcome.message,
+    txHash: outcome.kind === 'completed' ? outcome.txHash ?? pickStr(data, 'tx_hash', 'txHash') || hash : hash,
+    postExecuteSync: outcome.kind === 'completed' ? outcome.postExecuteSync : undefined,
+  }
+}
+
 /** `POST /api/multisig/proposals/{id}/cancel/` */
 export async function postMultisigProposalCancel(
   accessToken: string | null | undefined,

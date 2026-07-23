@@ -15,6 +15,7 @@ import {
   formatSignerMgmtDecodedArgs,
   isSignerMgmtOperationType,
 } from '@/admin/governance/formatSignerMgmtDecodedArgs'
+import { useGovernanceExecuteProposal } from '@/admin/governance/useGovernanceExecuteProposal'
 import { useGovernanceSignAndSubmit } from '@/admin/governance/useGovernanceSignAndSubmit'
 import { proposalStatusLabel } from '@/api/multisig/normalize'
 import { normalizeMultisigSignerMgmtSync } from '@/api/multisig/normalize'
@@ -25,7 +26,6 @@ import {
   cancelMultisigProposal,
   clearAdminMultisigActionError,
   clearLastExecuteOutcome,
-  executeMultisigProposal,
   refreshMultisigConfig,
   refreshMultisigProposalDetail,
   selectMultisigProposalDetail,
@@ -82,6 +82,13 @@ const AdminGovernanceProposalDetailPage = () => {
   const { address, isConnected } = useActiveWallet()
   const { signAndSubmit, pending: signPending, error: signHookError, clearError: clearSignError } =
     useGovernanceSignAndSubmit()
+  const {
+    execute: executeOnChain,
+    pending: executePending,
+    error: executeHookError,
+    lastResult: executeHookResult,
+    clearError: clearExecuteError,
+  } = useGovernanceExecuteProposal()
   const [signingNote, setSigningNote] = useState<string | null>(null)
 
   useEffect(() => {
@@ -120,8 +127,8 @@ const AdminGovernanceProposalDetailPage = () => {
 
   const handleExecute = useCallback(() => {
     if (!proposalId) return
-    void dispatch(executeMultisigProposal(proposalId))
-  }, [dispatch, proposalId])
+    void executeOnChain(proposalId)
+  }, [executeOnChain, proposalId])
 
   const handleCancel = useCallback(() => {
     if (!proposalId) return
@@ -131,8 +138,9 @@ const AdminGovernanceProposalDetailPage = () => {
 
   const handleDismissActionFeedback = useCallback(() => {
     clearSignError()
+    clearExecuteError()
     dispatch(clearAdminMultisigActionError())
-  }, [clearSignError, dispatch])
+  }, [clearSignError, clearExecuteError, dispatch])
 
   const handleRetryGovernanceAction = useCallback(() => {
     if (!proposalId) return
@@ -140,15 +148,15 @@ const AdminGovernanceProposalDetailPage = () => {
       void handleSign()
       return
     }
-    if (actionKind === 'execute') {
-      void dispatch(executeMultisigProposal(proposalId))
+    if (executeHookError) {
+      void executeOnChain(proposalId)
       return
     }
     if (actionKind === 'cancel') {
       if (!window.confirm('Cancel this governance proposal?')) return
       void dispatch(cancelMultisigProposal(proposalId))
     }
-  }, [proposalId, signHookError, actionKind, handleSign, dispatch])
+  }, [proposalId, signHookError, executeHookError, actionKind, handleSign, executeOnChain, dispatch])
 
   const governanceFeedback = useMemo(() => {
     if (signPending) {
@@ -171,23 +179,41 @@ const AdminGovernanceProposalDetailPage = () => {
         directSuccessTitle: 'Proposal signed',
       }
     }
-    if (actionKind === 'execute' || actionKind === 'cancel') {
+    if (executePending) {
+      return {
+        phase: 'loading' as PrivilegedActionPhase,
+        errorDescription: undefined as string | undefined,
+        loadingTitle: 'Executing proposal',
+        loadingDescription:
+          'Submitting EntryPoint.handleOps from your connected wallet…',
+        errorTitle: 'Unable to execute proposal',
+        directSuccessTitle: 'Proposal executed',
+      }
+    }
+    if (executeHookError) {
+      return {
+        phase: 'failed' as PrivilegedActionPhase,
+        errorDescription: executeHookError,
+        loadingTitle: 'Executing proposal',
+        loadingDescription: '',
+        errorTitle: 'Unable to execute proposal',
+        directSuccessTitle: 'Proposal executed',
+      }
+    }
+    if (actionKind === 'cancel') {
       let phase: PrivilegedActionPhase = 'idle'
       if (actionStatus === 'loading' || actionStatus === 'failed') {
         phase = actionStatus
-      } else if (actionKind === 'cancel' && actionStatus === 'succeeded') {
+      } else if (actionStatus === 'succeeded') {
         phase = 'succeeded'
       }
       return {
         phase,
         errorDescription: actionError ?? undefined,
-        loadingTitle: actionKind === 'execute' ? 'Executing proposal' : 'Cancelling proposal',
-        loadingDescription:
-          actionKind === 'execute'
-            ? 'Submitting on-chain execution for this governance proposal…'
-            : 'Cancelling this governance proposal…',
-        errorTitle: actionKind === 'execute' ? 'Unable to execute proposal' : 'Unable to cancel proposal',
-        directSuccessTitle: actionKind === 'execute' ? 'Proposal executed' : 'Proposal cancelled',
+        loadingTitle: 'Cancelling proposal',
+        loadingDescription: 'Cancelling this governance proposal…',
+        errorTitle: 'Unable to cancel proposal',
+        directSuccessTitle: 'Proposal cancelled',
       }
     }
     return {
@@ -198,7 +224,15 @@ const AdminGovernanceProposalDetailPage = () => {
       errorTitle: '',
       directSuccessTitle: '',
     }
-  }, [signPending, signHookError, actionKind, actionStatus, actionError])
+  }, [
+    signPending,
+    signHookError,
+    executePending,
+    executeHookError,
+    actionKind,
+    actionStatus,
+    actionError,
+  ])
 
   if (!proposalId) {
     return <Navigate to={GOVERNANCE_LIST_PATH} replace />
@@ -211,7 +245,8 @@ const AdminGovernanceProposalDetailPage = () => {
       ? blockExplorerTxUrl(explorerBase, detail.executionTxHash)
       : null
   const executeTxHash =
-    lastExecuteOutcome?.kind === 'completed' ? lastExecuteOutcome.txHash : undefined
+    executeHookResult?.txHash ||
+    (lastExecuteOutcome?.kind === 'completed' ? lastExecuteOutcome.txHash : undefined)
   const executeTxUrl =
     explorerBase && executeTxHash ? blockExplorerTxUrl(explorerBase, executeTxHash) : null
 
@@ -235,18 +270,28 @@ const AdminGovernanceProposalDetailPage = () => {
         isConnected,
       }) &&
       !signPending &&
+      !executePending &&
       actionStatus !== 'loading',
-    [detail, address, config?.signers, isConnected, signPending, actionStatus],
+    [detail, address, config?.signers, isConnected, signPending, executePending, actionStatus],
   )
 
   const canExecute =
-    detail?.readyToExecute &&
-    detail.status !== 'executed' &&
-    detail.status !== 'cancelled' &&
-    actionStatus !== 'loading'
+    Boolean(detail?.readyToExecute) &&
+    detail?.status !== 'executed' &&
+    detail?.status !== 'cancelled' &&
+    Boolean(isSigner) &&
+    !signPending &&
+    !executePending &&
+    actionStatus !== 'loading' &&
+    isConnected
 
   const canCancel =
-    detail && detail.status !== 'executed' && detail.status !== 'cancelled' && actionStatus !== 'loading'
+    Boolean(detail) &&
+    detail!.status !== 'executed' &&
+    detail!.status !== 'cancelled' &&
+    !signPending &&
+    !executePending &&
+    actionStatus !== 'loading'
 
   const signatureProgress =
     detail && detail.threshold > 0
@@ -385,7 +430,8 @@ const AdminGovernanceProposalDetailPage = () => {
             <div className="rounded-[10px] border border-[#BBF7D0] bg-[#F0FDF4] px-5 py-4">
               <p className="text-[#166534] text-[14px] font-semibold">Execution submitted</p>
               <p className="text-[#15803D] text-[13px] mt-1">
-                {lastExecuteOutcome?.kind === 'completed' ? lastExecuteOutcome.message : ''}
+                {executeHookResult?.message ||
+                  (lastExecuteOutcome?.kind === 'completed' ? lastExecuteOutcome.message : '')}
               </p>
               {executeTxUrl ? (
                 <a
@@ -429,7 +475,7 @@ const AdminGovernanceProposalDetailPage = () => {
                 onClick={handleExecute}
                 className="h-10 px-5 rounded-[4px] bg-[#16A34A] text-white text-[14px] font-semibold disabled:opacity-40"
               >
-                {actionStatus === 'loading' && actionKind === 'execute' ? 'Executing…' : 'Execute'}
+                {executePending ? 'Executing…' : 'Execute'}
               </button>
               <button
                 type="button"

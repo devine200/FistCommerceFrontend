@@ -15,6 +15,7 @@ import { useActiveWallet } from '@/wallet/useActiveWallet'
 
 export function useGovernanceSignAndSubmit() {
   const accessToken = useAppSelector((s) => s.auth.accessToken)
+  const sessionWallet = useAppSelector((s) => s.auth.wallet)
   const { wallet, address, isConnected } = useActiveWallet()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +33,15 @@ export function useGovernanceSignAndSubmit() {
       }
       if (!isConnected || !wallet || !address) {
         setError('Connect your multisig owner wallet to sign.')
+        return null
+      }
+      if (
+        sessionWallet?.trim() &&
+        sessionWallet.toLowerCase() !== address.toLowerCase()
+      ) {
+        setError(
+          'Connected wallet must match the wallet used for this admin login session.',
+        )
         return null
       }
 
@@ -73,7 +83,7 @@ export function useGovernanceSignAndSubmit() {
         setPending(false)
       }
     },
-    [accessToken, address, isConnected, wallet],
+    [accessToken, address, isConnected, sessionWallet, wallet],
   )
 
   return { signAndSubmit, pending, error, clearError: () => setError(null) }
