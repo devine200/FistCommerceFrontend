@@ -252,7 +252,10 @@ export async function postMultisigProposalConfirmExecute(
   const data = outcome.raw
   return {
     message: outcome.message,
-    txHash: outcome.kind === 'completed' ? outcome.txHash ?? pickStr(data, 'tx_hash', 'txHash') || hash : hash,
+    txHash:
+      outcome.kind === 'completed'
+        ? (outcome.txHash ?? pickStr(data, 'tx_hash', 'txHash')) || hash
+        : hash,
     postExecuteSync: outcome.kind === 'completed' ? outcome.postExecuteSync : undefined,
   }
 }

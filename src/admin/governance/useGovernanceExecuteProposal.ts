@@ -5,8 +5,8 @@ import { toUserFacingError } from '@/api/client'
 import {
   fetchMultisigExecutionPayload,
   postMultisigProposalConfirmExecute,
-  type ExecuteProposalResult,
 } from '@/api/multisig/proposals'
+import type { ExecuteProposalResult } from '@/api/types/multisig'
 import { isGovernanceSignerAddress } from '@/admin/governance/governanceSigner'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import {
@@ -14,6 +14,7 @@ import {
   refreshMultisigConfig,
   refreshMultisigProposalDetail,
 } from '@/store/slices/adminMultisigSlice'
+import { DEFAULT_APP_CHAIN, getAppChainById } from '@/wallet/appChain'
 import { ensureWalletChain, getPublicClient, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 
@@ -93,9 +94,11 @@ export function useGovernanceExecuteProposal() {
           await ensureWalletChain(wallet, payload.chainId)
         }
         const walletClient = await getWalletClientFromPrivyWallet(wallet, payload.chainId)
+        const chain = getAppChainById(payload.chainId) ?? DEFAULT_APP_CHAIN
         const account = address as Address
         const beneficiary = account
         const hash = await walletClient.writeContract({
+          chain,
           address: payload.entryPoint,
           abi: ENTRY_POINT_HANDLE_OPS_ABI,
           functionName: 'handleOps',
