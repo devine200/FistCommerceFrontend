@@ -136,7 +136,13 @@ export async function postMultisigProposalSign(
   await parseAdminWriteResponse(res)
 }
 
-/** `POST /api/multisig/proposals/{id}/execute/` */
+/**
+ * `POST /api/multisig/proposals/{id}/execute/` — servicer-relayed execute.
+ *
+ * @deprecated App UI must use owner `handleOps` via {@link fetchMultisigExecutionPayload}
+ * + {@link postMultisigProposalConfirmExecute} (`useGovernanceExecuteProposal`).
+ * Kept only for Hardhat/ops scripts that still call the relay endpoint.
+ */
 export async function postMultisigProposalExecute(
   accessToken: string | null | undefined,
   proposalId: string,

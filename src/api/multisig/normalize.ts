@@ -276,17 +276,122 @@ export function normalizeSigningPayload(raw: unknown): SigningPayload | null {
     }
   }
 
+  const chainId = pickNumber(r, 'chainId', 'chain_id')
+  const multisigAddress = pickStr(r, 'multisigAddress', 'multisig_address')
+  const typedDataRaw = r.typedData ?? r.typed_data
+  if (typedDataRaw == null) {
+    throw new Error('Signing payload is missing required EIP-712 typedData from the backend.')
+  }
+  const typedData = normalizeTypedData(typedDataRaw)
+  if (!typedData) {
+    throw new Error(
+      'Signing payload typedData is incomplete (need domain, types.UserOpApproval, primaryType, message.userOpHash).',
+    )
+  }
+  assertSigningTypedDataIntegrity(typedData, {
+    chainId,
+    multisigAddress,
+    userOpHashToSign,
+  })
+
   return {
     proposalId,
     digestToSign,
     userOpHashToSign,
-    chainId: pickNumber(r, 'chainId', 'chain_id'),
+    typedData,
+    chainId,
     nonce: pickNumber(r, 'nonce'),
-    multisigAddress: pickStr(r, 'multisigAddress', 'multisig_address'),
+    multisigAddress,
     threshold: pickNumber(r, 'threshold'),
     signers,
     signingNote: pickStr(r, 'signingNote', 'signing_note'),
     calls,
+  }
+}
+
+/** Parse backend EIP-712 payload only — no client-side synthesis. */
+function normalizeTypedData(raw: unknown): SigningPayload['typedData'] | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const r = raw as Record<string, unknown>
+  if (!r.domain || typeof r.domain !== 'object' || Array.isArray(r.domain)) return null
+  if (!r.message || typeof r.message !== 'object' || Array.isArray(r.message)) return null
+  if (!r.types || typeof r.types !== 'object' || Array.isArray(r.types)) return null
+
+  const domainRec = asRecord(r.domain)
+  const messageRec = asRecord(r.message)
+  const typesRec = asRecord(r.types)
+  if (!Array.isArray(typesRec.UserOpApproval) || typesRec.UserOpApproval.length === 0) return null
+
+  const approvalFields = typesRec.UserOpApproval.map((f) => asRecord(f))
+    .filter((f): f is Record<string, unknown> => Object.keys(f).length > 0)
+    .map((f) => ({
+      name: String(f.name ?? ''),
+      type: String(f.type ?? ''),
+    }))
+    .filter((f) => f.name && f.type)
+  if (!approvalFields.length) return null
+
+  const name = pickStr(domainRec, 'name')
+  const version = pickStr(domainRec, 'version')
+  const chainId = pickNumber(domainRec, 'chainId', 'chain_id')
+  const verifyingRaw = pickStr(domainRec, 'verifyingContract', 'verifying_contract')
+  if (!name || !version || !chainId || !verifyingRaw || !/^0x[a-fA-F0-9]{40}$/.test(verifyingRaw)) {
+    return null
+  }
+  const verifyingContract = verifyingRaw as `0x${string}`
+
+  const hashRaw = pickStr(messageRec, 'userOpHash', 'user_op_hash')
+  if (!hashRaw) return null
+  const userOpHash = (hashRaw.startsWith('0x') ? hashRaw : `0x${hashRaw}`) as `0x${string}`
+
+  const primaryRaw = pickStr(r, 'primaryType', 'primary_type')
+  if (primaryRaw && primaryRaw !== 'UserOpApproval') return null
+
+  return {
+    domain: { name, version, chainId, verifyingContract },
+    types: { UserOpApproval: approvalFields },
+    primaryType: 'UserOpApproval',
+    message: { userOpHash },
+  }
+}
+
+export function assertSigningTypedDataIntegrity(
+  typedData: SigningPayload['typedData'],
+  ctx: {
+    chainId: number
+    multisigAddress: string
+    userOpHashToSign: `0x${string}`
+  },
+): void {
+  if (typedData.primaryType !== 'UserOpApproval') {
+    throw new Error(`Signing typedData primaryType must be UserOpApproval (got ${typedData.primaryType}).`)
+  }
+  if (typedData.domain.name !== 'FistMultisigAccount') {
+    throw new Error(
+      `Signing typedData domain.name must be FistMultisigAccount (got ${typedData.domain.name}).`,
+    )
+  }
+  if (typedData.domain.version !== '1') {
+    throw new Error(`Signing typedData domain.version must be 1 (got ${typedData.domain.version}).`)
+  }
+  if (ctx.chainId > 0 && typedData.domain.chainId !== ctx.chainId) {
+    throw new Error(
+      `Signing typedData domain.chainId (${typedData.domain.chainId}) does not match payload chainId (${ctx.chainId}).`,
+    )
+  }
+  const verifying = typedData.domain.verifyingContract.toLowerCase()
+  const multisig = ctx.multisigAddress.trim().toLowerCase()
+  if (multisig && verifying !== multisig) {
+    throw new Error(
+      `Signing typedData verifyingContract (${typedData.domain.verifyingContract}) does not match multisigAddress (${ctx.multisigAddress}).`,
+    )
+  }
+  const messageHash = typedData.message.userOpHash.toLowerCase()
+  const expectedHash = ctx.userOpHashToSign.toLowerCase()
+  if (messageHash !== expectedHash) {
+    throw new Error(
+      `Signing typedData message.userOpHash does not match userOpHashToSign (${ctx.userOpHashToSign}).`,
+    )
   }
 }
 

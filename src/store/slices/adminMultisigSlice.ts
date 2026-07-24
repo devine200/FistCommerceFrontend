@@ -1,14 +1,11 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
-import type { AdminWriteOutcome } from '@/api/adminActionResponse'
 import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
 import { fetchMultisigConfig } from '@/api/multisig/config'
-import { normalizeMultisigSignerMgmtSync } from '@/api/multisig/normalize'
 import {
   fetchMultisigProposalDetail,
   fetchMultisigProposals,
   postMultisigProposalCancel,
-  postMultisigProposalExecute,
   postMultisigProposalSign,
   type FetchMultisigProposalsParams,
 } from '@/api/multisig/proposals'
@@ -30,7 +27,7 @@ export type RefreshMultisigProposalsParams = FetchMultisigProposalsParams & {
 
 export type AdminMultisigSyncStatus = 'idle' | 'loading' | 'succeeded' | 'failed'
 export type AdminMultisigActionStatus = 'idle' | 'loading' | 'succeeded' | 'failed'
-export type AdminMultisigActionKind = 'sign' | 'execute' | 'cancel'
+export type AdminMultisigActionKind = 'sign' | 'cancel'
 
 export type AdminMultisigState = AdminListRequestState & {
   config: MultisigConfig | null
@@ -51,7 +48,6 @@ export type AdminMultisigState = AdminListRequestState & {
   actionError: string | null
   actionProposalId: string | null
   actionKind: AdminMultisigActionKind | null
-  lastExecuteOutcome: AdminWriteOutcome | null
 }
 
 const initialState: AdminMultisigState = {
@@ -74,7 +70,6 @@ const initialState: AdminMultisigState = {
   actionError: null,
   actionProposalId: null,
   actionKind: null,
-  lastExecuteOutcome: null,
 }
 
 type AuthSlice = { auth?: { accessToken?: string | null } }
@@ -152,24 +147,6 @@ export const signMultisigProposal = createAsyncThunk(
   },
 )
 
-export const executeMultisigProposal = createAsyncThunk(
-  'adminMultisig/execute',
-  async (proposalId: string, thunkApi) => {
-    const state = thunkApi.getState() as AuthSlice
-    const accessToken = state.auth?.accessToken
-    if (!accessToken?.trim()) throw new Error('Sign in to execute proposal.')
-    try {
-      const result = await postMultisigProposalExecute(accessToken, proposalId)
-      await thunkApi.dispatch(refreshMultisigProposalDetail(proposalId)).unwrap()
-      await thunkApi.dispatch(refreshMultisigConfig()).unwrap().catch(() => {})
-      return { proposalId, result }
-    } catch (e) {
-      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      throw e
-    }
-  },
-)
-
 export const cancelMultisigProposal = createAsyncThunk(
   'adminMultisig/cancel',
   async (proposalId: string, thunkApi) => {
@@ -197,9 +174,6 @@ const adminMultisigSlice = createSlice({
       state.actionError = null
       state.actionProposalId = null
       state.actionKind = null
-    },
-    clearLastExecuteOutcome: (state) => {
-      state.lastExecuteOutcome = null
     },
   },
   extraReducers: (builder) => {
@@ -330,37 +304,6 @@ const adminMultisigSlice = createSlice({
           action.error.message ??
           'Could not submit signature.'
       })
-      .addCase(executeMultisigProposal.pending, (state, action) => {
-        state.actionStatus = 'loading'
-        state.actionError = null
-        state.actionProposalId = action.meta.arg
-        state.actionKind = 'execute'
-      })
-      .addCase(executeMultisigProposal.fulfilled, (state, action) => {
-        state.actionStatus = 'succeeded'
-        state.actionKind = null
-        state.lastExecuteOutcome = {
-          kind: 'completed',
-          status: 200,
-          message: action.payload.result.message,
-          txHash: action.payload.result.txHash || undefined,
-          postExecuteSync: action.payload.result.postExecuteSync,
-          raw: {},
-        }
-
-        const signerMgmt = normalizeMultisigSignerMgmtSync(action.payload.result.postExecuteSync)
-        if (signerMgmt) {
-          state.config = signerMgmt.multisigConfig
-          state.configStatus = 'succeeded'
-        }
-      })
-      .addCase(executeMultisigProposal.rejected, (state, action) => {
-        state.actionStatus = 'failed'
-        state.actionError =
-          (typeof action.payload === 'string' ? action.payload : null) ??
-          action.error.message ??
-          'Could not execute proposal.'
-      })
       .addCase(cancelMultisigProposal.pending, (state, action) => {
         state.actionStatus = 'loading'
         state.actionError = null
@@ -381,8 +324,7 @@ const adminMultisigSlice = createSlice({
   },
 })
 
-export const { resetAdminMultisig, clearAdminMultisigActionError, clearLastExecuteOutcome } =
-  adminMultisigSlice.actions
+export const { resetAdminMultisig, clearAdminMultisigActionError } = adminMultisigSlice.actions
 export const adminMultisigReducer = adminMultisigSlice.reducer
 
 export function selectMultisigProposalDetail(

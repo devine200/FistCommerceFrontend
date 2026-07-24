@@ -5,7 +5,10 @@ import { adminGovernanceProposalPath } from '@/api/adminActionResponse'
 import { operationTypeLabel } from '@/api/multisig/normalize'
 import { fetchMultisigProposalDetail } from '@/api/multisig/proposals'
 import { getDefaultBlockExplorerBase, blockExplorerTxUrl } from '@/api/payout'
-import { canUserSignGovernanceProposal } from '@/admin/governance/governanceSigner'
+import {
+  canUserSignGovernanceProposal,
+  sessionWalletMatchesConnected,
+} from '@/admin/governance/governanceSigner'
 import { useGovernanceSignAndSubmit } from '@/admin/governance/useGovernanceSignAndSubmit'
 import type { ResolvedGovernanceOutcome } from '@/admin/governance/types'
 import type { ProposalStatus } from '@/api/types/multisig'
@@ -30,9 +33,11 @@ export function AdminGovernanceOutcomeFlow({ open, outcome, onClose }: AdminGove
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const sessionKind = useAppSelector((s) => s.auth.sessionKind)
+  const sessionWallet = useAppSelector((s) => s.auth.wallet)
   const { config } = useAppSelector((s) => s.adminMultisig)
   const { address, isConnected } = useActiveWallet()
   const { signAndSubmit, pending, error, clearError } = useGovernanceSignAndSubmit()
+  const sessionMatchesWallet = sessionWalletMatchesConnected(sessionWallet, address)
   const [signProgress, setSignProgress] = useState<{
     validSignatureCount: number
     threshold: number
@@ -89,6 +94,7 @@ export function AdminGovernanceOutcomeFlow({ open, outcome, onClose }: AdminGove
 
   const canSignNow = useMemo(() => {
     if (!proposalId || signProgress?.readyToExecute || !proposalSnapshot) return false
+    if (!sessionMatchesWallet) return false
     return canUserSignGovernanceProposal({
       status: proposalSnapshot.status,
       missingSigners: proposalSnapshot.missingSigners,
@@ -101,6 +107,7 @@ export function AdminGovernanceOutcomeFlow({ open, outcome, onClose }: AdminGove
     proposalId,
     signProgress?.readyToExecute,
     proposalSnapshot,
+    sessionMatchesWallet,
     address,
     config?.signers,
     isConnected,
@@ -207,7 +214,18 @@ export function AdminGovernanceOutcomeFlow({ open, outcome, onClose }: AdminGove
           </p>
         ) : null}
 
-        {isConnected && outcome.kind === 'proposal_queued' && proposalSnapshot && !canSignNow && !signProgress ? (
+        {isConnected && !sessionMatchesWallet && outcome.kind === 'proposal_queued' && !signProgress ? (
+          <p className="mt-3 text-[#92400E] text-[13px]">
+            Reconnect the wallet used for admin login to sign now.
+          </p>
+        ) : null}
+
+        {isConnected &&
+        sessionMatchesWallet &&
+        outcome.kind === 'proposal_queued' &&
+        proposalSnapshot &&
+        !canSignNow &&
+        !signProgress ? (
           <p className="mt-3 text-[#6B7488] text-[13px]">
             {proposalSnapshot.signedAddresses.some(
               (s) => address && s.toLowerCase() === address.toLowerCase(),

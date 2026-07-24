@@ -148,5 +148,6 @@ export function useGovernanceExecuteProposal() {
     error,
     lastResult,
     clearError: () => setError(null),
+    clearLastResult: () => setLastResult(null),
   }
 }

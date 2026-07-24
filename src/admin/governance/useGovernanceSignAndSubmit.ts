@@ -10,7 +10,7 @@ import { isGovernanceSignerAddress } from '@/admin/governance/governanceSigner'
 import type { GovernanceSignSubmitResult } from '@/admin/governance/types'
 import { useAppSelector } from '@/store/hooks'
 import { ensureWalletChain, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
-import { signUserOpHashRaw } from '@/wallet/signUserOpHash'
+import { signUserOpHashTypedData } from '@/wallet/signUserOpHash'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 
 export function useGovernanceSignAndSubmit() {
@@ -55,12 +55,14 @@ export function useGovernanceSignAndSubmit() {
         if (payload.chainId > 0) {
           await ensureWalletChain(wallet, payload.chainId)
         }
-        const walletClient = await getWalletClientFromPrivyWallet(wallet)
-        const hashToSign = (payload.userOpHashToSign || payload.digestToSign) as `0x${string}`
-        const signature = await signUserOpHashRaw(
+        const walletClient = await getWalletClientFromPrivyWallet(
+          wallet,
+          payload.chainId > 0 ? payload.chainId : undefined,
+        )
+        const signature = await signUserOpHashTypedData(
           walletClient,
           address as `0x${string}`,
-          hashToSign,
+          payload.typedData,
         )
         await postMultisigProposalSign(accessToken, id, {
           signerAddress: address,

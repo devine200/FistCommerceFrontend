@@ -58,3 +58,49 @@ export function canUserSignGovernanceProposal(input: CanSignGovernanceProposalIn
   const walletLower = walletAddress.trim().toLowerCase()
   return missingSigners.some((s) => s.toLowerCase() === walletLower)
 }
+
+export type CanExecuteGovernanceProposalInput = {
+  readyToExecute: boolean
+  status: ProposalStatus
+  walletAddress: string | null | undefined
+  multisigSigners: readonly string[]
+  /** Admin login wallet; when set, must match connected wallet. */
+  sessionWallet?: string | null
+  isConnected?: boolean
+}
+
+/**
+ * True when a click would pass the same owner/session checks as
+ * {@link useGovernanceExecuteProposal} (before fetching execution-payload).
+ */
+export function canUserExecuteGovernanceProposal(input: CanExecuteGovernanceProposalInput): boolean {
+  const {
+    readyToExecute,
+    status,
+    walletAddress,
+    multisigSigners,
+    sessionWallet,
+    isConnected = true,
+  } = input
+
+  if (!readyToExecute) return false
+  if (status === 'executed' || status === 'cancelled') return false
+  if (!isConnected || !walletAddress?.trim()) return false
+  if (!isGovernanceSignerAddress(walletAddress, multisigSigners)) return false
+  if (
+    sessionWallet?.trim() &&
+    sessionWallet.trim().toLowerCase() !== walletAddress.trim().toLowerCase()
+  ) {
+    return false
+  }
+  return true
+}
+
+export function sessionWalletMatchesConnected(
+  sessionWallet: string | null | undefined,
+  connectedAddress: string | null | undefined,
+): boolean {
+  if (!sessionWallet?.trim()) return true
+  if (!connectedAddress?.trim()) return false
+  return sessionWallet.trim().toLowerCase() === connectedAddress.trim().toLowerCase()
+}

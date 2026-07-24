@@ -12,4 +12,11 @@ export { loanMonitoringPrivilegedActionLabels } from './loanMonitoringActionLabe
 export { AdminGovernanceStatusBadge } from './AdminGovernanceStatusBadge'
 export { buildRiskTierProposalBody } from './buildRiskTierProposalBody'
 export type { RiskTierProposalInput } from './buildRiskTierProposalBody'
-export { isGovernanceSignerAddress, hasGovernanceSignature, canUserSignGovernanceProposal, isSignableGovernanceProposalStatus } from './governanceSigner'
+export {
+  isGovernanceSignerAddress,
+  hasGovernanceSignature,
+  canUserSignGovernanceProposal,
+  canUserExecuteGovernanceProposal,
+  sessionWalletMatchesConnected,
+  isSignableGovernanceProposalStatus,
+} from './governanceSigner'

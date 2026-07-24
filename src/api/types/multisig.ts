@@ -146,11 +146,29 @@ export type ProposalDetail = {
   createdAt: string
 }
 
+export type SigningPayloadTypedData = {
+  domain: {
+    name: string
+    version: string
+    chainId: number
+    verifyingContract: `0x${string}`
+  }
+  types: {
+    UserOpApproval: { name: string; type: string }[]
+  }
+  primaryType: 'UserOpApproval'
+  message: {
+    userOpHash: `0x${string}`
+  }
+}
+
 export type SigningPayload = {
   proposalId: string
   digestToSign: `0x${string}`
-  /** EntryPoint userOpHash — preferred; falls back to digestToSign. */
+  /** EntryPoint userOpHash — signed via typedData, not raw eth_sign. */
   userOpHashToSign?: `0x${string}`
+  /** EIP-712 UserOpApproval payload for walletClient.signTypedData. */
+  typedData: SigningPayloadTypedData
   chainId: number
   nonce: number
   multisigAddress: string

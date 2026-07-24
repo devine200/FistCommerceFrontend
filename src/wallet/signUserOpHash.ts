@@ -1,34 +1,51 @@
 import type { Address, Hex, WalletClient } from 'viem'
 
+export type UserOpApprovalTypedData = {
+  domain: {
+    name: string
+    version: string
+    chainId: number
+    verifyingContract: Address
+  }
+  types: {
+    UserOpApproval: readonly { name: string; type: string }[]
+  }
+  primaryType: 'UserOpApproval'
+  message: {
+    userOpHash: Hex
+  }
+}
+
 /**
- * Raw ECDSA over a 32-byte EntryPoint userOpHash (no EIP-191 personal_sign).
- * Required by the deployed FistMultisigAccount (ECDSA.tryRecover on the bare hash).
+ * EIP-712 signTypedData for FistMultisigAccount UserOpApproval(userOpHash).
+ * Wallet-friendly (Privy / MetaMask / mobile) — not eth_sign / personal_sign.
  */
-export async function signUserOpHashRaw(
+export async function signUserOpHashTypedData(
   walletClient: WalletClient,
   account: Address,
-  userOpHash: Hex,
+  typedData: UserOpApprovalTypedData,
 ): Promise<Hex> {
-  const hash = (userOpHash.startsWith('0x') ? userOpHash : `0x${userOpHash}`) as Hex
-
-  const localSign =
-    walletClient.account && 'sign' in walletClient.account
-      ? (walletClient.account as { sign?: (args: { hash: Hex }) => Promise<Hex> }).sign
-      : undefined
-  if (typeof localSign === 'function') {
-    return localSign.call(walletClient.account, { hash })
-  }
-
   try {
-    return (await walletClient.request({
-      method: 'eth_sign',
-      params: [account, hash],
-    })) as Hex
+    return await walletClient.signTypedData({
+      account,
+      domain: {
+        name: typedData.domain.name,
+        version: typedData.domain.version,
+        chainId: typedData.domain.chainId,
+        verifyingContract: typedData.domain.verifyingContract,
+      },
+      types: {
+        UserOpApproval: [...typedData.types.UserOpApproval],
+      },
+      primaryType: 'UserOpApproval',
+      message: {
+        userOpHash: typedData.message.userOpHash,
+      },
+    })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     throw new Error(
-      `Wallet could not raw-sign the UserOp hash (eth_sign / account.sign). ` +
-        `The deployed multisig requires a raw ECDSA signature, not personal_sign. ${msg}`,
+      `Wallet could not EIP-712-sign the UserOp approval (signTypedData). ${msg}`,
     )
   }
 }

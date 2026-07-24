@@ -1,7 +1,7 @@
 {
-  "deploymentBlock": 486487534,
+  "deploymentBlock": 487240013,
   "ProtocolController": {
-    "address": "0xC5916c0bCb5d4C8Cc605AA5884808dD2b38830ae",
+    "address": "0x81fd488e129fEf0801b116908Ffb8E5fB3AEF56c",
     "abi": [
       {
         "inputs": [
@@ -463,7 +463,7 @@
     ]
   },
   "investorVerificationNFT": {
-    "address": "0x7d5989e4346Af8D168a3f9b465F3B446b98Cc3E0",
+    "address": "0xEb5ee221FbE8e664E4bE1A90e3bcbF7a1BCF61B4",
     "abi": [
       {
         "inputs": [
@@ -1225,7 +1225,7 @@
     ]
   },
   "loanVerificationNFT": {
-    "address": "0x322Be8D74Ba45A19579f5C65beE9ab3cAFd7830c",
+    "address": "0x1DA8faee1514cf45D2e5B33589b0451367d9f9be",
     "abi": [
       {
         "inputs": [
@@ -1987,7 +1987,7 @@
     ]
   },
   "merchantVerificationNFT": {
-    "address": "0xF209cBae9cCa0772A294D73aABd5EF80FFEB0C20",
+    "address": "0xf35b447fb3AF4Bc679Af02EfA11709C3fC43Fccd",
     "abi": [
       {
         "inputs": [
@@ -2749,7 +2749,7 @@
     ]
   },
   "ComplianceRegistry": {
-    "address": "0x64A07d64a8A78E01fbA53a4DAD9dda975767B030",
+    "address": "0x1835fD431d515270556b76AFdEd447422B10091E",
     "abi": [
       {
         "inputs": [
@@ -3448,7 +3448,7 @@
     ]
   },
   "AllocationController": {
-    "address": "0x2951827Ac257D52D888b99DcFBC2D4EE0182Ca68",
+    "address": "0x8f0fA9F7CD7C08De705faE8784E54aaf35A39142",
     "abi": [
       {
         "inputs": [
@@ -4935,7 +4935,7 @@
     ]
   },
   "PayoutRouter": {
-    "address": "0xFFd94992d7a14a4aB51F2E169D94c9c20cd1B504",
+    "address": "0x3ffeBe39D8e2619D08d494dCf55a27A48b8Db232",
     "abi": [
       {
         "inputs": [
@@ -5602,7 +5602,7 @@
     ]
   },
   "FundingPool": {
-    "address": "0x09eCEaaf7798051C96AFfd243495c1173Fdffb67",
+    "address": "0x8a203aaeD6223A7084fdA9b22798f4551C83Ec75",
     "abi": [
       {
         "inputs": [
@@ -8304,7 +8304,7 @@
     ]
   },
   "FistMultisigAccount": {
-    "address": "0x0b24dA8826393b5f47e31799F5C6464Ed8d474BF",
+    "address": "0xcF7C92102edad3b142337D8D93D48B75dDE34276",
     "abi": [
       {
         "inputs": [

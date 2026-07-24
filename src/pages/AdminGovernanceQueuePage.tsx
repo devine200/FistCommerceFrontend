@@ -7,7 +7,10 @@ import {
   GOVERNANCE_FULL_LIST_FILTER,
   governanceListCacheKey,
 } from '@/admin/governance/governanceListCache'
-import { canUserSignGovernanceProposal } from '@/admin/governance/governanceSigner'
+import {
+  canUserSignGovernanceProposal,
+  sessionWalletMatchesConnected,
+} from '@/admin/governance/governanceSigner'
 import { useGovernanceSignAndSubmit } from '@/admin/governance/useGovernanceSignAndSubmit'
 import {
   governanceOperationLabel,
@@ -70,6 +73,7 @@ const AdminGovernanceQueuePage = () => {
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const sessionKind = useAppSelector((s) => s.auth.sessionKind)
+  const sessionWallet = useAppSelector((s) => s.auth.wallet)
   const { proposals, proposalsCache, listStatus, config } = useAppSelector((s) => s.adminMultisig)
   const { address, isConnected } = useActiveWallet()
   const { signAndSubmit, pending: signPending } = useGovernanceSignAndSubmit()
@@ -161,6 +165,7 @@ const AdminGovernanceQueuePage = () => {
   const canQuickSign = useCallback(
     (row: (typeof allProposals)[number]) => {
       if (signPending) return false
+      if (!sessionWalletMatchesConnected(sessionWallet, address)) return false
       return canUserSignGovernanceProposal({
         status: row.status,
         missingSigners: row.missingSigners,
@@ -169,7 +174,7 @@ const AdminGovernanceQueuePage = () => {
         isConnected,
       })
     },
-    [isConnected, address, signPending, config?.signers],
+    [isConnected, address, sessionWallet, signPending, config?.signers],
   )
 
   const explorerBase = getDefaultBlockExplorerBase()

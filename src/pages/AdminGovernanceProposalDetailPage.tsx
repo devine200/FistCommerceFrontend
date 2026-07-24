@@ -9,7 +9,7 @@ import {
   PrivilegedActionFeedbackLayer,
   type PrivilegedActionPhase,
 } from '@/admin/governance/PrivilegedActionFeedbackLayer'
-import { canUserSignGovernanceProposal, hasGovernanceSignature } from '@/admin/governance/governanceSigner'
+import { canUserExecuteGovernanceProposal, canUserSignGovernanceProposal, hasGovernanceSignature, sessionWalletMatchesConnected } from '@/admin/governance/governanceSigner'
 import {
   formatSignerMgmtCallContent,
   formatSignerMgmtDecodedArgs,
@@ -25,7 +25,6 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import {
   cancelMultisigProposal,
   clearAdminMultisigActionError,
-  clearLastExecuteOutcome,
   refreshMultisigConfig,
   refreshMultisigProposalDetail,
   selectMultisigProposalDetail,
@@ -73,7 +72,8 @@ const AdminGovernanceProposalDetailPage = () => {
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const sessionKind = useAppSelector((s) => s.auth.sessionKind)
-  const { config, detailStatus, actionStatus, actionKind, actionError, lastExecuteOutcome } = useAppSelector(
+  const sessionWallet = useAppSelector((s) => s.auth.wallet)
+  const { config, detailStatus, actionStatus, actionKind, actionError } = useAppSelector(
     (s) => s.adminMultisig,
   )
   const detail = useAppSelector((s) =>
@@ -88,6 +88,7 @@ const AdminGovernanceProposalDetailPage = () => {
     error: executeHookError,
     lastResult: executeHookResult,
     clearError: clearExecuteError,
+    clearLastResult: clearExecuteResult,
   } = useGovernanceExecuteProposal()
   const [signingNote, setSigningNote] = useState<string | null>(null)
 
@@ -141,6 +142,10 @@ const AdminGovernanceProposalDetailPage = () => {
     clearExecuteError()
     dispatch(clearAdminMultisigActionError())
   }, [clearSignError, clearExecuteError, dispatch])
+
+  const handleDismissExecuteSuccess = useCallback(() => {
+    clearExecuteResult()
+  }, [clearExecuteResult])
 
   const handleRetryGovernanceAction = useCallback(() => {
     if (!proposalId) return
@@ -244,11 +249,11 @@ const AdminGovernanceProposalDetailPage = () => {
     explorerBase && detail?.executionTxHash
       ? blockExplorerTxUrl(explorerBase, detail.executionTxHash)
       : null
-  const executeTxHash =
-    executeHookResult?.txHash ||
-    (lastExecuteOutcome?.kind === 'completed' ? lastExecuteOutcome.txHash : undefined)
+  const executeTxHash = executeHookResult?.txHash
   const executeTxUrl =
     explorerBase && executeTxHash ? blockExplorerTxUrl(explorerBase, executeTxHash) : null
+
+  const sessionMatchesWallet = sessionWalletMatchesConnected(sessionWallet, address)
 
   const alreadySigned = useMemo(() => {
     if (!address || !detail?.signatures?.length) return false
@@ -269,21 +274,47 @@ const AdminGovernanceProposalDetailPage = () => {
         signedAddresses: detail!.signatures.map((s) => s.signerAddress),
         isConnected,
       }) &&
+      sessionMatchesWallet &&
       !signPending &&
       !executePending &&
       actionStatus !== 'loading',
-    [detail, address, config?.signers, isConnected, signPending, executePending, actionStatus],
+    [
+      detail,
+      address,
+      config?.signers,
+      isConnected,
+      sessionMatchesWallet,
+      signPending,
+      executePending,
+      actionStatus,
+    ],
   )
 
-  const canExecute =
-    Boolean(detail?.readyToExecute) &&
-    detail?.status !== 'executed' &&
-    detail?.status !== 'cancelled' &&
-    Boolean(isSigner) &&
-    !signPending &&
-    !executePending &&
-    actionStatus !== 'loading' &&
-    isConnected
+  const canExecute = useMemo(
+    () =>
+      Boolean(detail) &&
+      canUserExecuteGovernanceProposal({
+        readyToExecute: Boolean(detail!.readyToExecute),
+        status: detail!.status,
+        walletAddress: address,
+        multisigSigners: config?.signers ?? [],
+        sessionWallet,
+        isConnected,
+      }) &&
+      !signPending &&
+      !executePending &&
+      actionStatus !== 'loading',
+    [
+      detail,
+      address,
+      config?.signers,
+      sessionWallet,
+      isConnected,
+      signPending,
+      executePending,
+      actionStatus,
+    ],
+  )
 
   const canCancel =
     Boolean(detail) &&
@@ -429,10 +460,7 @@ const AdminGovernanceProposalDetailPage = () => {
           {executeTxHash ? (
             <div className="rounded-[10px] border border-[#BBF7D0] bg-[#F0FDF4] px-5 py-4">
               <p className="text-[#166534] text-[14px] font-semibold">Execution submitted</p>
-              <p className="text-[#15803D] text-[13px] mt-1">
-                {executeHookResult?.message ||
-                  (lastExecuteOutcome?.kind === 'completed' ? lastExecuteOutcome.message : '')}
-              </p>
+              <p className="text-[#15803D] text-[13px] mt-1">{executeHookResult?.message || ''}</p>
               {executeTxUrl ? (
                 <a
                   href={executeTxUrl}
@@ -445,7 +473,7 @@ const AdminGovernanceProposalDetailPage = () => {
               ) : null}
               <button
                 type="button"
-                onClick={() => dispatch(clearLastExecuteOutcome())}
+                onClick={handleDismissExecuteSuccess}
                 className="mt-2 block text-[#6B7488] text-[12px] hover:underline"
               >
                 Dismiss
@@ -453,8 +481,8 @@ const AdminGovernanceProposalDetailPage = () => {
             </div>
           ) : null}
 
-          {lastExecuteOutcome?.kind === 'completed' && lastExecuteOutcome.postExecuteSync ? (
-            <BackendKeyAlignmentWarning postExecuteSync={lastExecuteOutcome.postExecuteSync} />
+          {executeHookResult?.postExecuteSync ? (
+            <BackendKeyAlignmentWarning postExecuteSync={executeHookResult.postExecuteSync} />
           ) : null}
 
           <AdminPanel>
@@ -492,6 +520,10 @@ const AdminGovernanceProposalDetailPage = () => {
             {!isConnected ? (
               <p className="px-5 pb-4 text-[#6B7488] text-[13px]">
                 Connect your owner wallet in the top bar to sign this proposal.
+              </p>
+            ) : !sessionMatchesWallet ? (
+              <p className="px-5 pb-4 text-[#92400E] text-[13px]">
+                Reconnect the wallet used for admin login to sign or execute.
               </p>
             ) : !isSigner ? (
               <p className="px-5 pb-4 text-[#6B7488] text-[13px]">
