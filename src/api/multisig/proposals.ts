@@ -1,4 +1,4 @@
-import { apiUrl } from '@/api/client'
+import { apiUrl, parseApiErrorResponse } from '@/api/client'
 import { parseAdminWriteResponse } from '@/api/adminActionResponse'
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
 import {
@@ -209,6 +209,9 @@ export async function fetchMultisigExecutionPayload(
       headers: authHeaders(accessToken),
     },
   )
+  if (!res.ok) {
+    throw await parseApiErrorResponse(res)
+  }
   const raw = await res.json()
   const r = asRecord(raw)
   const entryPoint = asHex(pickStr(r, 'entryPoint', 'entry_point'))
