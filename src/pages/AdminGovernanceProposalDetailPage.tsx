@@ -397,12 +397,6 @@ const AdminGovernanceProposalDetailPage = () => {
                 </div>
               </div>
 
-              {detail.simulationError ? (
-                <div className="rounded-[8px] border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-[#B91C1C] text-[14px]">
-                  Simulation error: {detail.simulationError}
-                </div>
-              ) : null}
-
               {detail.preconditions.some((p) => !p.ok) ? (
                 <div className="rounded-[8px] border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3">
                   <p className="text-[#92400E] text-[14px] font-semibold">Failed preconditions</p>

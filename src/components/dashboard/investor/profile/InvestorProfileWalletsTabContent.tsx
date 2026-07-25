@@ -14,6 +14,7 @@ import { disconnectPrivySession } from '@/session/disconnectPrivySession'
 import { resetUserSession } from '@/session/resetUserSession'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
+import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 
 const CHAIN_LABEL: Record<number, string> = {
   [arbitrum.id]: arbitrum.name,
@@ -128,7 +129,12 @@ const InvestorProfileWalletsTabContent = () => {
       const hash = await contracts.mintMockTokens(mintAmount)
       setMintSuccess(`Minted ${mintAmount.toLocaleString()} test tokens. Tx: ${hash.slice(0, 10)}…`)
     } catch (e) {
-      setMintError(e instanceof Error ? e.message : 'Could not mint test tokens.')
+      setMintError(
+        toAppUserFacingError(e, {
+          fallback: 'Could not mint test tokens.',
+          context: 'mint',
+        }),
+      )
     }
   }
 

@@ -9,6 +9,7 @@ import documentCheckedIcon from '@/assets/doc-checked.png'
 import documentDownloadIcon from '@/assets/doc-download.png'
 import documentBinIcon from '@/assets/doc-bin.png'
 import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 import { postMerchantLoanRequest } from '@/api/loanRequest'
 import { fetchRiskTiers, type RiskTier } from '@/api/riskTiers'
 import { useAppSelector } from '@/store/hooks'
@@ -329,9 +330,10 @@ const MerchantApplyLoanPage = () => {
       const message =
         e instanceof ApiRequestError
           ? formatApiRequestErrorPlain(e)
-          : e instanceof Error
-            ? e.message
-            : 'We could not submit your loan request. Please try again.'
+          : toAppUserFacingError(e, {
+              fallback: 'We could not submit your loan request. Please try again.',
+              context: 'general',
+            })
 
       saveMerchantLoanApplyDraft({
         poolSlug,

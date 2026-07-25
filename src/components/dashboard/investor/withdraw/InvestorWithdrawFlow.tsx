@@ -18,7 +18,7 @@ import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useAppSelector } from '@/store/hooks'
 import { selectInvestorPoolAndMetrics } from '@/store/selectors/investorDashboardSelectors'
-import { formatFlowFailureMessage } from '@/utils/formatFlowFailureMessage'
+import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 import {
   filterQuickAmountsByMax,
   validateInvestWithdrawAmount,
@@ -84,7 +84,10 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
   }, [withdrawalStep])
 
   const openFlowFailure = (source: unknown, returnStep: WithdrawalStep, showChangeAmount: boolean) => {
-    const message = formatFlowFailureMessage(source)
+    const message = toAppUserFacingError(source, {
+      fallback: 'Something went wrong. Please try again.',
+      context: 'withdraw',
+    })
     setFlowFailure({ message, returnStep, showChangeAmount })
     setFeedbackError(message)
     setFeedbackPhase('failed')

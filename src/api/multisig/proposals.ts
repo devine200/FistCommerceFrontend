@@ -217,6 +217,12 @@ export async function fetchMultisigExecutionPayload(
   const entryPoint = asHex(pickStr(r, 'entryPoint', 'entry_point'))
   const userOpRaw = asRecord(r.userOp ?? r.user_op)
   if (!entryPoint || entryPoint === '0x' || !userOpRaw.sender) {
+    const backendMessage =
+      pickStr(r, 'message', 'error', 'errorMessage', 'error_message') ||
+      pickStr(r, 'detail')
+    if (backendMessage) {
+      throw new Error(backendMessage)
+    }
     throw new Error('Execution payload response was missing required fields.')
   }
   return {

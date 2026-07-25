@@ -4,6 +4,7 @@ import { usePrivy } from '@privy-io/react-auth'
 
 import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import { ApiRequestError, formatApiRequestErrorPlain, getApiBaseUrl } from '@/api/client'
+import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 import { createWalletLoginSignable, postWalletLogin } from '@/api/walletSession'
 import privyIcon from '@/assets/Icon (1).png'
 import { isSafeDashboardReturnPath, resolveDashboardReturnTo, saveDashboardReturnTo } from '@/session/dashboardReturnTo'
@@ -103,8 +104,12 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
     try {
       await login()
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Could not open login.'
-      setRowError(message)
+      setRowError(
+        toAppUserFacingError(e, {
+          fallback: 'Could not open login.',
+          context: 'onboarding',
+        }),
+      )
       console.error(e)
     } finally {
       setConnecting(false)
@@ -125,8 +130,12 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
     try {
       await connectWallet()
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Could not connect wallet.'
-      setRowError(message)
+      setRowError(
+        toAppUserFacingError(e, {
+          fallback: 'Could not connect wallet.',
+          context: 'onboarding',
+        }),
+      )
       console.error(e)
     } finally {
       setConnecting(false)
@@ -141,8 +150,12 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
       setActiveWalletId(null)
       dispatch(resetWallet())
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Could not disconnect wallet.'
-      setRowError(message)
+      setRowError(
+        toAppUserFacingError(e, {
+          fallback: 'Could not disconnect wallet.',
+          context: 'onboarding',
+        }),
+      )
       console.error(e)
     } finally {
       setDisconnecting(false)
@@ -268,8 +281,12 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
       } else if (e instanceof ApiRequestError) {
         setRowError(formatApiRequestErrorPlain(e))
       } else {
-        const message = e instanceof Error ? e.message : 'Could not complete wallet sign-in.'
-        setRowError(message)
+        setRowError(
+          toAppUserFacingError(e, {
+            fallback: 'Could not complete wallet sign-in.',
+            context: 'onboarding',
+          }),
+        )
       }
       console.error(e)
     } finally {

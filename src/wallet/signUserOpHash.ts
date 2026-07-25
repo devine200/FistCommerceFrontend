@@ -1,6 +1,8 @@
 import type { Address, Hex, WalletClient } from 'viem'
 import { hexToBytes, toHex } from 'viem'
 
+import { isUserRejectedWalletRequest } from '@/wallet/walletChainErrors'
+
 export type UserOpApprovalTypedData = {
   domain: {
     name: string
@@ -79,9 +81,9 @@ export async function signUserOpHashTypedData(
     })
     return normalizeSecp256k1Signature(signature)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    throw new Error(
-      `Wallet could not EIP-712-sign the UserOp approval (signTypedData). ${msg}`,
-    )
+    if (isUserRejectedWalletRequest(err)) {
+      throw err
+    }
+    throw new Error('Wallet could not EIP-712-sign the UserOp approval (signTypedData).')
   }
 }

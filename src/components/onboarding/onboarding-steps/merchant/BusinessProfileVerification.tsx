@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 
 import CountrySelect from '@/components/forms/CountrySelect'
 import { ApiRequestError, getApiBaseUrl } from '@/api/client'
+import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 import { postMerchantProfile } from '@/api/onboardingProfile'
 import ApiFormErrorPanel from '@/components/forms/ApiFormErrorPanel'
 import FormSubmitLoadingNotice from '@/components/forms/FormSubmitLoadingNotice'
@@ -74,7 +75,12 @@ const BusinessProfileVerification = () => {
       if (err instanceof ApiRequestError) {
         setSubmitError(err)
       } else {
-        setSubmitError(err instanceof Error ? err.message : 'Could not save profile.')
+        setSubmitError(
+          toAppUserFacingError(err, {
+            fallback: 'Could not save profile.',
+            context: 'onboarding',
+          }),
+        )
       }
     } finally {
       setIsSubmitting(false)

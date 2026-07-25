@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import logo from '@/assets/logo.png'
 import { ApiRequestError, getApiBaseUrl } from '@/api/client'
+import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 import { postInvestorProfile } from '@/api/onboardingProfile'
 import ApiFormErrorPanel from '@/components/forms/ApiFormErrorPanel'
 import FormSubmitLoadingNotice from '@/components/forms/FormSubmitLoadingNotice'
@@ -63,7 +64,12 @@ const InvestmentExplainer = ({ onContinue }: InvestmentExplainerProps) => {
             if (err instanceof ApiRequestError) {
                 setSubmitError(err)
             } else {
-                setSubmitError(err instanceof Error ? err.message : 'Could not save profile.')
+                setSubmitError(
+                    toAppUserFacingError(err, {
+                        fallback: 'Could not save profile.',
+                        context: 'onboarding',
+                    }),
+                )
             }
         } finally {
             setIsSubmitting(false)

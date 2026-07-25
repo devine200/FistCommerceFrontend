@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { Abi, Address, Hex } from 'viem'
 
-import { toUserFacingError } from '@/api/client'
+import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 import {
   fetchMultisigExecutionPayload,
   postMultisigProposalConfirmExecute,
@@ -132,7 +132,10 @@ export function useGovernanceExecuteProposal() {
         await dispatch(refreshMultisigConfig()).unwrap().catch(() => {})
         return result
       } catch (e) {
-        const message = toUserFacingError(e, 'Could not execute proposal.')
+        const message = toAppUserFacingError(e, {
+          fallback: 'Could not execute proposal.',
+          context: 'governance_execute',
+        })
         setError(message)
         return null
       } finally {

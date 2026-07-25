@@ -13,7 +13,7 @@ import type { MerchantRepayLoanContext } from '@/hooks/useMerchantRepayLoanConte
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useAppDispatch } from '@/store/hooks'
 import { refreshMerchantReceivables } from '@/store/slices/merchantReceivablesSlice'
-import { formatFlowFailureMessage } from '@/utils/formatFlowFailureMessage'
+import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 
 type UseMerchantRepaySubmitParams = {
   repayContext: MerchantRepayLoanContext
@@ -79,7 +79,10 @@ export function useMerchantRepaySubmit({
       navigate(paths.failure, {
         replace: true,
         state: {
-          message: formatFlowFailureMessage(e),
+          message: toAppUserFacingError(e, {
+            fallback: 'Your repayment could not be completed. Please try again.',
+            context: 'repay',
+          }),
           receivableName,
           paymentAmount,
         },

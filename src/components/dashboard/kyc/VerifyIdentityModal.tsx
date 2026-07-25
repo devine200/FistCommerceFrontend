@@ -5,6 +5,7 @@ import cloudUploadIcon from '@/assets/cloud-upload.png'
 import { postInvestorKycIdentity } from '@/api/kycInvestor'
 import { postMerchantKycIdentity, postMerchantKycInsurance } from '@/api/kycMerchant'
 import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 import DiditVerificationPanel from '@/components/dashboard/kyc/DiditVerificationPanel'
 
 export type KycVerifyIdentityFlow = 'investor_identity' | 'merchant_identity' | 'merchant_insurance'
@@ -174,10 +175,13 @@ const VerifyIdentityModal = ({
     } catch (err) {
       if (err instanceof ApiRequestError) {
         setError(formatApiRequestErrorPlain(err))
-      } else if (err instanceof Error) {
-        setError(err.message)
       } else {
-        setError('Upload failed. Please try again.')
+        setError(
+          toAppUserFacingError(err, {
+            fallback: 'Upload failed. Please try again.',
+            context: 'kyc',
+          }),
+        )
       }
     } finally {
       setSubmitting(false)

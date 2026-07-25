@@ -1,0 +1,5 @@
+export type { AppErrorCode } from '@/errors/codes'
+export type { AppErrorContext, ClassifiedAppError } from '@/errors/classify'
+export { classifyAppError } from '@/errors/classify'
+export { messageForCode } from '@/errors/messages'
+export { toAppUserFacingError } from '@/errors/toAppUserFacingError'
