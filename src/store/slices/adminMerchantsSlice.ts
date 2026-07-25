@@ -8,7 +8,7 @@ import {
   type AdminMerchantsTabFilter,
   type FetchAdminMerchantProfileParams,
 } from '@/api/adminKycMerchants'
-import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { rejectUserFacing } from '@/errors/rejectUserFacing'
 import type { MerchantProfileDetail } from '@/components/admin/merchants/merchantsMockData'
 import { mapAdminMerchantProfileToDetail } from '@/utils/mapAdminMerchantsList'
 import {
@@ -114,10 +114,7 @@ export const refreshAdminMerchants = createAsyncThunk(
         results: data.results,
       }
     } catch (e) {
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load merchants.'))
     }
   },
 )
@@ -150,10 +147,7 @@ export const refreshAdminMerchantProfile = createAsyncThunk(
         profile: mapAdminMerchantProfileToDetail(detail),
       }
     } catch (e) {
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load merchants.'))
     }
   },
 )

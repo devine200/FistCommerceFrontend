@@ -1,5 +1,7 @@
 import { isRouteErrorResponse, useRouteError } from 'react-router-dom'
 
+import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
+
 function isLikelyStoreOrRuntimeFault(error: unknown): boolean {
   if (!(error instanceof Error)) return false
   const name = error.name
@@ -13,14 +15,18 @@ function messageFromError(error: unknown): string {
     return 'The app hit an unexpected state. Reloading usually fixes this.'
   }
   if (isRouteErrorResponse(error)) {
-    return error.statusText || `Error ${error.status}`
+    if (error.status === 404) return 'This page could not be found.'
+    if (error.status === 401 || error.status === 403) {
+      return 'You do not have access to this page. Sign in again or contact support.'
+    }
+    if (error.status >= 500) return 'The server had a problem. Please reload and try again.'
+    return toAppUserFacingError(error.statusText || `Request failed (${error.status})`, {
+      fallback: 'Something went wrong while loading this page.',
+    })
   }
-  if (error instanceof Error && error.message.trim()) {
-    // Keep short; avoid dumping long stacks or minified noise into the UI.
-    const msg = error.message.trim()
-    return msg.length > 160 ? `${msg.slice(0, 157)}…` : msg
-  }
-  return 'Something went wrong while loading this page.'
+  return toAppUserFacingError(error, {
+    fallback: 'Something went wrong while loading this page.',
+  })
 }
 
 /** Shown when a route throws; offers a full reload to recover from bad store/bundle state. */

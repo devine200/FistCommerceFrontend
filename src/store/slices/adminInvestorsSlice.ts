@@ -8,7 +8,7 @@ import {
   type AdminInvestorsTabFilter,
   type FetchAdminInvestorProfileParams,
 } from '@/api/adminKycInvestors'
-import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { rejectUserFacing } from '@/errors/rejectUserFacing'
 import {
   resolveInvestmentActivityDetail,
   type InvestmentActivityDetail,
@@ -130,10 +130,7 @@ export const refreshAdminInvestors = createAsyncThunk(
         results: data.results,
       }
     } catch (e) {
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load investors.'))
     }
   },
 )
@@ -170,10 +167,7 @@ export const refreshAdminInvestorProfile = createAsyncThunk(
         profile: mapAdminInvestorProfileToDetail(detail),
       }
     } catch (e) {
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load investors.'))
     }
   },
 )

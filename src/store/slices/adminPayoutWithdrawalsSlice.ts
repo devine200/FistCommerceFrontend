@@ -13,7 +13,7 @@ import {
   type AdminRequestType,
   type AdminRequestTypeFilter,
 } from '@/api/adminRequests'
-import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { rejectUserFacing } from '@/errors/rejectUserFacing'
 import {
   isLatestAdminListRequest,
   markAdminListRequestPending,
@@ -148,10 +148,7 @@ export const refreshAdminPayoutWithdrawals = createAsyncThunk(
         total: data.total,
       }
     } catch (e) {
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not complete payout or withdrawal action.'))
     }
   },
 )
@@ -206,10 +203,7 @@ export const approveAdminRequest = createAsyncThunk(
       if (thunkApi.signal.aborted || isAbortError(e)) {
         throw e
       }
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not complete payout or withdrawal action.'))
     }
   },
 )
@@ -261,10 +255,7 @@ export const rejectAdminRequest = createAsyncThunk(
       if (thunkApi.signal.aborted || isAbortError(e)) {
         throw e
       }
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not complete payout or withdrawal action.'))
     }
   },
 )

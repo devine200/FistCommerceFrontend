@@ -1,4 +1,4 @@
-import { apiUrl } from '@/api/client'
+import { apiUrl, parseApiErrorResponse } from '@/api/client'
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
 import type { ServicerWalletSnapshot } from '@/api/adminActionResponse'
 
@@ -59,6 +59,7 @@ export async function fetchAdminServicerWallet(
     method: 'GET',
     headers: authHeaders(accessToken),
   })
+  if (!res.ok) throw await parseApiErrorResponse(res)
   const raw = await res.json()
   return normalizeServicerWallet(raw)
 }

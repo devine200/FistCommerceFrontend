@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePrivy } from '@privy-io/react-auth'
 
-import { ApiRequestError, formatApiRequestErrorPlain, getApiBaseUrl } from '@/api/client'
+import { ApiRequestError, getApiBaseUrl } from '@/api/client'
 import { postAdminWalletLogin } from '@/api/adminAuth'
 import { createWalletLoginSignable } from '@/api/walletSession'
 import privyIcon from '@/assets/Icon (1).png'
@@ -10,6 +10,7 @@ import { AdminLoginFeedbackModal } from '@/components/admin/AdminLoginFeedbackMo
 import AdminLoginGuard from '@/components/session/AdminLoginGuard'
 import NetworkModeSwitcher from '@/components/session/NetworkModeSwitcher'
 import { ADMIN_DASHBOARD_OVERVIEW_PATH } from '@/auth/adminSession'
+import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 import { consumeSessionEndMessage } from '@/session/sessionEnd'
 import { useAppDispatch } from '@/store/hooks'
 import { persistor } from '@/store'
@@ -32,13 +33,13 @@ function isWalletSignRejected(e: unknown): boolean {
 }
 
 function formatAdminLoginError(err: unknown): string {
-  if (err instanceof ApiRequestError) {
-    if (err.status === 401) {
-      return 'This wallet is not authorized as a multisig owner, or the signature was invalid. Connect with a multisig owner wallet and try again.'
-    }
-    return formatApiRequestErrorPlain(err)
+  if (err instanceof ApiRequestError && err.status === 401) {
+    return 'This wallet is not authorized as a multisig owner, or the signature was invalid. Connect with a multisig owner wallet and try again.'
   }
-  return err instanceof Error ? err.message : 'Could not sign in. Please try again.'
+  return toAppUserFacingError(err, {
+    fallback: 'Could not sign in. Please try again.',
+    context: 'onboarding',
+  })
 }
 
 const AdminLoginPage = () => {
@@ -66,8 +67,12 @@ const AdminLoginPage = () => {
     try {
       await login()
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Could not open login.'
-      setErrorMessage(message)
+      setErrorMessage(
+        toAppUserFacingError(e, {
+          fallback: 'Could not open login.',
+          context: 'onboarding',
+        }),
+      )
       console.error(e)
     } finally {
       setConnecting(false)
@@ -88,8 +93,12 @@ const AdminLoginPage = () => {
     try {
       await connectWallet()
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Could not connect wallet.'
-      setErrorMessage(message)
+      setErrorMessage(
+        toAppUserFacingError(e, {
+          fallback: 'Could not connect wallet.',
+          context: 'onboarding',
+        }),
+      )
       console.error(e)
     } finally {
       setConnecting(false)

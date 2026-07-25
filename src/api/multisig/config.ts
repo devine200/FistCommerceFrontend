@@ -1,4 +1,4 @@
-import { apiUrl } from '@/api/client'
+import { apiUrl, parseApiErrorResponse } from '@/api/client'
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
 import { normalizeMultisigConfig } from '@/api/multisig/normalize'
 import type { MultisigConfig } from '@/api/types/multisig'
@@ -23,6 +23,7 @@ export async function fetchMultisigConfig(
     method: 'GET',
     headers: authHeaders(accessToken),
   })
+  if (!res.ok) throw await parseApiErrorResponse(res)
   const raw = await res.json()
   return normalizeMultisigConfig(raw)
 }

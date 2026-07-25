@@ -3,6 +3,7 @@ import { parseApiErrorResponse } from '@/api/apiRequestError'
 
 export {
   ApiRequestError,
+  apiRequestErrorFromJson,
   formatApiRequestErrorPlain,
   parseApiErrorResponse,
 } from '@/api/apiRequestError'

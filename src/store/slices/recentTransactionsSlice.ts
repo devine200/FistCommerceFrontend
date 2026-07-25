@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/tool
 
 import { fetchRecentPayoutTransactions, type FetchRecentPayoutTransactionsParams } from '@/api/payout'
 import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
+import { rejectUserFacing } from '@/errors/rejectUserFacing'
 import type { RecentTx } from '@/components/dashboard/investor/lending-pool-detail/types'
 import {
   dashboardTransactionListsEqual,
@@ -100,12 +101,15 @@ export const refreshRecentTransactions = createAsyncThunk(
     const { background: _background, ...filterParams } = params
     const limit = filterParams.limit ?? DASHBOARD_LIST_PAGE_SIZE
     const offset = filterParams.offset ?? 0
-    const bundle = await fetchRecentPayoutTransactions(accessToken, { limit, offset })
-
-    return {
-      fetchedAt: Date.now(),
-      filter: { limit, offset },
-      bundle,
+    try {
+      const bundle = await fetchRecentPayoutTransactions(accessToken, { limit, offset })
+      return {
+        fetchedAt: Date.now(),
+        filter: { limit, offset },
+        bundle,
+      }
+    } catch (e) {
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load recent transactions.'))
     }
   },
 )
@@ -198,13 +202,18 @@ const recentTransactionsSlice = createSlice({
         const cacheKey = recentTransactionsListCacheKey(filter)
         const hasCache = Object.prototype.hasOwnProperty.call(state.resultsCache, cacheKey)
 
+        const message =
+          (typeof action.payload === 'string' ? action.payload : null) ??
+          action.error.message ??
+          'Could not load recent transactions.'
+
         if (Boolean(background) || hasCache || state.items.length > 0) {
-          state.error = action.error.message ?? 'Could not refresh recent transactions.'
+          state.error = message
           return
         }
 
         state.status = 'failed'
-        state.error = action.error.message ?? 'Could not load recent transactions.'
+        state.error = message
       })
       .addMatcher(
         (action) => action.type === INVESTOR_DASHBOARD_REFRESH_REJECTED,

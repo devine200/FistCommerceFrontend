@@ -158,6 +158,19 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
   if (/\bpaused\b/i.test(t) && /protocol|controller/i.test(t)) {
     return { code: 'PROTOCOL_PAUSED', message: messageForCode('PROTOCOL_PAUSED'), raw: t }
   }
+  if (/max.?merchant|merchant.?concentration|concentration.?limit|setMaxMerchantBps/i.test(t)) {
+    return {
+      code: 'MERCHANT_CONCENTRATION',
+      message: messageForCode('MERCHANT_CONCENTRATION'),
+      raw: t,
+    }
+  }
+  if (/kyc.*(required|incomplete|not verified)|complete.*(kyc|identity|verification)/i.test(t)) {
+    return { code: 'KYC_REQUIRED', message: messageForCode('KYC_REQUIRED'), raw: t }
+  }
+  if (/^request failed \(\d+\)$/i.test(t) || /^(bad request|unauthorized|forbidden|not found)$/i.test(t)) {
+    return { code: 'API_MESSAGE', message: messageForCode('API_MESSAGE'), raw: t }
+  }
 
   const quoted = t.match(/execution reverted:\s*"([^"]+)"/i)?.[1]?.trim()
   if (quoted) {

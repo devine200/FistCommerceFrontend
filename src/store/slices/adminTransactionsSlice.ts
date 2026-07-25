@@ -7,7 +7,7 @@ import {
   type AdminTransactionRow,
   type AdminTransactionsSummary,
 } from '@/api/adminTransactions'
-import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { rejectUserFacing } from '@/errors/rejectUserFacing'
 import {
   adminTransactionListsEqual,
   adminTransactionsListCacheKey,
@@ -105,10 +105,7 @@ export const refreshAdminTransactions = createAsyncThunk(
         total: data.total,
       }
     } catch (e) {
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load transactions.'))
     }
   },
 )

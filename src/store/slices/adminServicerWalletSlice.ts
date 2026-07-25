@@ -1,7 +1,7 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
 import { fetchAdminServicerWallet, type AdminServicerWallet } from '@/api/adminServicerWallet'
-import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { rejectUserFacing } from '@/errors/rejectUserFacing'
 
 export type AdminServicerWalletSyncStatus = 'idle' | 'loading' | 'succeeded' | 'failed'
 
@@ -31,8 +31,7 @@ export const refreshAdminServicerWallet = createAsyncThunk(
       const wallet = await fetchAdminServicerWallet(accessToken)
       return { wallet, fetchedAt: Date.now() }
     } catch (e) {
-      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load servicer wallet status.'))
     }
   },
 )

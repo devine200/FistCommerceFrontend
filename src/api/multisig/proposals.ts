@@ -69,6 +69,7 @@ export async function fetchMultisigProposals(
     method: 'GET',
     headers: authHeaders(accessToken),
   })
+  if (!res.ok) throw await parseApiErrorResponse(res)
   const raw = await res.json()
   const r = asRecord(raw)
   const rows: ProposalListRow[] = []
@@ -91,6 +92,7 @@ export async function fetchMultisigProposalDetail(
     method: 'GET',
     headers: authHeaders(accessToken),
   })
+  if (!res.ok) throw await parseApiErrorResponse(res)
   const raw = await res.json()
   const detail = normalizeProposalDetail(raw)
   if (!detail) throw new Error('Proposal detail response was missing required fields.')
@@ -111,6 +113,7 @@ export async function fetchMultisigSigningPayload(
       headers: authHeaders(accessToken),
     },
   )
+  if (!res.ok) throw await parseApiErrorResponse(res)
   const raw = await res.json()
   const payload = normalizeSigningPayload(raw)
   if (!payload) throw new Error('Signing payload response was missing required fields.')

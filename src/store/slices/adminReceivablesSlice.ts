@@ -6,7 +6,7 @@ import {
   type AdminReceivablesTabFilter,
   type AdminReceivableListRow,
 } from '@/api/adminLoan'
-import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { rejectUserFacing } from '@/errors/rejectUserFacing'
 import {
   adminReceivableListsEqual,
   adminReceivablesListCacheKey,
@@ -90,10 +90,7 @@ export const refreshAdminReceivables = createAsyncThunk(
         results: data.results,
       }
     } catch (e) {
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load receivables.'))
     }
   },
 )

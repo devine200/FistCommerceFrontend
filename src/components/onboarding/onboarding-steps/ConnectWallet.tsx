@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { usePrivy } from '@privy-io/react-auth'
 
 import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
-import { ApiRequestError, formatApiRequestErrorPlain, getApiBaseUrl } from '@/api/client'
+import { getApiBaseUrl } from '@/api/client'
 import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 import { createWalletLoginSignable, postWalletLogin } from '@/api/walletSession'
 import privyIcon from '@/assets/Icon (1).png'
@@ -278,8 +278,6 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
     } catch (e) {
       if (isWalletSignRejected(e)) {
         setRowError('Signature was cancelled. Please try again when you are ready to sign in.')
-      } else if (e instanceof ApiRequestError) {
-        setRowError(formatApiRequestErrorPlain(e))
       } else {
         setRowError(
           toAppUserFacingError(e, {

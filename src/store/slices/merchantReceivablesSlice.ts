@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
 import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import { fetchMerchantLoanList, type MerchantLoanListEntry } from '@/api/loanDetails'
+import { rejectUserFacing } from '@/errors/rejectUserFacing'
 import type { RootState } from '@/store'
 import { selectIsKycVerified } from '@/store/selectors/sessionSelectors'
 
@@ -35,8 +36,12 @@ export const refreshMerchantReceivables = createAsyncThunk(
       return { fetchedAt: Date.now(), loans: [] as MerchantLoanListEntry[] }
     }
 
-    const loans = await fetchMerchantLoanList(accessToken)
-    return { fetchedAt: Date.now(), loans }
+    try {
+      const loans = await fetchMerchantLoanList(accessToken)
+      return { fetchedAt: Date.now(), loans }
+    } catch (e) {
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load receivables.'))
+    }
   },
 )
 
@@ -59,7 +64,10 @@ const merchantReceivablesSlice = createSlice({
       })
       .addCase(refreshMerchantReceivables.rejected, (state, action) => {
         state.status = 'failed'
-        state.error = action.error.message ?? 'Could not load receivables.'
+        state.error =
+          (typeof action.payload === 'string' ? action.payload : null) ??
+          action.error.message ??
+          'Could not load receivables.'
       })
   },
 })

@@ -5,7 +5,7 @@ import {
   type FetchMerchantTransactionsParams,
   type MerchantTransactionApi,
 } from '@/api/metrics'
-import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { rejectUserFacing } from '@/errors/rejectUserFacing'
 import { DASHBOARD_LIST_PAGE_SIZE } from '@/constants/listPagination'
 import {
   dashboardTransactionListsEqual,
@@ -98,10 +98,7 @@ export const refreshMerchantTransactions = createAsyncThunk(
         total: data.total,
       }
     } catch (e) {
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load merchant transactions.'))
     }
   },
 )

@@ -1,7 +1,7 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 import { fetchAdminLatestRepayments } from '@/api/adminLoan'
-import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { rejectUserFacing } from '@/errors/rejectUserFacing'
 import {
   fetchAdminMetrics,
   fetchAdminOriginatedPrincipalHistory,
@@ -84,10 +84,7 @@ export const refreshAdminDashboard = createAsyncThunk(
         activities: adminRepaymentsToActivityRows(repayments),
       }
     } catch (e) {
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load admin dashboard.'))
     }
   },
 )

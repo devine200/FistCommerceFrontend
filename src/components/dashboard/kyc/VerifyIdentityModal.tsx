@@ -4,7 +4,6 @@ import backArrowIcon from '@/assets/ph_arrow-left.png'
 import cloudUploadIcon from '@/assets/cloud-upload.png'
 import { postInvestorKycIdentity } from '@/api/kycInvestor'
 import { postMerchantKycIdentity, postMerchantKycInsurance } from '@/api/kycMerchant'
-import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
 import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 import DiditVerificationPanel from '@/components/dashboard/kyc/DiditVerificationPanel'
 
@@ -173,16 +172,12 @@ const VerifyIdentityModal = ({
       setVerificationUrl(url)
       setPhase('didit')
     } catch (err) {
-      if (err instanceof ApiRequestError) {
-        setError(formatApiRequestErrorPlain(err))
-      } else {
-        setError(
-          toAppUserFacingError(err, {
-            fallback: 'Upload failed. Please try again.',
-            context: 'kyc',
-          }),
-        )
-      }
+      setError(
+        toAppUserFacingError(err, {
+          fallback: 'Upload failed. Please try again.',
+          context: 'kyc',
+        }),
+      )
     } finally {
       setSubmitting(false)
     }
@@ -208,7 +203,14 @@ const VerifyIdentityModal = ({
               /* parent handles */
             })
           }}
-          onError={(msg) => setError(msg)}
+          onError={(msg) =>
+            setError(
+              toAppUserFacingError(msg, {
+                fallback: 'Verification couldn’t continue. Try again.',
+                context: 'kyc',
+              }),
+            )
+          }
         />
         <div className="mt-4 flex flex-wrap gap-2 justify-end">
           <button type="button" onClick={onCancel} className="px-4 py-2 rounded-md border border-[#C9CFDA] text-[#374151] text-[14px]">

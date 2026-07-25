@@ -6,7 +6,7 @@ import {
   type AdminContactSocialLinks,
   type AdminContactSocialLinksResponse,
 } from '@/api/adminContactSocialLinks'
-import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { rejectUserFacing } from '@/errors/rejectUserFacing'
 
 export type AdminContactSocialLinksSyncStatus = 'idle' | 'loading' | 'succeeded' | 'failed'
 export type AdminContactSocialLinksSaveStatus = 'idle' | 'loading' | 'succeeded' | 'failed'
@@ -72,10 +72,7 @@ export const refreshAdminContactSocialLinks = createAsyncThunk(
       const data = await fetchAdminContactSocialLinks(accessToken)
       return { fetchedAt: Date.now(), data }
     } catch (e) {
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not update contact settings.'))
     }
   },
 )
@@ -93,10 +90,7 @@ export const saveAdminContactSocialLinks = createAsyncThunk(
       const data = await postAdminContactSocialLinks(accessToken, payload)
       return { fetchedAt: Date.now(), data }
     } catch (e) {
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not update contact settings.'))
     }
   },
 )

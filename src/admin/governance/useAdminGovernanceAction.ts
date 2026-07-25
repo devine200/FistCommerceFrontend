@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 
 import type { OperationType } from '@/api/types/multisig'
+import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 
 import { submitAdminAction } from './submitAdminAction'
 import type { ResolvedGovernanceOutcome } from './types'
@@ -19,7 +20,7 @@ export function useAdminGovernanceAction(operationType?: OperationType) {
         setResult(resolved)
         return resolved
       } catch (e) {
-        const message = e instanceof Error ? e.message : 'Request failed.'
+        const message = toAppUserFacingError(e, 'Could not submit this governance action.')
         setError(message)
         throw e
       } finally {

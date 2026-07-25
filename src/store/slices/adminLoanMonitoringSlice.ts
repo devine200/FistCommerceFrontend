@@ -14,7 +14,7 @@ import {
   type AdminLoanMonitoringTabFilter,
 } from '@/api/adminLoanMonitoring'
 import { fetchReceivablePayoutStatus, postAdminPayoutInitiate } from '@/api/payout'
-import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { rejectUserFacing } from '@/errors/rejectUserFacing'
 import type {
   AdminLoanMonitoringActionKind,
   LoanMonitoringDetailView,
@@ -182,10 +182,7 @@ export const refreshAdminLoanMonitoring = createAsyncThunk(
         results: data.results,
       }
     } catch (e) {
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not complete loan action.'))
     }
   },
 )
@@ -232,10 +229,7 @@ export const refreshAdminLoanMonitoringDetail = createAsyncThunk(
         detail: mapAdminLoanMonitoringDetailToView(detail, { payoutStatus }),
       }
     } catch (e) {
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not complete loan action.'))
     }
   },
 )
@@ -262,10 +256,7 @@ export const approveAdminLoanMonitoringLoan = createAsyncThunk(
       if (thunkApi.signal.aborted || isAbortError(e)) {
         throw e
       }
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not complete loan action.'))
     }
   },
 )
@@ -292,10 +283,7 @@ export const rejectAdminLoanMonitoringLoan = createAsyncThunk(
       if (thunkApi.signal.aborted || isAbortError(e)) {
         throw e
       }
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not complete loan action.'))
     }
   },
 )
@@ -324,10 +312,7 @@ export const fundAdminLoanMonitoringLoan = createAsyncThunk(
       if (thunkApi.signal.aborted || isAbortError(e)) {
         throw e
       }
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not complete loan action.'))
     }
   },
 )
@@ -372,10 +357,7 @@ export const initiateAdminLoanMonitoringPayout = createAsyncThunk(
       if (thunkApi.signal.aborted || isAbortError(e)) {
         throw e
       }
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not complete loan action.'))
     }
   },
 )
@@ -402,10 +384,7 @@ export const markAdminLoanMonitoringLoanDefaulted = createAsyncThunk(
       if (thunkApi.signal.aborted || isAbortError(e)) {
         throw e
       }
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not complete loan action.'))
     }
   },
 )
@@ -432,10 +411,7 @@ export const writeOffAdminLoanMonitoringShortfall = createAsyncThunk(
       if (thunkApi.signal.aborted || isAbortError(e)) {
         throw e
       }
-      if (e instanceof ApiRequestError) {
-        return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      }
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not complete loan action.'))
     }
   },
 )

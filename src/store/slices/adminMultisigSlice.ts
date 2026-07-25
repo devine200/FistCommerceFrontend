@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
-import { ApiRequestError, formatApiRequestErrorPlain } from '@/api/client'
+import { rejectUserFacing } from '@/errors/rejectUserFacing'
 import { fetchMultisigConfig } from '@/api/multisig/config'
 import {
   fetchMultisigProposalDetail,
@@ -83,8 +83,7 @@ export const refreshMultisigConfig = createAsyncThunk(
     try {
       return await fetchMultisigConfig(accessToken)
     } catch (e) {
-      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load multisig config.'))
     }
   },
 )
@@ -100,8 +99,7 @@ export const refreshMultisigProposals = createAsyncThunk(
       const proposals = await fetchMultisigProposals(accessToken, filter)
       return { proposals, filter, fetchedAt: Date.now() }
     } catch (e) {
-      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load governance proposals.'))
     }
   },
 )
@@ -118,8 +116,7 @@ export const refreshMultisigProposalDetail = createAsyncThunk(
       const detail = await fetchMultisigProposalDetail(accessToken, id)
       return detail
     } catch (e) {
-      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not load proposal detail.'))
     }
   },
 )
@@ -141,8 +138,7 @@ export const signMultisigProposal = createAsyncThunk(
       await thunkApi.dispatch(refreshMultisigProposalDetail(params.proposalId)).unwrap()
       return params.proposalId
     } catch (e) {
-      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not submit signature.'))
     }
   },
 )
@@ -158,8 +154,7 @@ export const cancelMultisigProposal = createAsyncThunk(
       await thunkApi.dispatch(refreshMultisigProposalDetail(proposalId)).unwrap()
       return proposalId
     } catch (e) {
-      if (e instanceof ApiRequestError) return thunkApi.rejectWithValue(formatApiRequestErrorPlain(e))
-      throw e
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not cancel proposal.'))
     }
   },
 )

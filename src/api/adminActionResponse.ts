@@ -1,4 +1,4 @@
-import { parseApiErrorResponse } from '@/api/client'
+import { apiRequestErrorFromJson } from '@/api/client'
 import { normalizeOperationType } from '@/api/multisig/normalize'
 import type { OperationType } from '@/api/types/multisig'
 
@@ -93,7 +93,7 @@ export async function parseAdminWriteResponse(res: Response): Promise<AdminWrite
     raw = await res.json()
   } catch {
     if (!res.ok) {
-      throw await parseApiErrorResponse(res)
+      throw apiRequestErrorFromJson(res.status, {}, res.statusText)
     }
     return {
       kind: 'completed',
@@ -106,7 +106,8 @@ export async function parseAdminWriteResponse(res: Response): Promise<AdminWrite
   const data = asRecord(raw)
 
   if (!res.ok) {
-    throw await parseApiErrorResponse(res)
+    // Body already consumed — never call parseApiErrorResponse(res) again.
+    throw apiRequestErrorFromJson(res.status, raw, res.statusText)
   }
 
   if (res.status === 202) {

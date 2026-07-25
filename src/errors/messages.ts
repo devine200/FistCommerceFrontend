@@ -45,6 +45,9 @@ const MESSAGES: Record<AppErrorCode, string> = {
   DEPOSITS_PAUSED: 'Deposits are temporarily paused. Try again later.',
   WITHDRAWALS_PAUSED: 'Withdrawals are temporarily paused. Try again later.',
   FUNDING_PAUSED: 'New funding and loan requests are temporarily paused. Try again later.',
+  MERCHANT_CONCENTRATION:
+    'This loan would exceed the pool’s max merchant concentration limit. Try a smaller amount or contact support.',
+  KYC_REQUIRED: 'Finish identity verification before continuing.',
   UNKNOWN: 'Something went wrong. Please try again.',
 }
 

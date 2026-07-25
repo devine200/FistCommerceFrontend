@@ -4,6 +4,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import AdminFetchErrorModal from '@/components/admin/AdminFetchErrorModal'
 import AdminSideNav from '@/components/admin/AdminSideNav'
 import AdminTopBar from '@/components/admin/AdminTopBar'
+import DashboardErrorModal from '@/components/dashboard/shared/DashboardErrorModal'
 import { useConnectWalletAction } from '@/hooks/useConnectWalletAction'
 import { useWallet } from '@/hooks/useWallet'
 import { AdminMerchantProfileBreadcrumb } from '@/components/admin/merchants'
@@ -85,11 +86,24 @@ const AdminDashboardLayout = () => {
 
   const menuButtonLabel = mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'
   const { shortAddress } = useWallet()
-  const { connect: connectWallet, pending: connectWalletPending } = useConnectWalletAction()
+  const {
+    connect: connectWallet,
+    pending: connectWalletPending,
+    error: connectWalletError,
+    clearError: clearConnectWalletError,
+  } = useConnectWalletAction()
 
   return (
     <main className="h-dvh w-full bg-[#EEF0F4] flex overflow-hidden">
       <AdminFetchErrorModal />
+      <DashboardErrorModal
+        open={Boolean(connectWalletError)}
+        title="Could not connect wallet"
+        message={connectWalletError ?? ''}
+        onClose={clearConnectWalletError}
+        onRetry={() => void connectWallet()}
+        retryLabel="Try again"
+      />
       <div className="hidden lg:flex shrink-0">
         <AdminSideNav
           expanded={sidebarExpanded}
