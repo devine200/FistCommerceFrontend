@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import kycPendingIllustration from '@/assets/kyc-inprogress.png'
 import type { WithdrawalCompletedMetric } from '@/components/dashboard/investor/withdraw/types'
+import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
 
 interface WithdrawCompletedStepProps {
   /** Formatted USD string (includes `$` and grouping). */
@@ -9,6 +10,7 @@ interface WithdrawCompletedStepProps {
   poolName: string
   metrics: WithdrawalCompletedMetric[]
   backToDashboardTo: string
+  networkDisplayName?: string
 }
 
 const WithdrawCompletedStep = ({
@@ -16,8 +18,10 @@ const WithdrawCompletedStep = ({
   poolName,
   metrics,
   backToDashboardTo,
+  networkDisplayName,
 }: WithdrawCompletedStepProps) => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false)
+  const networkLabel = networkDisplayName ?? getAppChainDisplayName()
   const withdrawalRef = useMemo(() => {
     const digits = amountDisplay.replace(/\D/g, '')
     const tail = digits.slice(-6).padStart(6, '0')
@@ -34,9 +38,9 @@ const WithdrawCompletedStep = ({
         ['Fees Deducted', '$0.00'],
         ['Net Received', amountDisplay],
         ['Pool', poolName],
-        ['Network', 'Arbitrum Sepolia'],
+        ['Network', networkLabel],
       ] as const,
-    [amountDisplay, poolName],
+    [amountDisplay, poolName, networkLabel],
   )
 
   return (

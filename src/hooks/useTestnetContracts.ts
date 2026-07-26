@@ -435,7 +435,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   )
 
   const canDepositHuman = useCallback(
-    (humanAmount: number): BalanceCheckResult => canPayTokenHuman(humanAmount, 'use the testnet pool'),
+    (humanAmount: number): BalanceCheckResult => canPayTokenHuman(humanAmount, 'use the lending pool'),
     [canPayTokenHuman],
   )
 

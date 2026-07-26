@@ -65,7 +65,25 @@ export function getContractNetworkLabel(chainId?: number | null): string {
     case 'mainnet':
       return 'Arbitrum One'
     case 'testnet':
-      return 'Arbitrum Sepolia (testnet)'
+      return 'Arbitrum Sepolia'
+    default:
+      return 'Unknown network'
+  }
+}
+
+/**
+ * User-facing chain name for the active (or env-default) network.
+ * Prefer passing `chainId` from the wallet / auth session when available.
+ */
+export function getAppChainDisplayName(chainId?: number | null): string {
+  const mode = chainId != null ? modeFromChainId(chainId) : getContractNetworkMode()
+  switch (mode) {
+    case 'local':
+      return 'Local'
+    case 'mainnet':
+      return 'Arbitrum One'
+    case 'testnet':
+      return 'Arbitrum Sepolia'
     default:
       return 'Unknown network'
   }
@@ -78,6 +96,19 @@ export function getNetworkSessionBadgeLabel(chainId: number | null | undefined):
   if (mode === 'testnet') return 'Testnet'
   if (mode === 'local') return 'Local'
   return null
+}
+
+/** Copy for wrong-network / unsupported-chain errors. */
+export function getUnsupportedNetworkMessage(options?: { short?: boolean }): string {
+  if (isLocalOnlyDeployMode()) {
+    const name = getAppChainDisplayName()
+    return options?.short
+      ? `Unsupported network. Switch to ${name}.`
+      : `Your wallet is on an unsupported network. Switch to ${name}, then try again.`
+  }
+  return options?.short
+    ? 'Unsupported network. Switch to Arbitrum One or Arbitrum Sepolia.'
+    : 'Your wallet is on an unsupported network. Switch to Arbitrum One (mainnet) or Arbitrum Sepolia (testnet), then try again.'
 }
 
 /**

@@ -95,9 +95,10 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
   }
 
   const withdrawOnChainHint = useMemo(() => {
-    if (!contracts.isConnected) return 'Connect your wallet on Arbitrum Sepolia to withdraw from the pool.'
+    const networkName = contracts.testnetChain.name
+    if (!contracts.isConnected) return `Connect your wallet on ${networkName} to withdraw from the pool.`
     if (!contracts.isCorrectNetwork) {
-      return `Switch your wallet to ${contracts.testnetChain.name} to submit withdrawals.`
+      return `Switch your wallet to ${networkName} to submit withdrawals.`
     }
     if (contracts.poolPositionLoading) return 'Reading your on-chain pool position…'
     if (contracts.poolPositionHuman === null) return 'Could not read pool position.'
@@ -163,7 +164,10 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
               poolMetrics,
               investorMetrics,
               investmentBalanceDisplay,
-              { gasFeeEstimateDisplay: contracts.withdrawGasFeeLabel },
+              {
+                gasFeeEstimateDisplay: contracts.withdrawGasFeeLabel,
+                networkDisplayName: contracts.testnetChain.name,
+              },
             )}
             onContinue={() => setWithdrawalStep(WithdrawalStep.FinalConfirmation)}
           />
@@ -188,6 +192,7 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
             poolName={poolName}
             metrics={buildWithdrawalCompletedMetrics(displayAmount)}
             backToDashboardTo="/dashboard/investor/overview"
+            networkDisplayName={contracts.testnetChain.name}
           />
         )
 

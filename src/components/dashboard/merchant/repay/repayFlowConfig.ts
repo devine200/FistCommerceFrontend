@@ -1,4 +1,5 @@
 import { INVEST_QUICK_AMOUNTS } from '@/components/dashboard/investor/invest/config'
+import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
 import type { DashboardBreadcrumbItem } from '@/layouts/DashboardLayout'
 
 export const MERCHANT_REPAY_STEPS = ['Amount', 'Review', 'Done'] as const
@@ -9,8 +10,13 @@ export const MERCHANT_REPAY_QUICK_AMOUNTS = INVEST_QUICK_AMOUNTS
 export const MERCHANT_REPAY_ON_CHAIN_UNAVAILABLE =
   'On-chain repayment is available for live loans with a linked receivable.'
 
-export const MERCHANT_REPAY_WARNING =
-  'Repayment uses a two-step flow: you approve tokens in your wallet, then the protocol servicer submits the on-chain repayment. Ensure your wallet is on Arbitrum Sepolia with sufficient token balance and gas for approval.'
+export function merchantRepayWarning(chainId?: number | null): string {
+  const network = getAppChainDisplayName(chainId)
+  return `Repayment uses a two-step flow: you approve tokens in your wallet, then the protocol servicer submits the on-chain repayment. Ensure your wallet is on ${network} with sufficient token balance and gas for approval.`
+}
+
+/** @deprecated Prefer {@link merchantRepayWarning} with the active chain id. */
+export const MERCHANT_REPAY_WARNING = merchantRepayWarning()
 
 export function merchantRepayPaths(loanId: string) {
   const base = `/dashboard/merchant/receivables/${loanId}/repay`

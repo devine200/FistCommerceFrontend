@@ -11,7 +11,7 @@ import WrongNetworkHelp from '@/components/session/WrongNetworkHelp'
 import { disconnectLinkedWalletOnly, disconnectPrivySession } from '@/session/disconnectPrivySession'
 import { resetUserSession } from '@/session/resetUserSession'
 import { ADMIN_LOGIN_PATH, shouldRedirectToAdminLogin } from '@/auth/adminSession'
-import { MAINNET_CHAIN_ID, TESTNET_CHAIN_ID } from '@/contract_config/contractNetwork'
+import { MAINNET_CHAIN_ID, TESTNET_CHAIN_ID, getUnsupportedNetworkMessage } from '@/contract_config/contractNetwork'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { store } from '@/store'
 import { resetWallet } from '@/store/slices/walletSlice'
@@ -150,7 +150,7 @@ export default function ArbitrumSepoliaWalletEnforcer() {
   const modalMessage = switchError
     ? switchError
     : dualDeployed
-      ? 'This app supports Arbitrum One (mainnet) and Arbitrum Sepolia (testnet). Switch your wallet to one of those networks, choose a different wallet, or log out.'
+      ? `${getUnsupportedNetworkMessage()} Choose a different wallet, or log out.`
       : `This app runs on ${primaryChain?.name ?? 'the app network'} only. Switch your wallet, choose a different wallet, or log out.`
 
   return (

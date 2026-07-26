@@ -42,7 +42,7 @@ export default function NetworkSessionBadge() {
         aria-hidden
       />
       <span>
-        {isTestnet ? 'Testnet session — Arbitrum Sepolia' : isMainnet ? 'Mainnet session — Arbitrum One' : title}
+        {label} session — {title}
       </span>
     </div>
   )

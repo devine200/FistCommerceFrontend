@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 
 import backArrowIcon from '@/assets/ph_arrow-left.png'
+import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
+import { useAppSelector } from '@/store/hooks'
 import { isValidPhoneNumber, PHONE_VALIDITY_HINT } from '@/utils/phoneNumber'
 
 interface MerchantConfirmDetailsModalProps {
@@ -15,6 +17,9 @@ interface MerchantConfirmDetailsModalProps {
 const MerchantConfirmDetailsModal = ({ onBack, onContinue }: MerchantConfirmDetailsModalProps) => {
   const phoneRef = useRef<HTMLInputElement>(null)
   const [phoneError, setPhoneError] = useState('')
+  const walletChainId = useAppSelector((s) => s.wallet.chainId)
+  const authChainId = useAppSelector((s) => s.auth.chainId)
+  const networkDisplayName = getAppChainDisplayName(walletChainId ?? authChainId)
 
   const handleContinue = () => {
     const raw = phoneRef.current?.value ?? ''
@@ -95,7 +100,7 @@ const MerchantConfirmDetailsModal = ({ onBack, onContinue }: MerchantConfirmDeta
         <div className="flex flex-col gap-3">
           <label className="text-black text-[14px] sm:text-[16px]">Network</label>
           <input
-            defaultValue="Arbitrum One"
+            defaultValue={networkDisplayName}
             className="w-full border border-[#CFE0FF] rounded-md px-4 py-3 text-[#195EBC] text-[14px] sm:text-[16px] focus:outline-none"
           />
         </div>

@@ -1,4 +1,11 @@
+import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
+import { useAppSelector } from '@/store/hooks'
+
 const MerchantIdVerification = () => {
+  const walletChainId = useAppSelector((s) => s.wallet.chainId)
+  const authChainId = useAppSelector((s) => s.auth.chainId)
+  const networkDisplayName = getAppChainDisplayName(walletChainId ?? authChainId)
+
   return (
     <div className="flex flex-col gap-4 w-full max-w-[700px] lg:w-[700px]">
       <div className="flex flex-col gap-2 mb-6 lg:mb-8">
@@ -46,7 +53,7 @@ const MerchantIdVerification = () => {
           <span className="text-black">Network</span>
           <input
             className="w-full border border-[#CFE0FF] rounded-md px-4 py-3 text-[#195EBC] placeholder:text-[#195EBC] bg-white focus:outline-none focus:ring-1 focus:ring-[#195EBC]"
-            defaultValue="Arbitrum One"
+            defaultValue={networkDisplayName}
           />
         </div>
       </div>

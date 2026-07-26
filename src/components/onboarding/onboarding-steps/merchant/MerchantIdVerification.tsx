@@ -8,13 +8,16 @@ import { RootState } from '@/store'
 import { setMerchantIdentityDraft } from '@/store/slices/onboardingProfileDraftSlice'
 import { useSelector } from 'react-redux'
 import { isValidPhoneNumber, PHONE_VALIDITY_HINT } from '@/utils/phoneNumber'
+import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
 
 const MERCHANT_VERIFY_STEP_INDEX = 2
 
 const MerchantIdVerification = () => {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const { address } = useSelector((state: RootState) => state.wallet)
+  const { address, chainId: walletChainId } = useSelector((state: RootState) => state.wallet)
+  const authChainId = useSelector((state: RootState) => state.auth.chainId)
+  const networkDisplayName = getAppChainDisplayName(walletChainId ?? authChainId)
   const { formMonitorProps, clearStepDirty } = useOnboardingFormStep('merchant', MERCHANT_VERIFY_STEP_INDEX)
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -122,7 +125,7 @@ const MerchantIdVerification = () => {
               id="merchant-network"
               name="network"
               className="w-full border border-[#CFE0FF] rounded-md px-4 py-3 text-[#195EBC] placeholder:text-[#195EBC] bg-white focus:outline-none focus:ring-1 focus:ring-[#195EBC]"
-              defaultValue="Arbitrum One"
+              defaultValue={networkDisplayName}
               disabled
             />
           </div>

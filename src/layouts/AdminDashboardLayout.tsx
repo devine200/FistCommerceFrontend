@@ -5,8 +5,10 @@ import AdminFetchErrorModal from '@/components/admin/AdminFetchErrorModal'
 import AdminSideNav from '@/components/admin/AdminSideNav'
 import AdminTopBar from '@/components/admin/AdminTopBar'
 import DashboardErrorModal from '@/components/dashboard/shared/DashboardErrorModal'
+import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
 import { useConnectWalletAction } from '@/hooks/useConnectWalletAction'
 import { useWallet } from '@/hooks/useWallet'
+import { useAppSelector } from '@/store/hooks'
 import { AdminMerchantProfileBreadcrumb } from '@/components/admin/merchants'
 import {
   AdminInvestorActivityDetailBreadcrumb,
@@ -86,6 +88,9 @@ const AdminDashboardLayout = () => {
 
   const menuButtonLabel = mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'
   const { shortAddress } = useWallet()
+  const walletChainId = useAppSelector((s) => s.wallet.chainId)
+  const authChainId = useAppSelector((s) => s.auth.chainId)
+  const networkDisplayName = getAppChainDisplayName(walletChainId ?? authChainId)
   const {
     connect: connectWallet,
     pending: connectWalletPending,
@@ -129,6 +134,7 @@ const AdminDashboardLayout = () => {
           title={pageTitle}
           leading={topBarLeading}
           walletDisplay={shortAddress ?? undefined}
+          networkDisplayName={networkDisplayName}
           onConnectWallet={() => void connectWallet()}
           connectWalletPending={connectWalletPending}
           onMenuClick={() => setMobileNavOpen((v) => !v)}

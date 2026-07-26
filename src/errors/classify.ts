@@ -77,6 +77,35 @@ function stripHexNoise(text: string): string {
     .trim()
 }
 
+/** RPC / viem phrasing for “not enough ETH to pay gas” on the *caller* wallet. */
+function isInsufficientNativeGasText(text: string): boolean {
+  return (
+    /insufficient funds(?:\s+for\s+gas)?/i.test(text) ||
+    /not enough (?:ETH|native(?:\s+token)?).*(?:gas|fee|transaction)/i.test(text) ||
+    /(?:gas|fee|transaction).*(?:not enough|insufficient).*(?:ETH|native)/i.test(text)
+  )
+}
+
+/** ERC-4337 prefund / deposit failures — not the end-user EOA signing the outer tx. */
+function isAccountPrefundGasText(text: string): boolean {
+  return /AA21|didn'?t pay prefund|did not pay prefund|missingAccountFunds/i.test(text)
+}
+
+/**
+ * Backend-relayed actions fail when the *servicer* (or related ops wallet) cannot pay gas.
+ * Prefer this over blaming the end-user wallet.
+ */
+function isServicerInsufficientNativeText(text: string): boolean {
+  if (
+    !isInsufficientNativeGasText(text) &&
+    !isAccountPrefundGasText(text) &&
+    !/low(?:\s+|_ )?balance|gas\s+warning/i.test(text)
+  ) {
+    return false
+  }
+  return /servicer|relay(?:er)?|ops wallet|protocol wallet/i.test(text)
+}
+
 function classifyFromText(text: string, context: AppErrorContext): ClassifiedAppError | null {
   const t = text.trim()
   if (!t) return null
@@ -134,7 +163,15 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
   if (/user rejected|user denied|rejected the request|ACTION_REJECTED|4001|cancelled the request in your wallet/i.test(t)) {
     return { code: 'WALLET_REJECTED', message: messageForCode('WALLET_REJECTED'), raw: t }
   }
-  if (/insufficient funds|insufficient funds for gas/i.test(t)) {
+  // Servicer/ops gas (loan fund, repay submit, admin writes) — not the end-user wallet.
+  if (isServicerInsufficientNativeText(t) || isAccountPrefundGasText(t)) {
+    return {
+      code: 'SERVICER_INSUFFICIENT_NATIVE',
+      message: messageForCode('SERVICER_INSUFFICIENT_NATIVE'),
+      raw: t,
+    }
+  }
+  if (isInsufficientNativeGasText(t)) {
     return { code: 'INSUFFICIENT_NATIVE', message: messageForCode('INSUFFICIENT_NATIVE'), raw: t }
   }
   if (/max fee per gas less than block base fee/i.test(t)) {
@@ -201,6 +238,19 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
 
 function classifyApiRequestError(error: ApiRequestError): ClassifiedAppError {
   const raw = [error.message, ...error.detailLines].filter(Boolean).join('\n').trim()
+  // HTTP APIs that hit the chain use the servicer (loan request, repay submit, admin writes).
+  // Never map those "insufficient funds" responses to the end-user wallet message.
+  if (
+    isInsufficientNativeGasText(raw) ||
+    isAccountPrefundGasText(raw) ||
+    isServicerInsufficientNativeText(raw)
+  ) {
+    return {
+      code: 'SERVICER_INSUFFICIENT_NATIVE',
+      message: messageForCode('SERVICER_INSUFFICIENT_NATIVE'),
+      raw,
+    }
+  }
   const fromText = classifyFromText(raw, 'general')
   if (fromText) {
     if (error.detailLines.length && fromText.code === 'API_MESSAGE') {

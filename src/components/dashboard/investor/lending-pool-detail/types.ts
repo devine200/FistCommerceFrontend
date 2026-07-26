@@ -45,6 +45,6 @@ export type InvestorPoolDetailConfig = {
   strategyFeatures: StrategyFeature[]
   contractRows: ContractField[]
   transactions: RecentTx[]
-  /** Pool contract on Arbitrum Sepolia (or API-provided explorer) — “View on Arbiscan” target. */
+  /** Pool contract on the active app network (or API-provided explorer) — “View on Arbiscan” target. */
   contractExplorerHref?: string | null
 }

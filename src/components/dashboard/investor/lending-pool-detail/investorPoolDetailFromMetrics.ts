@@ -19,6 +19,7 @@ import type {
   InvestorPoolTopBarConfig,
   PoolStatItem,
 } from '@/components/dashboard/investor/lending-pool-detail/types'
+import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
 import type { LendingPoolCardState } from '@/store/slices/investorDashboardSlice'
 
 function walletTopBar(walletAddress: string | null | undefined, fallback: string): InvestorPoolTopBarConfig {
@@ -128,6 +129,12 @@ function shortEthAddress(addr: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`
 }
 
+function patchBlockchainNetworkRow(rows: ContractField[], networkName: string): ContractField[] {
+  return rows.map((row) =>
+    row.label === 'Blockchain Network' ? { ...row, value: networkName } : row,
+  )
+}
+
 function patchSmartContractAddressRow(rows: ContractField[], fullAddress: string | null): ContractField[] {
   if (!fullAddress || !/^0x[a-fA-F0-9]{40}$/i.test(fullAddress)) return rows
   return rows.map((row) =>
@@ -144,10 +151,20 @@ function patchSmartContractAddressRow(rows: ContractField[], fullAddress: string
 export function mergeInvestorPoolPayoutIntoConfig(
   config: InvestorPoolDetailConfig,
   payout: RecentPayoutBundle | null,
+  options?: { chainId?: number | null },
 ): InvestorPoolDetailConfig {
+  const networkName = getAppChainDisplayName(options?.chainId)
+  const withNetwork = {
+    ...config,
+    contractRows: patchBlockchainNetworkRow(config.contractRows, networkName),
+  }
+
   if (!payout) {
-    const withoutDemoTransactions = { ...config, transactions: [] as InvestorPoolDetailConfig['transactions'] }
-    return config.contractExplorerHref == null
+    const withoutDemoTransactions = {
+      ...withNetwork,
+      transactions: [] as InvestorPoolDetailConfig['transactions'],
+    }
+    return withNetwork.contractExplorerHref == null
       ? withoutDemoTransactions
       : { ...withoutDemoTransactions, contractExplorerHref: null }
   }
@@ -160,7 +177,10 @@ export function mergeInvestorPoolPayoutIntoConfig(
     explorerBase && contractOk && contract ? blockExplorerAddressUrl(explorerBase, contract) : null
 
   const transactions = payout.transactions
-  const contractRows = contractOk && contract ? patchSmartContractAddressRow(config.contractRows, contract) : config.contractRows
+  const contractRows =
+    contractOk && contract
+      ? patchSmartContractAddressRow(withNetwork.contractRows, contract)
+      : withNetwork.contractRows
 
   const nextHref = contractExplorerHref ?? null
   if (
@@ -168,11 +188,11 @@ export function mergeInvestorPoolPayoutIntoConfig(
     contractRows === config.contractRows &&
     nextHref === (config.contractExplorerHref ?? null)
   ) {
-    return config
+    return withNetwork
   }
 
   return {
-    ...config,
+    ...withNetwork,
     contractRows,
     transactions,
     contractExplorerHref: nextHref,

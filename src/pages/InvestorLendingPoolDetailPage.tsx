@@ -36,6 +36,8 @@ const InvestorLendingPoolDetailPage = () => {
     walletDisplay: walletDisplayFallback,
   } = useAppSelector(selectInvestorPoolDetailView)
   const walletAddress = useAppSelector((s) => s.wallet.address)
+  const walletChainId = useAppSelector((s) => s.wallet.chainId)
+  const authChainId = useAppSelector((s) => s.auth.chainId)
   const recentTx = useAppSelector((s) => s.recentTransactions)
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const isKycVerified = useAppSelector(selectIsKycVerified)
@@ -102,7 +104,9 @@ const InvestorLendingPoolDetailPage = () => {
       walletDisplayFallback,
       onChainPoolPositionDisplay: investmentBalanceDisplay,
     })
-    return mergeInvestorPoolPayoutIntoConfig(withMetrics, recentPayout)
+    return mergeInvestorPoolPayoutIntoConfig(withMetrics, recentPayout, {
+      chainId: walletChainId ?? authChainId,
+    })
   }, [
     staticBase,
     lendingPool,
@@ -112,6 +116,8 @@ const InvestorLendingPoolDetailPage = () => {
     walletDisplayFallback,
     recentPayout,
     investmentBalanceDisplay,
+    walletChainId,
+    authChainId,
   ])
 
   const poolDataLoading = Boolean(staticBase && !config && status !== 'failed')

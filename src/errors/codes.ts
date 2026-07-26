@@ -15,6 +15,8 @@ export type AppErrorCode =
   | 'CHAIN_SWITCH_REJECTED'
   | 'CHAIN_SWITCH_FAILED'
   | 'INSUFFICIENT_NATIVE'
+  /** Backend/servicer EOA (or relay) cannot pay gas — not the end-user wallet. */
+  | 'SERVICER_INSUFFICIENT_NATIVE'
   | 'GAS_PRICE_STALE'
   | 'ALLOWANCE_REQUIRED'
   | 'INSUFFICIENT_TOKEN'

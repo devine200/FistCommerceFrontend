@@ -22,6 +22,8 @@ export type AdminTopBarProps = {
   menuButtonAriaLabel?: string
   /** Truncated wallet address — when set, shows wallet chip (replaces legacy email row) */
   walletDisplay?: string
+  /** Active chain label for accessibility (e.g. Arbitrum One / Arbitrum Sepolia). */
+  networkDisplayName?: string
   onConnectWallet?: () => void
   connectWalletPending?: boolean
 }

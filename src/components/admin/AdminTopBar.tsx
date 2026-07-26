@@ -2,6 +2,7 @@ import arbitrumLogo from '@/assets/arbitrum_icon.jpeg.png'
 import logo from '@/assets/logo.png'
 import mobileHamburgerIcon from '@/assets/mobile-hamburger.png'
 import mobileUserIcon from '@/assets/mobile-user.png'
+import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
 
 import type { AdminTopBarProps } from './types'
 
@@ -14,9 +15,11 @@ const AdminTopBar = ({
   onMenuClick,
   menuButtonAriaLabel,
   walletDisplay,
+  networkDisplayName,
   onConnectWallet,
   connectWalletPending,
 }: AdminTopBarProps) => {
+  const networkLabel = networkDisplayName ?? getAppChainDisplayName()
   const titleBlock = (
     <h1 className="text-black font-semibold text-[18px] sm:text-[24px] leading-tight truncate">{title}</h1>
   )
@@ -60,7 +63,7 @@ const AdminTopBar = ({
           {walletDisplay ? (
             <div
               className="min-h-[40px] px-4 border border-[#E6E8EC] rounded-[6px] flex items-center gap-3 text-[14px] shrink-0 bg-white max-w-none"
-              aria-label={`Connected wallet ${walletDisplay} on Arbitrum One`}
+              aria-label={`Connected wallet ${walletDisplay} on ${networkLabel}`}
             >
               <span className="font-medium text-[#1a1a1a] tracking-tight tabular-nums truncate">
                 {walletDisplay}

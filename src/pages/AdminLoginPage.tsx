@@ -22,6 +22,7 @@ import {
   getWalletClientFromPrivyWallet,
   readWalletProviderChainId,
 } from '@/wallet/viemClients'
+import { getUnsupportedNetworkMessage } from '@/contract_config/contractNetwork'
 
 function truncateAddress(address: string) {
   if (address.length <= 12) return address
@@ -129,14 +130,12 @@ const AdminLoginPage = () => {
       const providerChainId = await readWalletProviderChainId(wallet)
       const loginChainId = providerChainId
       if (loginChainId == null || !isSupportedAppChainId(loginChainId)) {
-        setErrorMessage(
-          'Your wallet is on an unsupported network. Switch to Arbitrum One (mainnet) or Arbitrum Sepolia (testnet), then try again.',
-        )
+        setErrorMessage(getUnsupportedNetworkMessage())
         return
       }
       const loginChain = getAppChainById(loginChainId)
       if (!loginChain) {
-        setErrorMessage('Unsupported network. Switch to Arbitrum One or Arbitrum Sepolia.')
+        setErrorMessage(getUnsupportedNetworkMessage({ short: true }))
         return
       }
 

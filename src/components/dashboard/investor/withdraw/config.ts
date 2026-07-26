@@ -7,6 +7,7 @@ import {
 } from '@/api/metrics'
 import { formatInvestAmountUsd } from '@/components/dashboard/investor/invest/config'
 import type { WithdrawalCompletedMetric, WithdrawalReviewRow } from '@/components/dashboard/investor/withdraw/types'
+import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
 
 export const WITHDRAW_QUICK_AMOUNTS = [500, 1000, 2500, 5000] as const
 
@@ -28,7 +29,7 @@ export function buildWithdrawalReviewRows(
   poolMetrics: PoolMetrics | null,
   investorMetrics: InvestorMetrics | null,
   investmentBalanceDisplay: string,
-  options?: { gasFeeEstimateDisplay?: string },
+  options?: { gasFeeEstimateDisplay?: string; networkDisplayName?: string },
 ): WithdrawalReviewRow[] {
   const amountText = formatInvestAmountUsd(amount)
   const rows: WithdrawalReviewRow[] = []
@@ -58,7 +59,7 @@ export function buildWithdrawalReviewRows(
     { label: 'Net Amount', value: amountText, valueTone: 'primary' },
     { label: 'Destination', value: destinationWallet },
     { label: 'Gas Fee (est.)', value: options?.gasFeeEstimateDisplay ?? '—' },
-    { label: 'Network', value: 'Arbitrum One' },
+    { label: 'Network', value: options?.networkDisplayName ?? getAppChainDisplayName() },
   )
 
   return rows

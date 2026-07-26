@@ -18,6 +18,8 @@ const MESSAGES: Record<AppErrorCode, string> = {
     'Couldn’t switch networks. Enable the network in your wallet settings and try again.',
   INSUFFICIENT_NATIVE:
     'Your wallet does not have enough native token on this network to pay the transaction fee.',
+  SERVICER_INSUFFICIENT_NATIVE:
+    'The protocol servicer wallet does not have enough native token to submit this on-chain action. Please try again later or contact support.',
   GAS_PRICE_STALE: 'Network gas price moved before your transaction was sent. Please try again.',
   ALLOWANCE_REQUIRED: 'Approve token spending in your wallet, then try again.',
   INSUFFICIENT_TOKEN: 'Insufficient token balance for this amount.',

@@ -10,6 +10,7 @@ import type {
   InvestmentPoolInfo,
   InvestmentReviewRow,
 } from '@/components/dashboard/investor/invest/types'
+import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
 
 export const INVEST_QUICK_AMOUNTS = [500, 1000, 2500, 5000] as const
 
@@ -66,7 +67,7 @@ export function buildInvestmentReviewRows(
   poolName: string,
   poolMetrics: PoolMetrics | null,
   investorMetrics: InvestorMetrics | null,
-  options?: { gasFeeEstimateDisplay?: string },
+  options?: { gasFeeEstimateDisplay?: string; networkDisplayName?: string },
 ): InvestmentReviewRow[] {
   const apyRate = poolMetrics && Number.isFinite(poolMetrics.apy) ? poolMetrics.apy / 100 : FALLBACK_APY_RATE
   const apyLabel = poolMetrics ? displayPoolApyPercent(poolMetrics.apy) : INVESTMENT_POOL.apy
@@ -77,7 +78,7 @@ export function buildInvestmentReviewRows(
 
   return [
     { label: 'Token', value: 'USDC' },
-    { label: 'Network', value: 'Arbitrum One' },
+    { label: 'Network', value: options?.networkDisplayName ?? getAppChainDisplayName() },
     { label: 'Pool', value: poolName?.trim() || 'Lending pool' },
     { label: 'APY', value: apyLabel },
     {

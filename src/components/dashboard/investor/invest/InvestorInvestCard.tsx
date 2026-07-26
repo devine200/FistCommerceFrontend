@@ -95,10 +95,11 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
   }
 
   const walletMockTokenLabel = useMemo(() => {
-    if (!contracts.isConnected) return 'Connect your wallet to view token balance (Arbitrum Sepolia).'
+    const networkName = contracts.testnetChain.name
+    if (!contracts.isConnected) return `Connect your wallet to view token balance (${networkName}).`
     if (contracts.isContractsLoading) return 'Loading balance…'
     if (!contracts.isCorrectNetwork) {
-      return `Switch to ${contracts.testnetChain.name} to deposit. Wallet balance: ${walletBalanceDisplay}.`
+      return `Switch to ${networkName} to deposit. Wallet balance: ${walletBalanceDisplay}.`
     }
     return `Wallet balance: ${walletBalanceDisplay}`
   }, [
@@ -173,7 +174,10 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
               poolInfo.name,
               poolMetrics,
               investorMetrics,
-              { gasFeeEstimateDisplay: contracts.depositGasFeeLabel },
+              {
+                gasFeeEstimateDisplay: contracts.depositGasFeeLabel,
+                networkDisplayName: contracts.testnetChain.name,
+              },
             )}
             isSubmitting={investSubmitting || contracts.isWritePending}
             onInvest={handleInvestConfirm}

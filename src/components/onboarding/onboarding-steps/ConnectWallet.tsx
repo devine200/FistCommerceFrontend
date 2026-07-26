@@ -28,6 +28,7 @@ import {
   readWalletProviderChainId,
 } from '@/wallet/viemClients'
 import NetworkModeSwitcher from '@/components/session/NetworkModeSwitcher'
+import { getUnsupportedNetworkMessage } from '@/contract_config/contractNetwork'
 
 function truncateAddress(address: string) {
   if (address.length <= 12) return address
@@ -193,14 +194,12 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
       const providerChainId = await readWalletProviderChainId(wallet)
       const loginChainId = providerChainId ?? chainId
       if (loginChainId == null || !isSupportedAppChainId(loginChainId)) {
-        setRowError(
-          'Your wallet is on an unsupported network. Switch to Arbitrum One (mainnet) or Arbitrum Sepolia (testnet), then try again.',
-        )
+        setRowError(getUnsupportedNetworkMessage())
         return
       }
       const loginChain = getAppChainById(loginChainId)
       if (!loginChain) {
-        setRowError('Unsupported network. Switch to Arbitrum One or Arbitrum Sepolia.')
+        setRowError(getUnsupportedNetworkMessage({ short: true }))
         return
       }
 
@@ -323,8 +322,7 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
 
         {wrongNetwork ? (
           <p className="text-[14px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4" role="status">
-            Your wallet is on an unsupported network. Switch to Arbitrum One (mainnet) or Arbitrum Sepolia
-            (testnet), then press Continue — or disconnect and choose another wallet.
+            {getUnsupportedNetworkMessage()} Then press Continue — or disconnect and choose another wallet.
           </p>
         ) : null}
 

@@ -1,14 +1,24 @@
 import { getSupportedAppChainManualAddDetails } from '@/wallet/appChainManualAdd'
+import { isLocalOnlyDeployMode } from '@/contract_config/contractNetwork'
 
 export default function WrongNetworkHelp() {
   const networks = getSupportedAppChainManualAddDetails()
+  const mentionsTestnet = networks.some((n) => /sepolia|test/i.test(n.chainName))
 
   return (
     <div className="mt-4 w-full text-left text-xs leading-relaxed text-[#6B7280] space-y-3">
       <p>
         On mobile wallet browsers, approve the network prompt when it appears. If nothing happens,
-        enable <span className="font-medium text-[#374151]">testnet mode</span> in your wallet
-        settings when using Sepolia, then add a supported network manually:
+        {mentionsTestnet && !isLocalOnlyDeployMode() ? (
+          <>
+            {' '}
+            enable <span className="font-medium text-[#374151]">testnet mode</span> in your wallet
+            settings when using Sepolia, then
+          </>
+        ) : (
+          <> then</>
+        )}{' '}
+        add a supported network manually:
       </p>
       {networks.map((details) => (
         <dl

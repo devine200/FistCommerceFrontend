@@ -8,7 +8,7 @@ import type { ListPaginationMeta } from '@/utils/listPagination'
 interface InvestorSmartContractAndTransactionsSectionProps {
   contractRows: ContractField[]
   transactions: RecentTx[]
-  /** Full URL to the pool contract on Arbitrum Sepolia (or API-provided explorer). */
+  /** Full URL to the pool contract on the active network explorer (or API-provided explorer). */
   contractExplorerHref?: string | null
   paginationMeta: ListPaginationMeta
   onPageChange: (page: number) => void
