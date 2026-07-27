@@ -22,15 +22,83 @@ export type ClassifiedAppError = {
   raw: string
 }
 
+function pickTrimmedString(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
+}
+
+/**
+ * Collect candidate strings from a viem/wallet error tree.
+ * Outer wrappers (EstimateGasExecutionError) often hide the real revert in
+ * `shortMessage`, `details`, or nested `cause`.
+ */
+function collectErrorTextCandidates(error: unknown, depth = 0): string[] {
+  if (depth > 8) return []
+  if (typeof error === 'string') {
+    const t = error.trim()
+    return t ? [t] : []
+  }
+  if (!error || typeof error !== 'object') return []
+
+  const rec = error as Record<string, unknown>
+  const out: string[] = []
+  for (const key of ['shortMessage', 'details', 'message', 'reason', 'data'] as const) {
+    const v = pickTrimmedString(rec[key])
+    if (v) out.push(v)
+  }
+  if (Array.isArray(rec.metaMessages)) {
+    for (const item of rec.metaMessages) {
+      const v = pickTrimmedString(item)
+      if (v) out.push(v)
+    }
+  }
+  if (error instanceof Error && error.message.trim()) {
+    out.push(error.message.trim())
+  }
+  if ('cause' in rec && rec.cause != null) {
+    out.push(...collectErrorTextCandidates(rec.cause, depth + 1))
+  }
+  return out
+}
+
+function isGasEstimateWrapperText(text: string): boolean {
+  return /estimat(?:e|ion)\s+gas|EstimateGasExecutionError|gas required exceeds allowance|cannot estimate gas/i.test(
+    text,
+  )
+}
+
+/** Prefer nested revert / domain reasons over outer gas-estimate wrappers. */
+function scoreErrorCandidate(text: string): number {
+  let score = 0
+  if (/execution reverted|reverted with|custom error/i.test(text)) score += 40
+  if (/DepositsPaused|WithdrawalsPaused|FundingPaused|insufficient|allowance|concentration|kyc/i.test(text))
+    score += 30
+  if (isGasEstimateWrapperText(text)) score -= 50
+  if (/ContractFunction|Request Arguments|Docs:|Version:|viem@/i.test(text)) score -= 20
+  if (text.length > 400) score -= 10
+  if (text.length > 0 && text.length < 180) score += 5
+  return score
+}
+
 function rawText(error: unknown): string {
   if (typeof error === 'string') return error.trim()
-  if (error instanceof Error) return error.message.trim()
-  return ''
+  const candidates = collectErrorTextCandidates(error)
+  if (!candidates.length) {
+    if (error instanceof Error) return error.message.trim()
+    return ''
+  }
+  const unique = [...new Set(candidates)]
+  unique.sort((a, b) => scoreErrorCandidate(b) - scoreErrorCandidate(a))
+  // Prefer the best-scoring snippet; fall back to joining top candidates for classification.
+  const best = unique[0]!
+  if (unique.length === 1) return best
+  // Include a few high-scoring siblings so classifyFromText can still match paused / revert patterns.
+  const top = unique.slice(0, 4).join('\n')
+  return top
 }
 
 function looksTechnical(msg: string): boolean {
   if (/0x[a-fA-F0-9]{40,}/.test(msg)) return true
-  if (/ContractFunction|Request Arguments|AbiEncoding|TransactionExecutionError|InternalRpcError/i.test(msg))
+  if (/ContractFunction|Request Arguments|AbiEncoding|TransactionExecutionError|InternalRpcError|EstimateGasExecutionError/i.test(msg))
     return true
   if (/signTypedData|eth_sign|wallet_switchEthereumChain/i.test(msg) && msg.length > 120) return true
   if (msg.length > 500) return true
@@ -79,8 +147,17 @@ function stripHexNoise(text: string): string {
 
 /** RPC / viem phrasing for “not enough ETH to pay gas” on the *caller* wallet. */
 function isInsufficientNativeGasText(text: string): boolean {
+  // Prefer domain reverts over outer estimate-gas / insufficient-funds wrappers.
+  if (
+    /execution reverted|reverted with (?:reason|custom error)|DepositsPaused|WithdrawalsPaused|FundingPaused|concentration|allowance/i.test(
+      text,
+    ) &&
+    !/insufficient funds for (?:gas|intrinsic)/i.test(text)
+  ) {
+    return false
+  }
   return (
-    /insufficient funds(?:\s+for\s+gas)?/i.test(text) ||
+    /insufficient funds(?:\s+for\s+(?:gas|intrinsic))?/i.test(text) ||
     /not enough (?:ETH|native(?:\s+token)?).*(?:gas|fee|transaction)/i.test(text) ||
     /(?:gas|fee|transaction).*(?:not enough|insufficient).*(?:ETH|native)/i.test(text)
   )
@@ -163,33 +240,15 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
   if (/user rejected|user denied|rejected the request|ACTION_REJECTED|4001|cancelled the request in your wallet/i.test(t)) {
     return { code: 'WALLET_REJECTED', message: messageForCode('WALLET_REJECTED'), raw: t }
   }
-  // Servicer/ops gas (loan fund, repay submit, admin writes) — not the end-user wallet.
-  if (isServicerInsufficientNativeText(t) || isAccountPrefundGasText(t)) {
-    return {
-      code: 'SERVICER_INSUFFICIENT_NATIVE',
-      message: messageForCode('SERVICER_INSUFFICIENT_NATIVE'),
-      raw: t,
-    }
-  }
-  if (isInsufficientNativeGasText(t)) {
-    return { code: 'INSUFFICIENT_NATIVE', message: messageForCode('INSUFFICIENT_NATIVE'), raw: t }
-  }
-  if (/max fee per gas less than block base fee/i.test(t)) {
-    return { code: 'GAS_PRICE_STALE', message: messageForCode('GAS_PRICE_STALE'), raw: t }
-  }
-  if (/insufficient allowance|exceeds allowance|approve tokens/i.test(t)) {
-    return { code: 'ALLOWANCE_REQUIRED', message: messageForCode('ALLOWANCE_REQUIRED'), raw: t }
-  }
-  if (/transfer amount exceeds balance|insufficient token balance/i.test(t)) {
-    return { code: 'INSUFFICIENT_TOKEN', message: messageForCode('INSUFFICIENT_TOKEN'), raw: t }
-  }
-  if (/deposits? paused/i.test(t)) {
+
+  // Contract domain reasons before gas/estimate wrappers (estimate often wraps these).
+  if (/deposits?[\s_]*paused|DepositsPaused/i.test(t)) {
     return { code: 'DEPOSITS_PAUSED', message: messageForCode('DEPOSITS_PAUSED'), raw: t }
   }
-  if (/withdrawals? paused/i.test(t)) {
+  if (/withdrawals?[\s_]*paused|WithdrawalsPaused/i.test(t)) {
     return { code: 'WITHDRAWALS_PAUSED', message: messageForCode('WITHDRAWALS_PAUSED'), raw: t }
   }
-  if (/funding paused/i.test(t)) {
+  if (/funding[\s_]*paused|FundingPaused/i.test(t)) {
     return { code: 'FUNDING_PAUSED', message: messageForCode('FUNDING_PAUSED'), raw: t }
   }
   if (/\bpaused\b/i.test(t) && /protocol|controller/i.test(t)) {
@@ -205,8 +264,11 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
   if (/kyc.*(required|incomplete|not verified)|complete.*(kyc|identity|verification)/i.test(t)) {
     return { code: 'KYC_REQUIRED', message: messageForCode('KYC_REQUIRED'), raw: t }
   }
-  if (/^request failed \(\d+\)$/i.test(t) || /^(bad request|unauthorized|forbidden|not found)$/i.test(t)) {
-    return { code: 'API_MESSAGE', message: messageForCode('API_MESSAGE'), raw: t }
+  if (/insufficient allowance|exceeds allowance|approve tokens/i.test(t)) {
+    return { code: 'ALLOWANCE_REQUIRED', message: messageForCode('ALLOWANCE_REQUIRED'), raw: t }
+  }
+  if (/transfer amount exceeds balance|insufficient token balance/i.test(t)) {
+    return { code: 'INSUFFICIENT_TOKEN', message: messageForCode('INSUFFICIENT_TOKEN'), raw: t }
   }
 
   const quoted = t.match(/execution reverted:\s*"([^"]+)"/i)?.[1]?.trim()
@@ -225,12 +287,60 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
       raw: t,
     }
   }
+  const reasonString = t.match(/reverted with reason string\s+'([^']+)'/i)?.[1]?.trim()
+  if (reasonString) {
+    return {
+      code: 'CONTRACT_REVERT',
+      message: clipped(humanizeRevertToken(reasonString), 220),
+      raw: t,
+    }
+  }
+  const customError = t.match(/reverted with custom error ['"]?([A-Za-z0-9_]+)/i)?.[1]?.trim()
+  if (customError) {
+    return {
+      code: 'CONTRACT_REVERT',
+      message: clipped(humanizeRevertToken(customError), 220),
+      raw: t,
+    }
+  }
+
+  // Servicer/ops gas (loan fund, repay submit, admin writes) — not the end-user wallet.
+  if (isServicerInsufficientNativeText(t) || isAccountPrefundGasText(t)) {
+    return {
+      code: 'SERVICER_INSUFFICIENT_NATIVE',
+      message: messageForCode('SERVICER_INSUFFICIENT_NATIVE'),
+      raw: t,
+    }
+  }
+  if (isInsufficientNativeGasText(t)) {
+    return { code: 'INSUFFICIENT_NATIVE', message: messageForCode('INSUFFICIENT_NATIVE'), raw: t }
+  }
+  if (/max fee per gas less than block base fee/i.test(t)) {
+    return { code: 'GAS_PRICE_STALE', message: messageForCode('GAS_PRICE_STALE'), raw: t }
+  }
+  if (/^request failed \(\d+\)$/i.test(t) || /^(bad request|unauthorized|forbidden|not found)$/i.test(t)) {
+    return { code: 'API_MESSAGE', message: messageForCode('API_MESSAGE'), raw: t }
+  }
 
   if (/Network switch .* was cancelled/i.test(t)) {
     return { code: 'CHAIN_SWITCH_REJECTED', message: t, raw: t }
   }
   if (/Could not switch/i.test(t)) {
     return { code: 'CHAIN_SWITCH_FAILED', message: t, raw: t }
+  }
+
+  // Last resort: strip gas-estimate wrapper fluff and surface a short cleaned message.
+  if (isGasEstimateWrapperText(t)) {
+    const cleaned = stripHexNoise(t)
+      .replace(/EstimateGasExecutionError:?/gi, '')
+      .replace(/Docs:.*$/gim, '')
+      .replace(/Version:.*$/gim, '')
+      .replace(/Request Arguments:[\s\S]*$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (cleaned && !looksTechnical(cleaned) && cleaned.length >= 8) {
+      return { code: 'CONTRACT_REVERT', message: clipped(cleaned, 220), raw: t }
+    }
   }
 
   return null
@@ -335,13 +445,27 @@ export function classifyAppError(
   const fromText = classifyFromText(text, context)
   if (fromText) return fromText
 
+  // Try each candidate alone in case joining diluted a clean shortMessage / details hit.
+  for (const candidate of collectErrorTextCandidates(error)) {
+    if (candidate === text) continue
+    const hit = classifyFromText(candidate, context)
+    if (hit) return { ...hit, raw: text || hit.raw }
+  }
+
   if (text && !looksTechnical(text)) {
     return { code: 'UNKNOWN', message: clipped(text, 400), raw: text }
   }
 
   if (text) {
     const cleaned = stripHexNoise(text)
-    if (cleaned && !looksTechnical(cleaned) && cleaned.length >= 12) {
+      .replace(/EstimateGasExecutionError:?/gi, '')
+      .replace(/TransactionExecutionError:?/gi, '')
+      .replace(/Docs:.*$/gim, '')
+      .replace(/Version:.*$/gim, '')
+      .replace(/Request Arguments:[\s\S]*$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (cleaned && !looksTechnical(cleaned) && cleaned.length >= 8) {
       return { code: 'UNKNOWN', message: clipped(cleaned, 400), raw: text }
     }
   }

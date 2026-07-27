@@ -21,6 +21,7 @@ import {
   formatPoolPositionUsdDisplay,
   isPoolPositionLoading,
 } from '@/utils/fundingPoolPosition'
+import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
 
 /** @deprecated Prefer wallet chain + `resolveActiveAppChain`. Default Privy/fallback chain. */
 export const __contractsChain_EXPORT__ = DEFAULT_APP_CHAIN
@@ -367,7 +368,12 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const depositGasFeeLabel = useMemo(() => {
     if (!depositGasQueryEnabled) return '—'
     if (depositGasQuery.isPending) return 'Estimating…'
-    if (depositGasQuery.error) return 'Unable to estimate'
+    if (depositGasQuery.error) {
+      return toAppUserFacingError(depositGasQuery.error, {
+        fallback: 'Unable to estimate gas for this deposit.',
+        context: 'invest',
+      })
+    }
     if (depositGasQuery.data === undefined) return '—'
     return formatNativeGasCostLabel(depositGasQuery.data, nativeSymbol)
   }, [
@@ -381,7 +387,12 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const withdrawGasFeeLabel = useMemo(() => {
     if (!withdrawGasQueryEnabled) return '—'
     if (withdrawGasQuery.isPending) return 'Estimating…'
-    if (withdrawGasQuery.error) return 'Unable to estimate'
+    if (withdrawGasQuery.error) {
+      return toAppUserFacingError(withdrawGasQuery.error, {
+        fallback: 'Unable to estimate gas for this withdrawal.',
+        context: 'withdraw',
+      })
+    }
     if (withdrawGasQuery.data === undefined) return '—'
     return formatNativeGasCostLabel(withdrawGasQuery.data, nativeSymbol)
   }, [
