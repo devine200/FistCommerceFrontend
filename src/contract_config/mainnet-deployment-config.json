@@ -3448,7 +3448,7 @@
     ]
   },
   "AllocationController": {
-    "address": "0x8f0fA9F7CD7C08De705faE8784E54aaf35A39142",
+    "address": "0x188515AA36DC7eCfe4c523d4675c3169b15c2D13",
     "abi": [
       {
         "inputs": [
@@ -3475,6 +3475,11 @@
           {
             "internalType": "address",
             "name": "_receivableToken",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "_previousAllocator",
             "type": "address"
           }
         ],
@@ -3591,11 +3596,62 @@
           {
             "indexed": true,
             "internalType": "bytes32",
+            "name": "merchantId",
+            "type": "bytes32"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "exposure",
+            "type": "uint256"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "receivableCount",
+            "type": "uint256"
+          }
+        ],
+        "name": "MerchantStateImported",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "previousAllocator",
+            "type": "address"
+          }
+        ],
+        "name": "MigrationFinalized",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "bytes32",
             "name": "receivableId",
             "type": "bytes32"
           }
         ],
         "name": "PaymentDefaulted",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "previousAllocator",
+            "type": "address"
+          }
+        ],
+        "name": "PreviousAllocatorSet",
         "type": "event"
       },
       {
@@ -3818,6 +3874,25 @@
         "inputs": [
           {
             "indexed": true,
+            "internalType": "address",
+            "name": "previousAllocator",
+            "type": "address"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint8[]",
+            "name": "tierIds",
+            "type": "uint8[]"
+          }
+        ],
+        "name": "RiskTiersImported",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
             "internalType": "bytes32",
             "name": "role",
             "type": "bytes32"
@@ -3886,6 +3961,19 @@
           }
         ],
         "name": "RoleRevoked",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "previousAllocator",
+            "type": "address"
+          }
+        ],
+        "name": "ScalarsImported",
         "type": "event"
       },
       {
@@ -4055,6 +4143,13 @@
           }
         ],
         "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "finalizeMigration",
+        "outputs": [],
+        "stateMutability": "nonpayable",
         "type": "function"
       },
       {
@@ -4301,6 +4396,44 @@
             "type": "bytes32"
           },
           {
+            "internalType": "bytes32[]",
+            "name": "receivableIds",
+            "type": "bytes32[]"
+          }
+        ],
+        "name": "importMerchantState",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint8[]",
+            "name": "tierIds",
+            "type": "uint8[]"
+          }
+        ],
+        "name": "importRiskTiers",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "importScalarsFromPrevious",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "merchantId",
+            "type": "bytes32"
+          },
+          {
             "internalType": "uint256",
             "name": "amount",
             "type": "uint256"
@@ -4388,6 +4521,25 @@
             "internalType": "bytes32",
             "name": "",
             "type": "bytes32"
+          }
+        ],
+        "name": "merchantImported",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "",
+            "type": "bytes32"
           },
           {
             "internalType": "uint256",
@@ -4401,6 +4553,32 @@
             "internalType": "bytes32",
             "name": "",
             "type": "bytes32"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "migrationFinalized",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "previousAllocator",
+        "outputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
           }
         ],
         "stateMutability": "view",
@@ -4672,6 +4850,19 @@
             "internalType": "uint256",
             "name": "maxTenorDays",
             "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "scalarsImported",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
           }
         ],
         "stateMutability": "view",
@@ -6912,6 +7103,671 @@
       }
     ]
   },
+  "fistMultisigAccount": {
+    "address": "0xcF7C92102edad3b142337D8D93D48B75dDE34276",
+    "abi": [
+      {
+        "inputs": [
+          {
+            "internalType": "address[]",
+            "name": "owners",
+            "type": "address[]"
+          },
+          {
+            "internalType": "uint64",
+            "name": "threshold_",
+            "type": "uint64"
+          }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "sender",
+            "type": "address"
+          }
+        ],
+        "name": "AccountUnauthorized",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "ERC7579DecodingError",
+        "type": "error"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "ExecType",
+            "name": "execType",
+            "type": "bytes1"
+          }
+        ],
+        "name": "ERC7579UnsupportedExecType",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "FailedCall",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "InvalidShortString",
+        "type": "error"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes",
+            "name": "signer",
+            "type": "bytes"
+          }
+        ],
+        "name": "MultiSignerERC7913AlreadyExists",
+        "type": "error"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes",
+            "name": "signer",
+            "type": "bytes"
+          }
+        ],
+        "name": "MultiSignerERC7913InvalidSigner",
+        "type": "error"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes",
+            "name": "signer",
+            "type": "bytes"
+          }
+        ],
+        "name": "MultiSignerERC7913NonexistentSigner",
+        "type": "error"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint64",
+            "name": "signers",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "threshold",
+            "type": "uint64"
+          }
+        ],
+        "name": "MultiSignerERC7913UnreachableThreshold",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "MultiSignerERC7913ZeroThreshold",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "OutOfRangeAccess",
+        "type": "error"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "str",
+            "type": "string"
+          }
+        ],
+        "name": "StringTooLong",
+        "type": "error"
+      },
+      {
+        "inputs": [],
+        "name": "UnsupportedExecutionMode",
+        "type": "error"
+      },
+      {
+        "anonymous": false,
+        "inputs": [],
+        "name": "EIP712DomainChanged",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "batchExecutionIndex",
+            "type": "uint256"
+          },
+          {
+            "indexed": false,
+            "internalType": "bytes",
+            "name": "returndata",
+            "type": "bytes"
+          }
+        ],
+        "name": "ERC7579TryExecuteFail",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "bytes",
+            "name": "signers",
+            "type": "bytes"
+          }
+        ],
+        "name": "ERC7913SignerAdded",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "bytes",
+            "name": "signers",
+            "type": "bytes"
+          }
+        ],
+        "name": "ERC7913SignerRemoved",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": false,
+            "internalType": "uint64",
+            "name": "threshold",
+            "type": "uint64"
+          }
+        ],
+        "name": "ERC7913ThresholdSet",
+        "type": "event"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes[]",
+            "name": "signers",
+            "type": "bytes[]"
+          }
+        ],
+        "name": "addSigners",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "eip712Domain",
+        "outputs": [
+          {
+            "internalType": "bytes1",
+            "name": "fields",
+            "type": "bytes1"
+          },
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "version",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "chainId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "verifyingContract",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "salt",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "extensions",
+            "type": "uint256[]"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "entryPoint",
+        "outputs": [
+          {
+            "internalType": "contract IEntryPoint",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "mode",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes",
+            "name": "executionData",
+            "type": "bytes"
+          }
+        ],
+        "name": "execute",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint192",
+            "name": "key",
+            "type": "uint192"
+          }
+        ],
+        "name": "getNonce",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getNonce",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getSignerCount",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint64",
+            "name": "start",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "end",
+            "type": "uint64"
+          }
+        ],
+        "name": "getSigners",
+        "outputs": [
+          {
+            "internalType": "bytes[]",
+            "name": "",
+            "type": "bytes[]"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes",
+            "name": "signer",
+            "type": "bytes"
+          }
+        ],
+        "name": "isSigner",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "hash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes",
+            "name": "signature",
+            "type": "bytes"
+          }
+        ],
+        "name": "isValidSignature",
+        "outputs": [
+          {
+            "internalType": "bytes4",
+            "name": "result",
+            "type": "bytes4"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "",
+            "type": "uint256[]"
+          },
+          {
+            "internalType": "bytes",
+            "name": "",
+            "type": "bytes"
+          }
+        ],
+        "name": "onERC1155BatchReceived",
+        "outputs": [
+          {
+            "internalType": "bytes4",
+            "name": "",
+            "type": "bytes4"
+          }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes",
+            "name": "",
+            "type": "bytes"
+          }
+        ],
+        "name": "onERC1155Received",
+        "outputs": [
+          {
+            "internalType": "bytes4",
+            "name": "",
+            "type": "bytes4"
+          }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes",
+            "name": "",
+            "type": "bytes"
+          }
+        ],
+        "name": "onERC721Received",
+        "outputs": [
+          {
+            "internalType": "bytes4",
+            "name": "",
+            "type": "bytes4"
+          }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes[]",
+            "name": "signers",
+            "type": "bytes[]"
+          }
+        ],
+        "name": "removeSigners",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint64",
+            "name": "threshold",
+            "type": "uint64"
+          }
+        ],
+        "name": "setThreshold",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "mode",
+            "type": "bytes32"
+          }
+        ],
+        "name": "supportsExecutionMode",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "result",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes4",
+            "name": "interfaceId",
+            "type": "bytes4"
+          }
+        ],
+        "name": "supportsInterface",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "threshold",
+        "outputs": [
+          {
+            "internalType": "uint64",
+            "name": "",
+            "type": "uint64"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "sender",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "nonce",
+                "type": "uint256"
+              },
+              {
+                "internalType": "bytes",
+                "name": "initCode",
+                "type": "bytes"
+              },
+              {
+                "internalType": "bytes",
+                "name": "callData",
+                "type": "bytes"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "accountGasLimits",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "uint256",
+                "name": "preVerificationGas",
+                "type": "uint256"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "gasFees",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "bytes",
+                "name": "paymasterAndData",
+                "type": "bytes"
+              },
+              {
+                "internalType": "bytes",
+                "name": "signature",
+                "type": "bytes"
+              }
+            ],
+            "internalType": "struct PackedUserOperation",
+            "name": "userOp",
+            "type": "tuple"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "userOpHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "missingAccountFunds",
+            "type": "uint256"
+          }
+        ],
+        "name": "validateUserOp",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "stateMutability": "payable",
+        "type": "receive"
+      }
+    ]
+  },
   "acceptedToken": {
     "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
     "abi": [
@@ -8300,671 +9156,6 @@
         ],
         "stateMutability": "pure",
         "type": "function"
-      }
-    ]
-  },
-  "FistMultisigAccount": {
-    "address": "0xcF7C92102edad3b142337D8D93D48B75dDE34276",
-    "abi": [
-      {
-        "inputs": [
-          {
-            "internalType": "address[]",
-            "name": "owners",
-            "type": "address[]"
-          },
-          {
-            "internalType": "uint64",
-            "name": "threshold_",
-            "type": "uint64"
-          }
-        ],
-        "stateMutability": "nonpayable",
-        "type": "constructor"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "address",
-            "name": "sender",
-            "type": "address"
-          }
-        ],
-        "name": "AccountUnauthorized",
-        "type": "error"
-      },
-      {
-        "inputs": [],
-        "name": "ERC7579DecodingError",
-        "type": "error"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "ExecType",
-            "name": "execType",
-            "type": "bytes1"
-          }
-        ],
-        "name": "ERC7579UnsupportedExecType",
-        "type": "error"
-      },
-      {
-        "inputs": [],
-        "name": "FailedCall",
-        "type": "error"
-      },
-      {
-        "inputs": [],
-        "name": "InvalidShortString",
-        "type": "error"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes",
-            "name": "signer",
-            "type": "bytes"
-          }
-        ],
-        "name": "MultiSignerERC7913AlreadyExists",
-        "type": "error"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes",
-            "name": "signer",
-            "type": "bytes"
-          }
-        ],
-        "name": "MultiSignerERC7913InvalidSigner",
-        "type": "error"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes",
-            "name": "signer",
-            "type": "bytes"
-          }
-        ],
-        "name": "MultiSignerERC7913NonexistentSigner",
-        "type": "error"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "uint64",
-            "name": "signers",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "threshold",
-            "type": "uint64"
-          }
-        ],
-        "name": "MultiSignerERC7913UnreachableThreshold",
-        "type": "error"
-      },
-      {
-        "inputs": [],
-        "name": "MultiSignerERC7913ZeroThreshold",
-        "type": "error"
-      },
-      {
-        "inputs": [],
-        "name": "OutOfRangeAccess",
-        "type": "error"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "string",
-            "name": "str",
-            "type": "string"
-          }
-        ],
-        "name": "StringTooLong",
-        "type": "error"
-      },
-      {
-        "inputs": [],
-        "name": "UnsupportedExecutionMode",
-        "type": "error"
-      },
-      {
-        "anonymous": false,
-        "inputs": [],
-        "name": "EIP712DomainChanged",
-        "type": "event"
-      },
-      {
-        "anonymous": false,
-        "inputs": [
-          {
-            "indexed": false,
-            "internalType": "uint256",
-            "name": "batchExecutionIndex",
-            "type": "uint256"
-          },
-          {
-            "indexed": false,
-            "internalType": "bytes",
-            "name": "returndata",
-            "type": "bytes"
-          }
-        ],
-        "name": "ERC7579TryExecuteFail",
-        "type": "event"
-      },
-      {
-        "anonymous": false,
-        "inputs": [
-          {
-            "indexed": true,
-            "internalType": "bytes",
-            "name": "signers",
-            "type": "bytes"
-          }
-        ],
-        "name": "ERC7913SignerAdded",
-        "type": "event"
-      },
-      {
-        "anonymous": false,
-        "inputs": [
-          {
-            "indexed": true,
-            "internalType": "bytes",
-            "name": "signers",
-            "type": "bytes"
-          }
-        ],
-        "name": "ERC7913SignerRemoved",
-        "type": "event"
-      },
-      {
-        "anonymous": false,
-        "inputs": [
-          {
-            "indexed": false,
-            "internalType": "uint64",
-            "name": "threshold",
-            "type": "uint64"
-          }
-        ],
-        "name": "ERC7913ThresholdSet",
-        "type": "event"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes[]",
-            "name": "signers",
-            "type": "bytes[]"
-          }
-        ],
-        "name": "addSigners",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [],
-        "name": "eip712Domain",
-        "outputs": [
-          {
-            "internalType": "bytes1",
-            "name": "fields",
-            "type": "bytes1"
-          },
-          {
-            "internalType": "string",
-            "name": "name",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "version",
-            "type": "string"
-          },
-          {
-            "internalType": "uint256",
-            "name": "chainId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "verifyingContract",
-            "type": "address"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "salt",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "uint256[]",
-            "name": "extensions",
-            "type": "uint256[]"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [],
-        "name": "entryPoint",
-        "outputs": [
-          {
-            "internalType": "contract IEntryPoint",
-            "name": "",
-            "type": "address"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes32",
-            "name": "mode",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes",
-            "name": "executionData",
-            "type": "bytes"
-          }
-        ],
-        "name": "execute",
-        "outputs": [],
-        "stateMutability": "payable",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "uint192",
-            "name": "key",
-            "type": "uint192"
-          }
-        ],
-        "name": "getNonce",
-        "outputs": [
-          {
-            "internalType": "uint256",
-            "name": "",
-            "type": "uint256"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [],
-        "name": "getNonce",
-        "outputs": [
-          {
-            "internalType": "uint256",
-            "name": "",
-            "type": "uint256"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [],
-        "name": "getSignerCount",
-        "outputs": [
-          {
-            "internalType": "uint256",
-            "name": "",
-            "type": "uint256"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "uint64",
-            "name": "start",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "end",
-            "type": "uint64"
-          }
-        ],
-        "name": "getSigners",
-        "outputs": [
-          {
-            "internalType": "bytes[]",
-            "name": "",
-            "type": "bytes[]"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes",
-            "name": "signer",
-            "type": "bytes"
-          }
-        ],
-        "name": "isSigner",
-        "outputs": [
-          {
-            "internalType": "bool",
-            "name": "",
-            "type": "bool"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes32",
-            "name": "hash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "bytes",
-            "name": "signature",
-            "type": "bytes"
-          }
-        ],
-        "name": "isValidSignature",
-        "outputs": [
-          {
-            "internalType": "bytes4",
-            "name": "result",
-            "type": "bytes4"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "address",
-            "name": "",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256[]",
-            "name": "",
-            "type": "uint256[]"
-          },
-          {
-            "internalType": "uint256[]",
-            "name": "",
-            "type": "uint256[]"
-          },
-          {
-            "internalType": "bytes",
-            "name": "",
-            "type": "bytes"
-          }
-        ],
-        "name": "onERC1155BatchReceived",
-        "outputs": [
-          {
-            "internalType": "bytes4",
-            "name": "",
-            "type": "bytes4"
-          }
-        ],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "address",
-            "name": "",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes",
-            "name": "",
-            "type": "bytes"
-          }
-        ],
-        "name": "onERC1155Received",
-        "outputs": [
-          {
-            "internalType": "bytes4",
-            "name": "",
-            "type": "bytes4"
-          }
-        ],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "address",
-            "name": "",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes",
-            "name": "",
-            "type": "bytes"
-          }
-        ],
-        "name": "onERC721Received",
-        "outputs": [
-          {
-            "internalType": "bytes4",
-            "name": "",
-            "type": "bytes4"
-          }
-        ],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes[]",
-            "name": "signers",
-            "type": "bytes[]"
-          }
-        ],
-        "name": "removeSigners",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "uint64",
-            "name": "threshold",
-            "type": "uint64"
-          }
-        ],
-        "name": "setThreshold",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes32",
-            "name": "mode",
-            "type": "bytes32"
-          }
-        ],
-        "name": "supportsExecutionMode",
-        "outputs": [
-          {
-            "internalType": "bool",
-            "name": "result",
-            "type": "bool"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "internalType": "bytes4",
-            "name": "interfaceId",
-            "type": "bytes4"
-          }
-        ],
-        "name": "supportsInterface",
-        "outputs": [
-          {
-            "internalType": "bool",
-            "name": "",
-            "type": "bool"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [],
-        "name": "threshold",
-        "outputs": [
-          {
-            "internalType": "uint64",
-            "name": "",
-            "type": "uint64"
-          }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {
-            "components": [
-              {
-                "internalType": "address",
-                "name": "sender",
-                "type": "address"
-              },
-              {
-                "internalType": "uint256",
-                "name": "nonce",
-                "type": "uint256"
-              },
-              {
-                "internalType": "bytes",
-                "name": "initCode",
-                "type": "bytes"
-              },
-              {
-                "internalType": "bytes",
-                "name": "callData",
-                "type": "bytes"
-              },
-              {
-                "internalType": "bytes32",
-                "name": "accountGasLimits",
-                "type": "bytes32"
-              },
-              {
-                "internalType": "uint256",
-                "name": "preVerificationGas",
-                "type": "uint256"
-              },
-              {
-                "internalType": "bytes32",
-                "name": "gasFees",
-                "type": "bytes32"
-              },
-              {
-                "internalType": "bytes",
-                "name": "paymasterAndData",
-                "type": "bytes"
-              },
-              {
-                "internalType": "bytes",
-                "name": "signature",
-                "type": "bytes"
-              }
-            ],
-            "internalType": "struct PackedUserOperation",
-            "name": "userOp",
-            "type": "tuple"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "userOpHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "uint256",
-            "name": "missingAccountFunds",
-            "type": "uint256"
-          }
-        ],
-        "name": "validateUserOp",
-        "outputs": [
-          {
-            "internalType": "uint256",
-            "name": "",
-            "type": "uint256"
-          }
-        ],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "stateMutability": "payable",
-        "type": "receive"
       }
     ]
   }
