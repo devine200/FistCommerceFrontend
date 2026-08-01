@@ -457,7 +457,7 @@ const RiskAllocationPanel = () => {
     <>
       <SettingsPanel
         title="Risk & Allocation"
-        description="Risk tiers and merchant concentration limits on AllocationController. Each changed field creates a multisig governance proposal."
+        description="Risk tiers and merchant concentration limits on AllocationController. Tier interest is a flat percent of principal for the full tenor (not APR). Each changed field creates a multisig governance proposal."
         actions={
           <SettingsSectionActions
             onCancel={handleCancelDraft}
@@ -488,7 +488,7 @@ const RiskAllocationPanel = () => {
           id="bankerYearDays"
           label="Banker year days"
           value={draft.bankerYearDays}
-          hint="Maps to setBankerYearDays (360–366)."
+          hint="Legacy day-count field on AllocationController. New flat tenor interest does not use banker year days for loan pricing."
           onChange={(v) => {
             setDraft((prev) => ({ ...prev, bankerYearDays: v }))
             setSaveNotice(null)
@@ -535,7 +535,7 @@ const RiskAllocationPanel = () => {
                 <thead className="bg-[#F8F9FB] text-[#6B7488] text-[12px] font-semibold uppercase tracking-wide">
                   <tr>
                     <th className="px-4 py-3">Tier ID</th>
-                    <th className="px-4 py-3">APR (%)</th>
+                    <th className="px-4 py-3">Tenor rate (%)</th>
                     <th className="px-4 py-3">Max tenor (days)</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Active</th>
@@ -553,7 +553,7 @@ const RiskAllocationPanel = () => {
                           value={tier.interestPercent}
                           onChange={(e) => updateTier(tier.id, { interestPercent: e.target.value })}
                           className="h-9 w-24 rounded-[6px] bg-[#F0F2F5] px-2 text-[14px] outline-none focus:ring-2 focus:ring-[#195EBC]/25"
-                          aria-label={`Tier ${tier.id} APR`}
+                          aria-label={`Tier ${tier.id} tenor rate`}
                         />
                       </td>
                       <td className="px-4 py-3">

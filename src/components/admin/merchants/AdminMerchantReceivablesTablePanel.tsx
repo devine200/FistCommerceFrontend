@@ -15,7 +15,7 @@ import type { ReceivableTableRow, RepaymentDueVariant } from '@/components/dashb
 const HEADERS = [
   'Receivable Name',
   'Loan Amount',
-  'APR',
+  'Tenor rate',
   'Repayment Due',
   'Repayment Amount',
   'Debt Status',

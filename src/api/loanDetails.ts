@@ -52,7 +52,9 @@ export function resolveVerificationDocumentUrl(
 export type LoanDetailsSummary = {
   title: string | null
   riskTierId: number
+  /** Flat tenor rate % of principal (legacy field name; same as tenorRatePercent). */
   apr: number | null
+  tenorRatePercent?: number | null
   totalAmount: string | null
   funding: string | null
   amountOwed: string | null
@@ -219,7 +221,22 @@ function normalizeLoanDetailsPayload(raw: unknown): LoanDetailsResponse {
     summary: {
       title: pickStr(summary, 'title'),
       riskTierId: Number(summary.riskTierId ?? summary.risk_tier_id ?? 0),
-      apr: typeof summary.apr === 'number' ? summary.apr : Number(summary.apr) || null,
+      apr: (() => {
+        const tenor =
+          typeof summary.tenorRatePercent === 'number'
+            ? summary.tenorRatePercent
+            : Number(summary.tenorRatePercent)
+        if (Number.isFinite(tenor)) return tenor
+        return typeof summary.apr === 'number' ? summary.apr : Number(summary.apr) || null
+      })(),
+      tenorRatePercent: (() => {
+        const tenor =
+          typeof summary.tenorRatePercent === 'number'
+            ? summary.tenorRatePercent
+            : Number(summary.tenorRatePercent)
+        if (Number.isFinite(tenor)) return tenor
+        return typeof summary.apr === 'number' ? summary.apr : Number(summary.apr) || null
+      })(),
       totalAmount: pickStr(summary, 'totalAmount', 'total_amount'),
       funding: pickStr(summary, 'funding'),
       amountOwed: pickStr(summary, 'amountOwed', 'amount_owed'),

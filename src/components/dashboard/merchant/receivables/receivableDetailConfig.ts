@@ -110,7 +110,7 @@ export const getReceivableDetailById = (receivableId: string): ReceivableDetailV
         id: 'owed',
         title: 'Amount Owed',
         primaryValue: '$400K',
-        secondaryValue: `${row.apr} APR`,
+        secondaryValue: row.apr,
         icon: 'money',
       },
     ],

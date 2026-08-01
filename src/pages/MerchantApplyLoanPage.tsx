@@ -464,7 +464,7 @@ const MerchantApplyLoanPage = () => {
               />
               {selectedTier ? (
                 <p className="mt-1 text-[#8B92A3] text-[11px]">
-                  {selectedTier.interest_percent}% APR over {selectedTier.duration_days} days (pro-rated)
+                  {selectedTier.interest_percent}% flat for {selectedTier.duration_days}-day tenor
                 </p>
               ) : null}
             </label>

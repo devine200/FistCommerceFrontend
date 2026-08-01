@@ -318,7 +318,7 @@ const MerchantAllReceivablesContent = () => {
               <tr className="bg-[#F8FAFC] text-[#4D5D80] border-b border-[#E6E8EC]">
                 <th className="px-8 py-5 font-semibold text-[13px]">Receivable Name</th>
                 <th className="px-8 py-5 font-semibold text-[13px]">Loan Amount</th>
-                <th className="px-8 py-5 font-semibold text-[13px]">APR</th>
+                <th className="px-8 py-5 font-semibold text-[13px]">Tenor rate</th>
                 <th className="px-8 py-5 font-semibold text-[13px]">Repayment Due</th>
                 <th className="px-8 py-5 font-semibold text-[13px]">Repayment Amount</th>
                 <th className="px-8 py-5 font-semibold text-[13px]">Debt Status</th>

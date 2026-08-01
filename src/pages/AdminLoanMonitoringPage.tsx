@@ -46,7 +46,7 @@ type TabKey = (typeof TABS)[number]
 
 const TAB_ITEMS: AdminTabItem<TabKey>[] = TABS.map((t) => ({ value: t, label: t }))
 
-const TABLE_HEADERS = ['Receivable Name', 'Merchant', 'Amount', 'APR', 'Status', 'Next Payment', 'Action'] as const
+const TABLE_HEADERS = ['Receivable Name', 'Merchant', 'Amount', 'Tenor rate', 'Status', 'Next Payment', 'Action'] as const
 
 function tabToApiFilter(tab: TabKey) {
   switch (tab) {

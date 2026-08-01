@@ -6,8 +6,9 @@ export type LoanTierFigures = {
 }
 
 /**
- * Pro-rated simple interest: principal × (annual % / 100) × (duration_days / 365).
- * `interest_percent` is annual (tenorRateBps / 100 on-chain).
+ * Flat tenor interest: principal × (tenor % / 100).
+ * Matches AllocationController: interest = funded * tenorRateBps / 10_000.
+ * `interest_percent` is the flat rate for the full loan tenor (not APR).
  */
 export function calculateLoanTierFigures(
   principal: number,
@@ -17,7 +18,7 @@ export function calculateLoanTierFigures(
   if (!Number.isFinite(tier.duration_days) || tier.duration_days <= 0) return null
   if (!Number.isFinite(tier.interest_percent) || tier.interest_percent < 0) return null
 
-  const interest = principal * (tier.interest_percent / 100) * (tier.duration_days / 365)
+  const interest = principal * (tier.interest_percent / 100)
   return {
     interest,
     repayment: principal + interest,
@@ -39,5 +40,5 @@ export function riskTierSelectLabel(tier: RiskTier): string {
     ? tier.interest_percent.toLocaleString('en-US', { maximumFractionDigits: 2 })
     : '—'
   const suffix = tier.active ? '' : ' (unavailable)'
-  return `${tier.duration_days} days — ${rate}% APR${suffix}`
+  return `${tier.duration_days} days — ${rate}% for tenor${suffix}`
 }

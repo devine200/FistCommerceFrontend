@@ -25,11 +25,14 @@ function formatMoneyDisplay(raw: string | null | undefined): string {
 }
 
 function formatPercentRate(
-  apr: number | null | undefined,
-  suffix: 'APR' | 'APY',
+  rate: number | null | undefined,
+  suffix: 'tenor' | 'APY',
 ): string | undefined {
-  if (apr == null || !Number.isFinite(apr)) return suffix === 'APR' ? '—' : undefined
-  return `${apr.toLocaleString('en-US', { maximumFractionDigits: 2 })}% ${suffix}`
+  if (rate == null || !Number.isFinite(rate)) return suffix === 'tenor' ? '—' : undefined
+  if (suffix === 'tenor') {
+    return `${rate.toLocaleString('en-US', { maximumFractionDigits: 2 })}% for tenor`
+  }
+  return `${rate.toLocaleString('en-US', { maximumFractionDigits: 2 })}% ${suffix}`
 }
 
 function shortWalletLabel(value: string): string {
@@ -105,7 +108,7 @@ export function mapLoanDetailsToReceivableTableRow(
   const title = loanDisplayTitle(loanId, api)
   const totalDisplay = formatMoneyDisplay(api.summary.totalAmount)
   const owedDisplay = formatMoneyDisplay(api.summary.amountOwed)
-  const aprDisplay = formatPercentRate(api.summary.apr, 'APR') ?? '—'
+  const aprDisplay = formatPercentRate(api.summary.apr, 'tenor') ?? '—'
 
   return {
     id: loanId,
@@ -249,7 +252,7 @@ export function mapLoanDetailsToReceivableDetailView(
   const totalDisplay = formatMoneyDisplay(api.summary.totalAmount)
   const fundingDisplay = formatMoneyDisplay(api.summary.funding)
   const owedDisplay = formatMoneyDisplay(api.summary.amountOwed)
-  const aprDisplay = formatPercentRate(api.summary.apr, 'APR') ?? '—'
+  const aprDisplay = formatPercentRate(api.summary.apr, 'tenor') ?? '—'
 
   const verificationDocumentUrl =
     api.summary.verificationDocumentUrl?.trim() ||

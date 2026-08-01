@@ -6,7 +6,10 @@ const RISK_TIERS_PATH = '/api/loan/risk-tiers/'
 export type RiskTier = {
   id: number
   duration_days: number
-  /** Annual interest rate in percent points (e.g. 10.0 → 10% APR). */
+  /**
+   * Flat interest for the full loan tenor in percent points
+   * (on-chain tenorRateBps / 100; e.g. 1000 bps → 10.0% of principal).
+   */
   interest_percent: number
   active: boolean
 }
@@ -31,7 +34,7 @@ function normalizeRiskTier(raw: unknown): RiskTier | null {
 }
 
 /**
- * `GET /api/loan/risk-tiers/` — list tiers with duration, annual interest %, and active flag.
+ * `GET /api/loan/risk-tiers/` — list tiers with duration, flat tenor interest %, and active flag.
  */
 export async function fetchRiskTiers(): Promise<RiskTier[]> {
   const base = requireApiBaseUrl()

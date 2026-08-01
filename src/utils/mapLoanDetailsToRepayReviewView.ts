@@ -45,7 +45,7 @@ function formatMoneyLabel(raw: string | null | undefined, amount: number | null 
 
 function formatAprLabel(apr: number | null | undefined): string {
   if (apr == null || !Number.isFinite(apr)) return '—'
-  return `${apr.toLocaleString('en-US', { maximumFractionDigits: 2 })}% APR`
+  return `${apr.toLocaleString('en-US', { maximumFractionDigits: 2 })}% for tenor`
 }
 
 function buildSubtitle(api: LoanDetailsResponse): string {

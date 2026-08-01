@@ -80,7 +80,7 @@ function debtStatusVariant(debtStatus: string): ReceivableTableRow['debtStatusVa
 function mapProfileReceivableRow(row: AdminMerchantProfileReceivableRow): ReceivableTableRow {
   const aprDisplay =
     row.apr != null && Number.isFinite(row.apr)
-      ? `${row.apr.toLocaleString('en-US', { maximumFractionDigits: 2 })}% APR`
+      ? `${row.apr.toLocaleString('en-US', { maximumFractionDigits: 2 })}% for tenor`
       : '—'
   const debtVariant = debtStatusVariant(row.debtStatus)
   const interestFormatted = row.repaymentAmount.interest
