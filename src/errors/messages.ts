@@ -41,6 +41,10 @@ const MESSAGES: Record<AppErrorCode, string> = {
   EXEC_TX_REVERTED: 'On-chain execution reverted. Contact ops with the transaction details.',
   EXEC_CONFIRM_FAILED:
     'The transaction may have succeeded on-chain, but the server couldn’t confirm it. Share the transaction hash with ops.',
+  MULTISIG_EXECUTE_IN_PROGRESS:
+    'Another multisig execution is still in progress. Wait a few seconds and try again.',
+  MULTISIG_STALE_NONCE:
+    'This proposal’s on-chain nonce is stale. Cancel it, create a new proposal, and re-collect owner signatures.',
   SESSION_WALLET_MISMATCH: 'Reconnect the wallet used for this admin login.',
   NOT_MULTISIG_OWNER: 'Connected wallet is not a multisig owner for this deployment.',
   PROTOCOL_PAUSED: 'The protocol is temporarily paused. Try again later.',

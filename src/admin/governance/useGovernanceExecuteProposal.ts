@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import type { Abi, Address, Hex } from 'viem'
 
 import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
+import { ApiRequestError } from '@/api/apiRequestError'
 import {
   fetchMultisigExecutionPayload,
   postMultisigProposalConfirmExecute,
@@ -44,6 +45,40 @@ const ENTRY_POINT_HANDLE_OPS_ABI = [
     outputs: [],
   },
 ] as const satisfies Abi
+
+const EXECUTE_PAYLOAD_RETRY_ATTEMPTS = 4
+const EXECUTE_PAYLOAD_RETRY_BASE_MS = 1500
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+function isExecuteInProgressError(error: unknown): boolean {
+  if (!(error instanceof ApiRequestError)) return false
+  if (error.apiCode === 'MULTISIG_EXECUTE_IN_PROGRESS') return true
+  return error.status === 409 && /multisig execution is in progress/i.test(error.message)
+}
+
+async function fetchExecutionPayloadWithRetry(
+  accessToken: string,
+  proposalId: string,
+): Promise<Awaited<ReturnType<typeof fetchMultisigExecutionPayload>>> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < EXECUTE_PAYLOAD_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      return await fetchMultisigExecutionPayload(accessToken, proposalId)
+    } catch (error) {
+      lastError = error
+      if (!isExecuteInProgressError(error) || attempt >= EXECUTE_PAYLOAD_RETRY_ATTEMPTS - 1) {
+        throw error
+      }
+      await sleep(EXECUTE_PAYLOAD_RETRY_BASE_MS * (attempt + 1))
+    }
+  }
+  throw lastError
+}
 
 export function useGovernanceExecuteProposal() {
   const dispatch = useAppDispatch()
@@ -89,7 +124,7 @@ export function useGovernanceExecuteProposal() {
       setLastResult(null)
       dispatch(clearAdminMultisigActionError())
       try {
-        const payload = await fetchMultisigExecutionPayload(accessToken, id)
+        const payload = await fetchExecutionPayloadWithRetry(accessToken, id)
         if (payload.chainId > 0) {
           await ensureWalletChain(wallet, payload.chainId)
         }

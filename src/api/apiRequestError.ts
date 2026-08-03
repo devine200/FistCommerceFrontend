@@ -4,18 +4,22 @@ export class ApiRequestError extends Error {
   readonly status: number
   /** Normalized field / serializer messages from `details` when present. */
   readonly detailLines: readonly string[]
+  /** Stable API error code from JSON `code` when present. */
+  readonly apiCode?: string
 
   constructor(
     message: string,
     status: number,
     options?: {
       detailLines?: readonly string[]
+      apiCode?: string
     },
   ) {
     super(message)
     this.name = 'ApiRequestError'
     this.status = status
     this.detailLines = options?.detailLines?.length ? [...options.detailLines] : []
+    this.apiCode = options?.apiCode?.trim() || undefined
   }
 }
 
@@ -65,6 +69,8 @@ export function apiRequestErrorFromJson(
 
   const lines = detailLines.length ? detailLines : bodyAsDetails
 
+  const apiCode = pickTrimmedString(data.code)
+
   const fromFields =
     pickTrimmedString(data.errorMessage) ||
     pickTrimmedString(data.message) ||
@@ -83,7 +89,7 @@ export function apiRequestErrorFromJson(
       ? `Request failed (${status})`
       : headline
 
-  return new ApiRequestError(normalizedHeadline, status, { detailLines: lines })
+  return new ApiRequestError(normalizedHeadline, status, { detailLines: lines, apiCode })
 }
 
 export async function parseApiErrorResponse(res: Response): Promise<ApiRequestError> {

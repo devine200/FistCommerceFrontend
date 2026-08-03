@@ -22,6 +22,11 @@ export type ClassifiedAppError = {
   raw: string
 }
 
+const API_CODE_BY_RESPONSE: Partial<Record<string, AppErrorCode>> = {
+  MULTISIG_EXECUTE_IN_PROGRESS: 'MULTISIG_EXECUTE_IN_PROGRESS',
+  MULTISIG_STALE_NONCE: 'MULTISIG_STALE_NONCE',
+}
+
 function pickTrimmedString(value: unknown): string {
   return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
@@ -190,6 +195,21 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
   if (/AA24|signature error/i.test(t)) {
     return { code: 'EXEC_SIM_AA24', message: messageForCode('EXEC_SIM_AA24'), raw: t }
   }
+  if (/AA25|invalid account nonce/i.test(t)) {
+    return { code: 'MULTISIG_STALE_NONCE', message: messageForCode('MULTISIG_STALE_NONCE'), raw: t }
+  }
+  if (
+    /Frozen UserOp nonce .* stale|nonce drifted before submit|on-chain nonce is/i.test(t)
+  ) {
+    return { code: 'MULTISIG_STALE_NONCE', message: messageForCode('MULTISIG_STALE_NONCE'), raw: t }
+  }
+  if (/another multisig execution is in progress|MULTISIG_EXECUTE_IN_PROGRESS/i.test(t)) {
+    return {
+      code: 'MULTISIG_EXECUTE_IN_PROGRESS',
+      message: messageForCode('MULTISIG_EXECUTE_IN_PROGRESS'),
+      raw: t,
+    }
+  }
   if (/EntryPoint handleOps simulation failed|handleOps simulation failed/i.test(t)) {
     const decoded = decodeEmbeddedAsciiHex(t)
     if (decoded && /AA24|signature/i.test(decoded)) {
@@ -348,6 +368,12 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
 
 function classifyApiRequestError(error: ApiRequestError): ClassifiedAppError {
   const raw = [error.message, ...error.detailLines].filter(Boolean).join('\n').trim()
+  if (error.apiCode) {
+    const mapped = API_CODE_BY_RESPONSE[error.apiCode]
+    if (mapped) {
+      return { code: mapped, message: messageForCode(mapped), raw }
+    }
+  }
   // HTTP APIs that hit the chain use the servicer (loan request, repay submit, admin writes).
   // Never map those "insufficient funds" responses to the end-user wallet message.
   if (
