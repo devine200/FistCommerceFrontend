@@ -4,6 +4,7 @@ import { Navigate, Link, useNavigate, useParams } from 'react-router-dom'
 import {
   governanceOperationLabel,
   governanceStatusPillVariant,
+  isTerminalGovernanceProposalStatus,
 } from '@/components/admin/governance/adminGovernanceUi'
 import {
   PrivilegedActionFeedbackLayer,
@@ -35,8 +36,8 @@ import {
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 
 const GOVERNANCE_LIST_PATH = '/dashboard/admin/governance'
-const DETAIL_POLL_MS = 15_000
-const DETAIL_POLL_MS_ACTIVE = 10_000
+const DETAIL_POLL_MS = 30_000
+const DETAIL_POLL_MS_ACTIVE = 20_000
 
 function nonceBannerClass(status: NonceStatus): string {
   switch (status) {
@@ -418,7 +419,9 @@ const AdminGovernanceProposalDetailPage = () => {
   }, [address, detail?.signatures])
 
   const nonceInfo = detail?.nonce
-  const isNonceStale = nonceInfo?.nonceStatus === 'stale'
+  const isTerminal = detail ? isTerminalGovernanceProposalStatus(detail.status) : false
+  const isNonceStale = !isTerminal && nonceInfo?.nonceStatus === 'stale'
+  const showNonceBanner = Boolean(nonceInfo) && !isTerminal
 
   const canSign = useMemo(
     () =>
@@ -480,6 +483,7 @@ const AdminGovernanceProposalDetailPage = () => {
 
   const canRestart =
     Boolean(detail?.nonce?.canRestartSignatures) &&
+    !isTerminal &&
     !signPending &&
     !executePending &&
     !restartPending &&
@@ -540,7 +544,7 @@ const AdminGovernanceProposalDetailPage = () => {
                 </AdminStatusPill>
               </div>
 
-              {detail.nonce ? <NonceStatusBanner nonce={detail.nonce} /> : null}
+              {showNonceBanner && nonceInfo ? <NonceStatusBanner nonce={nonceInfo} /> : null}
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-[14px]">
                 <div>

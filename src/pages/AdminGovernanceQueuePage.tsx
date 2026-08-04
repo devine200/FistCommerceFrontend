@@ -15,6 +15,7 @@ import { useGovernanceSignAndSubmit } from '@/admin/governance/useGovernanceSign
 import {
   governanceOperationLabel,
   governanceStatusPillVariant,
+  isTerminalGovernanceProposalStatus,
 } from '@/components/admin/governance/adminGovernanceUi'
 import { usePaginatedListItems } from '@/hooks/usePaginatedListItems'
 import {
@@ -49,8 +50,8 @@ const STATUS_TAB_ITEMS: AdminTabItem<StatusTab>[] = STATUS_TABS.map((t) => ({ va
 
 const TABLE_HEADERS = ['Type', 'Summary', 'Status', 'Nonce', 'Related', 'Created', 'Execution tx', 'Action'] as const
 
-const POLL_MS = 90_000
-const POLL_MS_ACTIVE_NONCE_MS = 30_000
+const POLL_MS = 45_000
+const POLL_MS_ACTIVE_NONCE_MS = 20_000
 const FULL_LIST_CACHE_KEY = governanceListCacheKey(GOVERNANCE_FULL_LIST_FILTER)
 
 function tabToStatusFilter(tab: StatusTab): ProposalStatus | 'all' {
@@ -243,11 +244,13 @@ const AdminGovernanceQueuePage = () => {
                       <AdminStatusPill variant={governanceStatusPillVariant(row.status)}>
                         {proposalStatusLabel(row.status)}
                       </AdminStatusPill>
-                      {row.nonce?.nonceStatus === 'stale' ? (
+                      {row.nonce?.nonceStatus === 'stale' &&
+                      !isTerminalGovernanceProposalStatus(row.status) ? (
                         <span className="ml-2 inline-flex text-[11px] font-semibold text-[#B91C1C]">
                           Stale nonce
                         </span>
-                      ) : row.nonce?.nonceStatus === 'queued' ? (
+                      ) : row.nonce?.nonceStatus === 'queued' &&
+                        !isTerminalGovernanceProposalStatus(row.status) ? (
                         <span className="ml-2 inline-flex text-[11px] font-semibold text-[#92400E]">
                           Queued
                         </span>
@@ -291,7 +294,8 @@ const AdminGovernanceQueuePage = () => {
                             {rowSigning ? 'Signing…' : 'Sign'}
                           </button>
                         ) : null}
-                        {row.nonce?.nonceStatus === 'stale' ? (
+                        {row.nonce?.nonceStatus === 'stale' &&
+                        !isTerminalGovernanceProposalStatus(row.status) ? (
                           <Link
                             to={adminGovernanceProposalPath(row.id)}
                             className="text-[#D97706] text-[14px] font-semibold hover:underline"

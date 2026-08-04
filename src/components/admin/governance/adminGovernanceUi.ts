@@ -16,6 +16,11 @@ export function governanceStatusPillVariant(status: ProposalStatus): AdminPillVa
   }
 }
 
+/** Terminal proposals no longer need nonce / signature actions. */
+export function isTerminalGovernanceProposalStatus(status: ProposalStatus): boolean {
+  return status === 'executed' || status === 'cancelled' || status === 'failed'
+}
+
 export function governanceOperationLabel(type: OperationType): string {
   switch (type) {
     case 'withdrawal_approve':
