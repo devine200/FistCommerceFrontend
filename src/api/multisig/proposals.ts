@@ -278,6 +278,28 @@ export async function postMultisigProposalConfirmExecute(
   }
 }
 
+/** `POST /api/multisig/proposals/{id}/restart-signatures/` */
+export async function postMultisigProposalRestartSignatures(
+  accessToken: string | null | undefined,
+  proposalId: string,
+): Promise<ProposalDetail> {
+  const id = proposalId.trim()
+  if (!id) throw new Error('Missing proposal id.')
+  const res = await fetchWithAuthRecovery(
+    apiUrl(`${PROPOSALS_PATH}${encodeURIComponent(id)}/restart-signatures/`),
+    {
+      method: 'POST',
+      headers: jsonAuthHeaders(accessToken),
+      body: JSON.stringify({}),
+    },
+  )
+  if (!res.ok) throw await parseApiErrorResponse(res)
+  const raw = await res.json()
+  const detail = normalizeProposalDetail(raw)
+  if (!detail) throw new Error('Restart signatures response was missing required fields.')
+  return detail
+}
+
 /** `POST /api/multisig/proposals/{id}/cancel/` */
 export async function postMultisigProposalCancel(
   accessToken: string | null | undefined,

@@ -24,6 +24,7 @@ export type ClassifiedAppError = {
 
 const API_CODE_BY_RESPONSE: Partial<Record<string, AppErrorCode>> = {
   MULTISIG_EXECUTE_IN_PROGRESS: 'MULTISIG_EXECUTE_IN_PROGRESS',
+  MULTISIG_EXECUTE_QUEUED: 'MULTISIG_EXECUTE_QUEUED',
   MULTISIG_STALE_NONCE: 'MULTISIG_STALE_NONCE',
 }
 
@@ -207,6 +208,13 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
     return {
       code: 'MULTISIG_EXECUTE_IN_PROGRESS',
       message: messageForCode('MULTISIG_EXECUTE_IN_PROGRESS'),
+      raw: t,
+    }
+  }
+  if (/MULTISIG_EXECUTE_QUEUED|queued at nonce|execute earlier proposals first/i.test(t)) {
+    return {
+      code: 'MULTISIG_EXECUTE_QUEUED',
+      message: messageForCode('MULTISIG_EXECUTE_QUEUED'),
       raw: t,
     }
   }

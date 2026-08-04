@@ -6,11 +6,14 @@ import {
   type MultisigProposalCall,
   type MultisigProposalSignature,
   type MultisigSignerMgmtSync,
+  type NonceStatus,
   type OperationType,
   type ProposalDetail,
   type ProposalListRow,
+  type ProposalNonceInfo,
   type ProposalStatus,
   type SigningPayload,
+  type NonceWarning,
 } from '@/api/types/multisig'
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -54,6 +57,70 @@ function pickBool(record: Record<string, unknown>, ...keys: string[]): boolean {
     if (typeof v === 'boolean') return v
   }
   return false
+}
+
+function pickNullableNumber(record: Record<string, unknown>, ...keys: string[]): number | null {
+  for (const key of keys) {
+    const v = record[key]
+    if (v === null || v === undefined) continue
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (typeof v === 'string' && v.trim()) {
+      const n = Number(v)
+      if (Number.isFinite(n)) return n
+    }
+  }
+  return null
+}
+
+function normalizeNonceStatus(raw: string): NonceStatus {
+  const t = raw.trim().toLowerCase()
+  if (t === 'current') return 'current'
+  if (t === 'queued') return 'queued'
+  if (t === 'stale') return 'stale'
+  return 'unfrozen'
+}
+
+function normalizeProposalNonceInfo(raw: unknown): ProposalNonceInfo | undefined {
+  const r = asRecord(raw)
+  if (!Object.keys(r).length) return undefined
+  const blocking: string[] = []
+  const blockingRaw = r.blockingProposalIds ?? r.blocking_proposal_ids
+  if (Array.isArray(blockingRaw)) {
+    for (const id of blockingRaw) {
+      if (typeof id === 'string' && id.trim()) blocking.push(id.trim())
+    }
+  }
+  return {
+    reservedNonce: pickNullableNumber(r, 'reservedNonce', 'reserved_nonce'),
+    frozenNonce: pickNullableNumber(r, 'frozenNonce', 'frozen_nonce'),
+    liveNonce: pickNumber(r, 'liveNonce', 'live_nonce'),
+    nonceStatus: normalizeNonceStatus(pickStr(r, 'nonceStatus', 'nonce_status') || 'unfrozen'),
+    queueSeq: pickNullableNumber(r, 'queueSeq', 'queue_seq'),
+    canExecute: pickBool(r, 'canExecute', 'can_execute'),
+    canRestartSignatures: pickBool(r, 'canRestartSignatures', 'can_restart_signatures'),
+    blockingProposalIds: blocking,
+    restartCount: pickNumber(r, 'restartCount', 'restart_count'),
+  }
+}
+
+function normalizeNonceWarning(raw: unknown): NonceWarning | undefined {
+  const r = asRecord(raw)
+  if (!Object.keys(r).length) return undefined
+  const blocking: string[] = []
+  const blockingRaw = r.blockingProposalIds ?? r.blocking_proposal_ids
+  if (Array.isArray(blockingRaw)) {
+    for (const id of blockingRaw) {
+      if (typeof id === 'string' && id.trim()) blocking.push(id.trim())
+    }
+  }
+  const message = pickStr(r, 'message')
+  if (!message) return undefined
+  return {
+    code: pickStr(r, 'code') || 'SIGN_AHEAD_OF_QUEUE',
+    message,
+    blockingProposalIds: blocking,
+    willInvalidateOthers: pickBool(r, 'willInvalidateOthers', 'will_invalidate_others'),
+  }
 }
 
 const OPERATION_TYPE_LOOKUP = new Set<string>(MULTISIG_OPERATION_TYPES)
@@ -127,6 +194,8 @@ export function normalizeMultisigConfig(raw: unknown): MultisigConfig {
     signers,
     handoffCompleted: pickBool(r, 'handoffCompleted', 'handoff_completed') || undefined,
     servicerAddress: pickStr(r, 'servicerAddress', 'servicer_address') || undefined,
+    liveUserOpNonce: pickNullableNumber(r, 'liveUserOpNonce', 'live_user_op_nonce') ?? undefined,
+    openProposalCount: pickNullableNumber(r, 'openProposalCount', 'open_proposal_count') ?? undefined,
   }
 }
 
@@ -183,6 +252,7 @@ export function normalizeProposalListRow(raw: unknown): ProposalListRow | null {
     missingSigners,
     validSignatureCount: pickNumber(r, 'validSignatureCount', 'valid_signature_count'),
     threshold: pickNumber(r, 'threshold'),
+    nonce: normalizeProposalNonceInfo(r.nonce),
   }
 }
 
@@ -244,6 +314,7 @@ export function normalizeProposalDetail(raw: unknown): ProposalDetail | null {
     threshold: pickNumber(r, 'threshold'),
     multisigAddress: pickStr(r, 'multisigAddress', 'multisig_address'),
     createdAt: pickStr(r, 'createdAt', 'created_at'),
+    nonce: normalizeProposalNonceInfo(r.nonce),
   }
 }
 
@@ -306,6 +377,7 @@ export function normalizeSigningPayload(raw: unknown): SigningPayload | null {
     signers,
     signingNote: pickStr(r, 'signingNote', 'signing_note'),
     calls,
+    nonceWarning: normalizeNonceWarning(r.nonceWarning ?? r.nonce_warning),
   }
 }
 

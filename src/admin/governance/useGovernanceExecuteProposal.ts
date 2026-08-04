@@ -2,7 +2,8 @@ import { useCallback, useState } from 'react'
 import type { Abi, Address, Hex } from 'viem'
 
 import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
-import { ApiRequestError } from '@/api/apiRequestError'
+import { ApiRequestError, blockingProposalIdsFromApiError } from '@/api/apiRequestError'
+import type { AppErrorCode } from '@/errors/codes'
 import {
   fetchMultisigExecutionPayload,
   postMultisigProposalConfirmExecute,
@@ -80,6 +81,20 @@ async function fetchExecutionPayloadWithRetry(
   throw lastError
 }
 
+export type GovernanceExecuteErrorMeta = {
+  code: AppErrorCode | null
+  blockingProposalIds: string[]
+}
+
+function formatExecuteErrorMessage(error: unknown, blockingIds: string[]): string {
+  const base = toAppUserFacingError(error, {
+    fallback: 'Could not execute proposal.',
+    context: 'governance_execute',
+  })
+  if (!blockingIds.length) return base
+  return `${base}\n\nExecute these proposals first:\n${blockingIds.join('\n')}`
+}
+
 export function useGovernanceExecuteProposal() {
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
@@ -88,6 +103,7 @@ export function useGovernanceExecuteProposal() {
   const { wallet, address, isConnected } = useActiveWallet()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errorMeta, setErrorMeta] = useState<GovernanceExecuteErrorMeta | null>(null)
   const [lastResult, setLastResult] = useState<ExecuteProposalResult | null>(null)
 
   const execute = useCallback(
@@ -121,6 +137,7 @@ export function useGovernanceExecuteProposal() {
 
       setPending(true)
       setError(null)
+      setErrorMeta(null)
       setLastResult(null)
       dispatch(clearAdminMultisigActionError())
       try {
@@ -167,11 +184,13 @@ export function useGovernanceExecuteProposal() {
         await dispatch(refreshMultisigConfig()).unwrap().catch(() => {})
         return result
       } catch (e) {
-        const message = toAppUserFacingError(e, {
-          fallback: 'Could not execute proposal.',
-          context: 'governance_execute',
-        })
-        setError(message)
+        const blockingIds = blockingProposalIdsFromApiError(e)
+        const apiCode =
+          e instanceof ApiRequestError && e.apiCode?.trim()
+            ? (e.apiCode.trim() as AppErrorCode)
+            : null
+        setErrorMeta({ code: apiCode, blockingProposalIds: blockingIds })
+        setError(formatExecuteErrorMessage(e, blockingIds))
         return null
       } finally {
         setPending(false)
@@ -184,8 +203,12 @@ export function useGovernanceExecuteProposal() {
     execute,
     pending,
     error,
+    errorMeta,
     lastResult,
-    clearError: () => setError(null),
+    clearError: () => {
+      setError(null)
+      setErrorMeta(null)
+    },
     clearLastResult: () => setLastResult(null),
   }
 }

@@ -47,9 +47,10 @@ type StatusTab = (typeof STATUS_TABS)[number]
 
 const STATUS_TAB_ITEMS: AdminTabItem<StatusTab>[] = STATUS_TABS.map((t) => ({ value: t, label: t }))
 
-const TABLE_HEADERS = ['Type', 'Summary', 'Status', 'Related', 'Created', 'Execution tx', 'Action'] as const
+const TABLE_HEADERS = ['Type', 'Summary', 'Status', 'Nonce', 'Related', 'Created', 'Execution tx', 'Action'] as const
 
 const POLL_MS = 90_000
+const POLL_MS_ACTIVE_NONCE_MS = 30_000
 const FULL_LIST_CACHE_KEY = governanceListCacheKey(GOVERNANCE_FULL_LIST_FILTER)
 
 function tabToStatusFilter(tab: StatusTab): ProposalStatus | 'all' {
@@ -118,6 +119,10 @@ const AdminGovernanceQueuePage = () => {
   useEffect(() => {
     if (!accessToken?.trim() || sessionKind !== 'admin') return
     if (!hasActiveGovernanceProposals(allProposals)) return
+    const needsFasterPoll = allProposals.some(
+      (p) => p.nonce?.nonceStatus === 'queued' || p.nonce?.nonceStatus === 'stale',
+    )
+    const intervalMs = needsFasterPoll ? POLL_MS_ACTIVE_NONCE_MS : POLL_MS
     const id = window.setInterval(() => {
       void dispatch(
         refreshMultisigProposals({
@@ -125,7 +130,7 @@ const AdminGovernanceQueuePage = () => {
           background: true,
         }),
       )
-    }, POLL_MS)
+    }, intervalMs)
     return () => window.clearInterval(id)
   }, [dispatch, accessToken, sessionKind, allProposals])
 
@@ -165,6 +170,7 @@ const AdminGovernanceQueuePage = () => {
   const canQuickSign = useCallback(
     (row: (typeof allProposals)[number]) => {
       if (signPending) return false
+      if (row.nonce?.nonceStatus === 'stale') return false
       if (!sessionWalletMatchesConnected(sessionWallet, address)) return false
       return canUserSignGovernanceProposal({
         status: row.status,
@@ -187,6 +193,7 @@ const AdminGovernanceQueuePage = () => {
           Multisig {config.multisigAddress ? shortAddress(config.multisigAddress) : '—'} ·{' '}
           {config.threshold}-of-{config.signerCount || config.signers.length} ·{' '}
           {config.signers.length} signer{config.signers.length === 1 ? '' : 's'} · chain {config.chainId || '—'}
+          {config.liveUserOpNonce != null ? ` · live nonce ${config.liveUserOpNonce}` : ''}
         </div>
       ) : null}
 
@@ -236,6 +243,21 @@ const AdminGovernanceQueuePage = () => {
                       <AdminStatusPill variant={governanceStatusPillVariant(row.status)}>
                         {proposalStatusLabel(row.status)}
                       </AdminStatusPill>
+                      {row.nonce?.nonceStatus === 'stale' ? (
+                        <span className="ml-2 inline-flex text-[11px] font-semibold text-[#B91C1C]">
+                          Stale nonce
+                        </span>
+                      ) : row.nonce?.nonceStatus === 'queued' ? (
+                        <span className="ml-2 inline-flex text-[11px] font-semibold text-[#92400E]">
+                          Queued
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="px-5 py-5 text-[#0B1220] text-[14px] font-mono">
+                      {row.nonce?.reservedNonce ?? '—'}
+                      {row.nonce?.queueSeq ? (
+                        <span className="block text-[#6B7488] text-[11px]">#{row.nonce.queueSeq}</span>
+                      ) : null}
                     </td>
                     <td className="px-5 py-5 text-[#6B7488] text-[13px] font-mono max-w-[180px] truncate">
                       {row.relatedId ?? '—'}
@@ -268,6 +290,14 @@ const AdminGovernanceQueuePage = () => {
                           >
                             {rowSigning ? 'Signing…' : 'Sign'}
                           </button>
+                        ) : null}
+                        {row.nonce?.nonceStatus === 'stale' ? (
+                          <Link
+                            to={adminGovernanceProposalPath(row.id)}
+                            className="text-[#D97706] text-[14px] font-semibold hover:underline"
+                          >
+                            Restart
+                          </Link>
                         ) : null}
                         <Link
                           to={adminGovernanceProposalPath(row.id)}

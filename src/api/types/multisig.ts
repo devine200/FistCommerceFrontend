@@ -72,6 +72,27 @@ export const MULTISIG_OPERATION_TYPES = [
   'multisig_signer_rotation',
 ] as const satisfies readonly OperationType[]
 
+export type NonceStatus = 'current' | 'queued' | 'stale' | 'unfrozen'
+
+export type ProposalNonceInfo = {
+  reservedNonce: number | null
+  frozenNonce: number | null
+  liveNonce: number
+  nonceStatus: NonceStatus
+  queueSeq: number | null
+  canExecute: boolean
+  canRestartSignatures: boolean
+  blockingProposalIds: string[]
+  restartCount: number
+}
+
+export type NonceWarning = {
+  code: string
+  message: string
+  blockingProposalIds: string[]
+  willInvalidateOthers: boolean
+}
+
 export type BackendKeyAlignment = {
   alignedBackendKeys: string[]
   misalignedBackendKeys: string[]
@@ -91,6 +112,8 @@ export type MultisigConfig = {
   signers: string[]
   handoffCompleted?: boolean
   servicerAddress?: string
+  liveUserOpNonce?: number
+  openProposalCount?: number
 }
 
 export type MultisigProposalCall = {
@@ -124,6 +147,7 @@ export type ProposalListRow = {
   missingSigners: string[]
   validSignatureCount: number
   threshold: number
+  nonce?: ProposalNonceInfo
 }
 
 export type ProposalDetail = {
@@ -144,6 +168,7 @@ export type ProposalDetail = {
   threshold: number
   multisigAddress: string
   createdAt: string
+  nonce?: ProposalNonceInfo
 }
 
 export type SigningPayloadTypedData = {
@@ -176,6 +201,7 @@ export type SigningPayload = {
   signers: string[]
   signingNote: string
   calls: MultisigProposalCall[]
+  nonceWarning?: NonceWarning
 }
 
 export type ExecuteProposalResult = {

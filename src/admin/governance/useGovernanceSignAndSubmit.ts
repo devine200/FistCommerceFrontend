@@ -49,6 +49,18 @@ export function useGovernanceSignAndSubmit() {
       setError(null)
       try {
         const payload = await fetchMultisigSigningPayload(accessToken, id)
+        if (payload.nonceWarning) {
+          const blocking =
+            payload.nonceWarning.blockingProposalIds.length > 0
+              ? `\n\nBlocking proposals: ${payload.nonceWarning.blockingProposalIds.join(', ')}`
+              : ''
+          const proceed = window.confirm(
+            `${payload.nonceWarning.message}${blocking}\n\nSign anyway?`,
+          )
+          if (!proceed) {
+            return null
+          }
+        }
         if (!isGovernanceSignerAddress(address, payload.signers)) {
           throw new Error('Connected wallet is not a multisig signer for this proposal.')
         }

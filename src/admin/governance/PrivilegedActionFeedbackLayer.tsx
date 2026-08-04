@@ -19,6 +19,8 @@ export type PrivilegedActionFeedbackLayerProps = {
   directSuccessDescription?: string
   onDismiss: () => void
   onRetry?: () => void
+  /** Override default "Try again" label on error modal primary action. */
+  errorPrimaryLabel?: string
   /** Aborts the in-flight request when the loading modal is dismissed. */
   onCancelLoading?: () => void
 }
@@ -34,6 +36,7 @@ export function PrivilegedActionFeedbackLayer({
   directSuccessDescription,
   onDismiss,
   onRetry,
+  errorPrimaryLabel,
   onCancelLoading,
 }: PrivilegedActionFeedbackLayerProps) {
   const showGovernanceOutcome =
@@ -58,7 +61,7 @@ export function PrivilegedActionFeedbackLayer({
           errorDescription,
           'Could not complete this action. Please try again.',
         ),
-        primaryLabel: 'Try again',
+        primaryLabel: errorPrimaryLabel?.trim() || 'Try again',
         onPrimary: onRetry,
       }
     }
@@ -91,6 +94,7 @@ export function PrivilegedActionFeedbackLayer({
     resolvedOutcome,
     onDismiss,
     onRetry,
+    errorPrimaryLabel,
   ])
 
   if (phase === 'idle' && !showGovernanceOutcome) return null

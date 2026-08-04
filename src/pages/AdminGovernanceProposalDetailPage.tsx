@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
   governanceOperationLabel,
@@ -16,7 +16,10 @@ import {
   isSignerMgmtOperationType,
 } from '@/admin/governance/formatSignerMgmtDecodedArgs'
 import { useGovernanceExecuteProposal } from '@/admin/governance/useGovernanceExecuteProposal'
+import { useGovernanceRestartSignatures } from '@/admin/governance/useGovernanceRestartSignatures'
 import { useGovernanceSignAndSubmit } from '@/admin/governance/useGovernanceSignAndSubmit'
+import { adminGovernanceProposalPath } from '@/api/adminActionResponse'
+import type { NonceStatus, ProposalNonceInfo } from '@/api/types/multisig'
 import { proposalStatusLabel } from '@/api/multisig/normalize'
 import { normalizeMultisigSignerMgmtSync } from '@/api/multisig/normalize'
 import { getDefaultBlockExplorerBase, blockExplorerTxUrl } from '@/api/payout'
@@ -33,6 +36,58 @@ import { useActiveWallet } from '@/wallet/useActiveWallet'
 
 const GOVERNANCE_LIST_PATH = '/dashboard/admin/governance'
 const DETAIL_POLL_MS = 15_000
+const DETAIL_POLL_MS_ACTIVE = 10_000
+
+function nonceBannerClass(status: NonceStatus): string {
+  switch (status) {
+    case 'stale':
+      return 'border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]'
+    case 'queued':
+      return 'border-[#FDE68A] bg-[#FFFBEB] text-[#92400E]'
+    case 'current':
+      return 'border-[#BBF7D0] bg-[#F0FDF4] text-[#166534]'
+    default:
+      return 'border-[#E6E8EC] bg-[#F8FAFC] text-[#475569]'
+  }
+}
+
+function NonceStatusBanner({ nonce }: { nonce: ProposalNonceInfo }) {
+  const title =
+    nonce.nonceStatus === 'stale'
+      ? 'Nonce bypassed — restart signatures'
+      : nonce.nonceStatus === 'queued'
+        ? `Queued (nonce ${nonce.reservedNonce ?? '—'})`
+        : nonce.nonceStatus === 'current'
+          ? `Ready to execute (nonce ${nonce.reservedNonce ?? '—'})`
+          : `Reserved nonce ${nonce.reservedNonce ?? '—'}`
+
+  const detail =
+    nonce.nonceStatus === 'stale'
+      ? `Reserved nonce ${nonce.reservedNonce ?? '—'} is behind live nonce ${nonce.liveNonce}. Signatures are invalid until you restart.`
+      : nonce.nonceStatus === 'queued'
+        ? `Live on-chain nonce is ${nonce.liveNonce}. Execute earlier proposals in the queue first.`
+        : nonce.nonceStatus === 'unfrozen'
+          ? 'Sign to freeze the UserOp at this reserved nonce.'
+          : null
+
+  return (
+    <div className={`rounded-[8px] border px-4 py-3 text-[13px] ${nonceBannerClass(nonce.nonceStatus)}`}>
+      <p className="font-semibold">{title}</p>
+      {detail ? <p className="mt-1">{detail}</p> : null}
+      {nonce.blockingProposalIds.length > 0 ? (
+        <ul className="mt-2 space-y-1 font-mono text-[12px]">
+          {nonce.blockingProposalIds.map((id) => (
+            <li key={id}>
+              <Link to={adminGovernanceProposalPath(id)} className="underline hover:no-underline">
+                {id}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  )
+}
 
 function formatDecodedArgs(args?: Record<string, unknown>): string | null {
   if (!args || !Object.keys(args).length) return null
@@ -86,10 +141,17 @@ const AdminGovernanceProposalDetailPage = () => {
     execute: executeOnChain,
     pending: executePending,
     error: executeHookError,
+    errorMeta: executeErrorMeta,
     lastResult: executeHookResult,
     clearError: clearExecuteError,
     clearLastResult: clearExecuteResult,
   } = useGovernanceExecuteProposal()
+  const {
+    restart: restartSignatures,
+    pending: restartPending,
+    error: restartHookError,
+    clearError: clearRestartError,
+  } = useGovernanceRestartSignatures()
   const [signingNote, setSigningNote] = useState<string | null>(null)
 
   useEffect(() => {
@@ -103,15 +165,21 @@ const AdminGovernanceProposalDetailPage = () => {
     return detail.status === 'pending_signatures' || detail.status === 'ready'
   }, [detail])
 
+  const detailPollMs = useMemo(() => {
+    const status = detail?.nonce?.nonceStatus
+    if (status === 'queued' || status === 'stale') return DETAIL_POLL_MS_ACTIVE
+    return DETAIL_POLL_MS
+  }, [detail?.nonce?.nonceStatus])
+
   useEffect(() => {
     if (!proposalId?.trim() || !accessToken?.trim() || sessionKind !== 'admin' || !shouldPollDetail) {
       return
     }
     const id = window.setInterval(() => {
       void dispatch(refreshMultisigProposalDetail(proposalId))
-    }, DETAIL_POLL_MS)
+    }, detailPollMs)
     return () => window.clearInterval(id)
-  }, [dispatch, proposalId, accessToken, sessionKind, shouldPollDetail])
+  }, [dispatch, proposalId, accessToken, sessionKind, shouldPollDetail, detailPollMs])
 
   const isSigner = useMemo(
     () => Boolean(address && (config?.signers ?? []).some((s) => s.toLowerCase() === address.toLowerCase())),
@@ -131,6 +199,18 @@ const AdminGovernanceProposalDetailPage = () => {
     void executeOnChain(proposalId)
   }, [executeOnChain, proposalId])
 
+  const handleRestartSignatures = useCallback(() => {
+    if (!proposalId) return
+    if (
+      !window.confirm(
+        'Clear all signatures and assign a new reserved nonce? Every owner must sign again.',
+      )
+    ) {
+      return
+    }
+    void restartSignatures(proposalId)
+  }, [proposalId, restartSignatures])
+
   const handleCancel = useCallback(() => {
     if (!proposalId) return
     if (!window.confirm('Cancel this governance proposal?')) return
@@ -140,8 +220,9 @@ const AdminGovernanceProposalDetailPage = () => {
   const handleDismissActionFeedback = useCallback(() => {
     clearSignError()
     clearExecuteError()
+    clearRestartError()
     dispatch(clearAdminMultisigActionError())
-  }, [clearSignError, clearExecuteError, dispatch])
+  }, [clearSignError, clearExecuteError, clearRestartError, dispatch])
 
   const handleDismissExecuteSuccess = useCallback(() => {
     clearExecuteResult()
@@ -149,11 +230,31 @@ const AdminGovernanceProposalDetailPage = () => {
 
   const handleRetryGovernanceAction = useCallback(() => {
     if (!proposalId) return
+    if (restartHookError) {
+      void restartSignatures(proposalId)
+      return
+    }
     if (signHookError) {
       void handleSign()
       return
     }
     if (executeHookError) {
+      const blocking =
+        executeErrorMeta?.blockingProposalIds.length
+          ? executeErrorMeta.blockingProposalIds
+          : (detail?.nonce?.blockingProposalIds ?? [])
+      if (
+        (executeErrorMeta?.code === 'MULTISIG_EXECUTE_QUEUED' || detail?.nonce?.nonceStatus === 'queued') &&
+        blocking[0]
+      ) {
+        navigate(adminGovernanceProposalPath(blocking[0]))
+        clearExecuteError()
+        return
+      }
+      if (/stale|MULTISIG_STALE_NONCE|restart signatures/i.test(executeHookError)) {
+        handleRestartSignatures()
+        return
+      }
       void executeOnChain(proposalId)
       return
     }
@@ -161,9 +262,60 @@ const AdminGovernanceProposalDetailPage = () => {
       if (!window.confirm('Cancel this governance proposal?')) return
       void dispatch(cancelMultisigProposal(proposalId))
     }
-  }, [proposalId, signHookError, executeHookError, actionKind, handleSign, executeOnChain, dispatch])
+  }, [
+    proposalId,
+    signHookError,
+    executeHookError,
+    executeErrorMeta,
+    detail?.nonce?.blockingProposalIds,
+    detail?.nonce?.nonceStatus,
+    restartHookError,
+    actionKind,
+    handleSign,
+    executeOnChain,
+    handleRestartSignatures,
+    clearExecuteError,
+    navigate,
+    dispatch,
+  ])
+
+  const governanceErrorPrimaryLabel = useMemo(() => {
+    if (executeHookError) {
+      const blocking =
+        executeErrorMeta?.blockingProposalIds.length
+          ? executeErrorMeta.blockingProposalIds
+          : (detail?.nonce?.blockingProposalIds ?? [])
+      if (executeErrorMeta?.code === 'MULTISIG_EXECUTE_QUEUED' && blocking.length) {
+        return 'Open blocking proposal'
+      }
+      if (/stale|MULTISIG_STALE_NONCE|restart signatures/i.test(executeHookError)) {
+        return 'Restart signatures'
+      }
+    }
+    return undefined
+  }, [executeHookError, executeErrorMeta, detail?.nonce?.blockingProposalIds])
 
   const governanceFeedback = useMemo(() => {
+    if (restartPending) {
+      return {
+        phase: 'loading' as PrivilegedActionPhase,
+        errorDescription: undefined as string | undefined,
+        loadingTitle: 'Restarting signatures',
+        loadingDescription: 'Clearing signatures and assigning a new reserved nonce…',
+        errorTitle: 'Unable to restart signatures',
+        directSuccessTitle: 'Signatures restarted',
+      }
+    }
+    if (restartHookError) {
+      return {
+        phase: 'failed' as PrivilegedActionPhase,
+        errorDescription: restartHookError,
+        loadingTitle: 'Restarting signatures',
+        loadingDescription: '',
+        errorTitle: 'Unable to restart signatures',
+        directSuccessTitle: 'Signatures restarted',
+      }
+    }
     if (signPending) {
       return {
         phase: 'loading' as PrivilegedActionPhase,
@@ -230,6 +382,8 @@ const AdminGovernanceProposalDetailPage = () => {
       directSuccessTitle: '',
     }
   }, [
+    restartPending,
+    restartHookError,
     signPending,
     signHookError,
     executePending,
@@ -263,9 +417,13 @@ const AdminGovernanceProposalDetailPage = () => {
     )
   }, [address, detail?.signatures])
 
+  const nonceInfo = detail?.nonce
+  const isNonceStale = nonceInfo?.nonceStatus === 'stale'
+
   const canSign = useMemo(
     () =>
       Boolean(detail) &&
+      !isNonceStale &&
       canUserSignGovernanceProposal({
         status: detail!.status,
         missingSigners: detail!.missingSigners,
@@ -280,6 +438,7 @@ const AdminGovernanceProposalDetailPage = () => {
       actionStatus !== 'loading',
     [
       detail,
+      isNonceStale,
       address,
       config?.signers,
       isConnected,
@@ -293,6 +452,8 @@ const AdminGovernanceProposalDetailPage = () => {
   const canExecute = useMemo(
     () =>
       Boolean(detail) &&
+      (nonceInfo?.canExecute ??
+        (Boolean(detail!.readyToExecute) && nonceInfo?.nonceStatus !== 'queued')) &&
       canUserExecuteGovernanceProposal({
         readyToExecute: Boolean(detail!.readyToExecute),
         status: detail!.status,
@@ -306,6 +467,7 @@ const AdminGovernanceProposalDetailPage = () => {
       actionStatus !== 'loading',
     [
       detail,
+      nonceInfo,
       address,
       config?.signers,
       sessionWallet,
@@ -315,6 +477,13 @@ const AdminGovernanceProposalDetailPage = () => {
       actionStatus,
     ],
   )
+
+  const canRestart =
+    Boolean(detail?.nonce?.canRestartSignatures) &&
+    !signPending &&
+    !executePending &&
+    !restartPending &&
+    actionStatus !== 'loading'
 
   const canCancel =
     Boolean(detail) &&
@@ -341,6 +510,7 @@ const AdminGovernanceProposalDetailPage = () => {
         directSuccessTitle={governanceFeedback.directSuccessTitle}
         onDismiss={handleDismissActionFeedback}
         onRetry={handleRetryGovernanceAction}
+        errorPrimaryLabel={governanceErrorPrimaryLabel}
       />
 
       <button
@@ -369,6 +539,8 @@ const AdminGovernanceProposalDetailPage = () => {
                   {proposalStatusLabel(detail.status)}
                 </AdminStatusPill>
               </div>
+
+              {detail.nonce ? <NonceStatusBanner nonce={detail.nonce} /> : null}
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-[14px]">
                 <div>
@@ -501,6 +673,14 @@ const AdminGovernanceProposalDetailPage = () => {
               </button>
               <button
                 type="button"
+                disabled={!canRestart}
+                onClick={handleRestartSignatures}
+                className="h-10 px-5 rounded-[4px] bg-[#D97706] text-white text-[14px] font-semibold disabled:opacity-40"
+              >
+                {restartPending ? 'Restarting…' : 'Restart signatures'}
+              </button>
+              <button
+                type="button"
                 disabled={!canCancel}
                 onClick={handleCancel}
                 className="h-10 px-5 rounded-[4px] bg-[#DC2626] text-white text-[14px] font-semibold disabled:opacity-40"
@@ -522,6 +702,10 @@ const AdminGovernanceProposalDetailPage = () => {
             ) : !isSigner ? (
               <p className="px-5 pb-4 text-[#6B7488] text-[13px]">
                 Connected wallet is not a multisig signer for this deployment.
+              </p>
+            ) : isNonceStale ? (
+              <p className="px-5 pb-4 text-[#92400E] text-[13px]">
+                Nonce was bypassed. Use Restart signatures before signing again.
               </p>
             ) : alreadySigned ? (
               <p className="px-5 pb-4 text-[#16A34A] text-[13px]">You have already signed this proposal.</p>

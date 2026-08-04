@@ -6,6 +6,8 @@ export class ApiRequestError extends Error {
   readonly detailLines: readonly string[]
   /** Stable API error code from JSON `code` when present. */
   readonly apiCode?: string
+  /** Structured API `details` object when the backend sends one (e.g. blockingProposalIds). */
+  readonly apiDetails?: Readonly<Record<string, unknown>>
 
   constructor(
     message: string,
@@ -13,6 +15,7 @@ export class ApiRequestError extends Error {
     options?: {
       detailLines?: readonly string[]
       apiCode?: string
+      apiDetails?: Readonly<Record<string, unknown>>
     },
   ) {
     super(message)
@@ -20,11 +23,37 @@ export class ApiRequestError extends Error {
     this.status = status
     this.detailLines = options?.detailLines?.length ? [...options.detailLines] : []
     this.apiCode = options?.apiCode?.trim() || undefined
+    this.apiDetails =
+      options?.apiDetails && Object.keys(options.apiDetails).length > 0
+        ? options.apiDetails
+        : undefined
   }
 }
 
 function pickTrimmedString(value: unknown): string {
   return typeof value === 'string' && value.trim() ? value.trim() : ''
+}
+
+/** DRF field-error maps use string/list values; structured API details use nested objects/arrays. */
+function looksLikeFieldErrors(details: Record<string, unknown>): boolean {
+  return Object.values(details).every(
+    (v) =>
+      typeof v === 'string' ||
+      (Array.isArray(v) && v.every((item) => typeof item === 'string')),
+  )
+}
+
+function pickStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((v): v is string => typeof v === 'string' && v.trim().length > 0).map((s) => s.trim())
+}
+
+/** Extract blocking proposal UUIDs from a multisig preflight API error. */
+export function blockingProposalIdsFromApiError(error: unknown): string[] {
+  if (!(error instanceof ApiRequestError) || !error.apiDetails) return []
+  return pickStringArray(
+    error.apiDetails.blockingProposalIds ?? error.apiDetails.blocking_proposal_ids,
+  )
 }
 
 /** DRF often returns `detail` as a string or list of strings. */
@@ -54,7 +83,17 @@ export function apiRequestErrorFromJson(
       ? (raw as Record<string, unknown>)
       : {}
 
-  const detailLines = formatDrfValidationDetails(data.details ?? data.non_field_errors)
+  const rawDetails = data.details
+  const apiDetails =
+    rawDetails && typeof rawDetails === 'object' && !Array.isArray(rawDetails)
+      ? (rawDetails as Record<string, unknown>)
+      : undefined
+
+  const detailLines = formatDrfValidationDetails(
+    apiDetails && !Array.isArray(apiDetails) && looksLikeFieldErrors(apiDetails)
+      ? apiDetails
+      : data.non_field_errors,
+  )
 
   // If `details` is absent but the body itself is a DRF field-error map, flatten it.
   const bodyAsDetails =
@@ -89,7 +128,11 @@ export function apiRequestErrorFromJson(
       ? `Request failed (${status})`
       : headline
 
-  return new ApiRequestError(normalizedHeadline, status, { detailLines: lines, apiCode })
+  return new ApiRequestError(normalizedHeadline, status, {
+    detailLines: lines,
+    apiCode,
+    apiDetails,
+  })
 }
 
 export async function parseApiErrorResponse(res: Response): Promise<ApiRequestError> {
