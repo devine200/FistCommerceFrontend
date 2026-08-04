@@ -81,6 +81,7 @@ export type ProposalNonceInfo = {
   nonceStatus: NonceStatus
   queueSeq: number | null
   canExecute: boolean
+  requiresQueueJumpAck?: boolean
   canRestartSignatures: boolean
   blockingProposalIds: string[]
   restartCount: number
@@ -91,6 +92,9 @@ export type NonceWarning = {
   message: string
   blockingProposalIds: string[]
   willInvalidateOthers: boolean
+  liveNonce?: number | null
+  reservedNonce?: number | null
+  requiresResign?: boolean
 }
 
 export type BackendKeyAlignment = {

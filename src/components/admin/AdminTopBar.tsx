@@ -3,6 +3,7 @@ import logo from '@/assets/logo.png'
 import mobileHamburgerIcon from '@/assets/mobile-hamburger.png'
 import mobileUserIcon from '@/assets/mobile-user.png'
 import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
+import { useAppSelector } from '@/store/hooks'
 
 import type { AdminTopBarProps } from './types'
 
@@ -19,7 +20,10 @@ const AdminTopBar = ({
   onConnectWallet,
   connectWalletPending,
 }: AdminTopBarProps) => {
-  const networkLabel = networkDisplayName ?? getAppChainDisplayName()
+  const walletChainId = useAppSelector((s) => s.wallet.chainId)
+  const authChainId = useAppSelector((s) => s.auth.chainId)
+  const networkLabel =
+    networkDisplayName ?? getAppChainDisplayName(walletChainId ?? authChainId)
   const titleBlock = (
     <h1 className="text-black font-semibold text-[18px] sm:text-[24px] leading-tight truncate">{title}</h1>
   )

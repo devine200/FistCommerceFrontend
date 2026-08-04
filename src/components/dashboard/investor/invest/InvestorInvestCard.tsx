@@ -16,6 +16,7 @@ import InvestmentConfirmationStep from '@/components/dashboard/investor/invest/s
 import InvestmentPoolSelectionStep from '@/components/dashboard/investor/invest/steps/InvestmentPoolSelectionStep'
 import { InvestmentStep } from '@/components/dashboard/investor/invest/types'
 import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
+import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
 import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useAppSelector } from '@/store/hooks'
@@ -95,7 +96,7 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
   }
 
   const walletMockTokenLabel = useMemo(() => {
-    const networkName = contracts.testnetChain.name
+    const networkName = getAppChainDisplayName(contracts.testnetChain.id)
     if (!contracts.isConnected) return `Connect your wallet to view token balance (${networkName}).`
     if (contracts.isContractsLoading) return 'Loading balance…'
     if (!contracts.isCorrectNetwork) {
@@ -106,7 +107,7 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
     contracts.isConnected,
     contracts.isContractsLoading,
     contracts.isCorrectNetwork,
-    contracts.testnetChain.name,
+    contracts.testnetChain.id,
     walletBalanceDisplay,
   ])
 
@@ -176,7 +177,8 @@ const InvestorInvestCard = ({ walletDisplay, step, onStepChange }: InvestorInves
               investorMetrics,
               {
                 gasFeeEstimateDisplay: contracts.depositGasFeeLabel,
-                networkDisplayName: contracts.testnetChain.name,
+                networkDisplayName: getAppChainDisplayName(contracts.testnetChain.id),
+                chainId: contracts.testnetChain.id,
               },
             )}
             isSubmitting={investSubmitting || contracts.isWritePending}

@@ -65,11 +65,12 @@ function isExecuteInProgressError(error: unknown): boolean {
 async function fetchExecutionPayloadWithRetry(
   accessToken: string,
   proposalId: string,
+  options?: { ackQueueJump?: boolean },
 ): Promise<Awaited<ReturnType<typeof fetchMultisigExecutionPayload>>> {
   let lastError: unknown
   for (let attempt = 0; attempt < EXECUTE_PAYLOAD_RETRY_ATTEMPTS; attempt += 1) {
     try {
-      return await fetchMultisigExecutionPayload(accessToken, proposalId)
+      return await fetchMultisigExecutionPayload(accessToken, proposalId, options)
     } catch (error) {
       lastError = error
       if (!isExecuteInProgressError(error) || attempt >= EXECUTE_PAYLOAD_RETRY_ATTEMPTS - 1) {
@@ -92,10 +93,16 @@ function formatExecuteErrorMessage(error: unknown, blockingIds: string[]): strin
     context: 'governance_execute',
   })
   if (!blockingIds.length) return base
-  return `${base}\n\nExecute these proposals first:\n${blockingIds.join('\n')}`
+  return `${base}\n\nRelated proposals:\n${blockingIds.join('\n')}`
 }
 
-export function useGovernanceExecuteProposal() {
+export type UseGovernanceExecuteProposalOptions = {
+  confirmQueueJumpFromApiError?: (error: unknown) => Promise<boolean>
+  onQueueJumpPrepared?: () => void
+}
+
+export function useGovernanceExecuteProposal(options: UseGovernanceExecuteProposalOptions = {}) {
+  const { confirmQueueJumpFromApiError, onQueueJumpPrepared } = options
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const sessionWallet = useAppSelector((s) => s.auth.wallet)
@@ -105,6 +112,7 @@ export function useGovernanceExecuteProposal() {
   const [error, setError] = useState<string | null>(null)
   const [errorMeta, setErrorMeta] = useState<GovernanceExecuteErrorMeta | null>(null)
   const [lastResult, setLastResult] = useState<ExecuteProposalResult | null>(null)
+  const [resignRequired, setResignRequired] = useState(false)
 
   const execute = useCallback(
     async (proposalId: string): Promise<ExecuteProposalResult | null> => {
@@ -138,10 +146,40 @@ export function useGovernanceExecuteProposal() {
       setPending(true)
       setError(null)
       setErrorMeta(null)
+      setResignRequired(false)
       setLastResult(null)
       dispatch(clearAdminMultisigActionError())
       try {
-        const payload = await fetchExecutionPayloadWithRetry(accessToken, id)
+        let payload: Awaited<ReturnType<typeof fetchMultisigExecutionPayload>>
+        try {
+          payload = await fetchExecutionPayloadWithRetry(accessToken, id)
+        } catch (firstError) {
+          if (
+            firstError instanceof ApiRequestError &&
+            firstError.apiCode === 'EXECUTE_QUEUE_JUMP_ACK_REQUIRED' &&
+            confirmQueueJumpFromApiError
+          ) {
+            const accepted = await confirmQueueJumpFromApiError(firstError)
+            if (!accepted) return null
+            try {
+              payload = await fetchExecutionPayloadWithRetry(accessToken, id, { ackQueueJump: true })
+            } catch (ackError) {
+              if (
+                ackError instanceof ApiRequestError &&
+                ackError.apiCode === 'MULTISIG_RESIGN_REQUIRED'
+              ) {
+                setResignRequired(true)
+                onQueueJumpPrepared?.()
+                await dispatch(refreshMultisigProposalDetail(id)).unwrap().catch(() => {})
+                throw ackError
+              }
+              throw ackError
+            }
+          } else {
+            throw firstError
+          }
+        }
+
         if (payload.chainId > 0) {
           await ensureWalletChain(wallet, payload.chainId)
         }
@@ -196,7 +234,17 @@ export function useGovernanceExecuteProposal() {
         setPending(false)
       }
     },
-    [accessToken, address, configSigners, dispatch, isConnected, sessionWallet, wallet],
+    [
+      accessToken,
+      address,
+      configSigners,
+      confirmQueueJumpFromApiError,
+      dispatch,
+      isConnected,
+      onQueueJumpPrepared,
+      sessionWallet,
+      wallet,
+    ],
   )
 
   return {
@@ -205,6 +253,8 @@ export function useGovernanceExecuteProposal() {
     error,
     errorMeta,
     lastResult,
+    resignRequired,
+    clearResignRequired: () => setResignRequired(false),
     clearError: () => {
       setError(null)
       setErrorMeta(null)

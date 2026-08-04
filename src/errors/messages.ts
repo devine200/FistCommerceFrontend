@@ -45,6 +45,10 @@ const MESSAGES: Record<AppErrorCode, string> = {
     'Another multisig execution is still in progress. Wait a few seconds and try again.',
   MULTISIG_EXECUTE_QUEUED:
     'This proposal is queued behind earlier ones. Execute those proposals first, then try again.',
+  EXECUTE_QUEUE_JUMP_ACK_REQUIRED:
+    'This proposal is not at the live on-chain nonce. Confirm queue jump to continue.',
+  MULTISIG_RESIGN_REQUIRED:
+    'Queue jump prepared. All owners must sign again before executing on-chain.',
   MULTISIG_STALE_NONCE:
     'This proposal’s on-chain nonce was bypassed. Use Restart signatures, then have all owners sign again.',
   SESSION_WALLET_MISMATCH: 'Reconnect the wallet used for this admin login.',

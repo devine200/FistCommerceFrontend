@@ -56,6 +56,47 @@ export function blockingProposalIdsFromApiError(error: unknown): string[] {
   )
 }
 
+export type ExecuteQueueJumpWarningDetails = {
+  message: string
+  blockingProposalIds: string[]
+  willInvalidateOthers: boolean
+  liveNonce: number | null
+  reservedNonce: number | null
+  requiresResign: boolean
+}
+
+function pickNullableNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const n = Number(value)
+    if (Number.isFinite(n)) return n
+  }
+  return null
+}
+
+/** Parse queue-jump execute warning from EXECUTE_QUEUE_JUMP_ACK_REQUIRED preflight errors. */
+export function executeQueueJumpWarningFromApiError(
+  error: unknown,
+): ExecuteQueueJumpWarningDetails | null {
+  if (!(error instanceof ApiRequestError)) return null
+  if (error.apiCode !== 'EXECUTE_QUEUE_JUMP_ACK_REQUIRED') return null
+  const details = error.apiDetails ?? {}
+  const message =
+    pickTrimmedString(details.message) ||
+    pickTrimmedString(error.message) ||
+    'This proposal is not at the live on-chain nonce.'
+  return {
+    message,
+    blockingProposalIds: pickStringArray(
+      details.blockingProposalIds ?? details.blocking_proposal_ids,
+    ),
+    willInvalidateOthers: details.willInvalidateOthers === true || details.will_invalidate_others === true,
+    liveNonce: pickNullableNumber(details.liveNonce ?? details.live_nonce),
+    reservedNonce: pickNullableNumber(details.reservedNonce ?? details.reserved_nonce),
+    requiresResign: details.requiresResign === true || details.requires_resign === true,
+  }
+}
+
 /** DRF often returns `detail` as a string or list of strings. */
 function pickDetailHeadline(raw: Record<string, unknown>): string {
   const detail = raw.detail

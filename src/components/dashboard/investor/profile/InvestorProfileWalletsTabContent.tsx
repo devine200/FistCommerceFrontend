@@ -1,12 +1,12 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useLogout } from '@privy-io/react-auth'
-import { arbitrum, arbitrumSepolia, mainnet } from 'viem/chains'
 
 import walletIcon from '@/assets/Icon (1).png'
 import EmbeddedWalletKeyBackup from '@/components/wallet/EmbeddedWalletKeyBackup'
 import {
   canMintTestTokens,
   getAcceptedTokenDisplayName,
+  getAppChainDisplayName,
 } from '@/contract_config/contractNetwork'
 import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
@@ -15,12 +15,6 @@ import { resetUserSession } from '@/session/resetUserSession'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 import { toAppUserFacingError } from '@/errors/toAppUserFacingError'
-
-const CHAIN_LABEL: Record<number, string> = {
-  [arbitrum.id]: arbitrum.name,
-  [mainnet.id]: mainnet.name,
-  [arbitrumSepolia.id]: arbitrumSepolia.name,
-}
 
 const MINT_QUICK_AMOUNTS = [1_000, 5_000, 10_000, 50_000] as const
 
@@ -75,7 +69,7 @@ const InvestorProfileWalletsTabContent = () => {
     if (!showMintFaucet) return 'Test token minting is not available on mainnet.'
     if (!contracts.isConnected) return 'Connect your wallet to mint test tokens.'
     if (!contracts.isCorrectNetwork) {
-      return `Switch your wallet to ${contracts.testnetChain.name} to mint test tokens.`
+      return `Switch your wallet to ${getAppChainDisplayName(contracts.testnetChain.id)} to mint test tokens.`
     }
     if (mintAmount <= 0) return 'Enter an amount greater than zero.'
     return null
@@ -83,11 +77,13 @@ const InvestorProfileWalletsTabContent = () => {
     showMintFaucet,
     contracts.isConnected,
     contracts.isCorrectNetwork,
-    contracts.testnetChain.name,
+    contracts.testnetChain.id,
     mintAmount,
   ])
 
-  const chainLabel = chainId != null ? (CHAIN_LABEL[chainId] ?? `Chain ${chainId}`) : '—'
+  const chainLabel =
+    chainId != null ? getAppChainDisplayName(chainId) : '—'
+  const appNetworkLabel = getAppChainDisplayName(contracts.testnetChain.id)
 
   const copyAddress = useCallback(async () => {
     if (!address) return
@@ -229,7 +225,7 @@ const InvestorProfileWalletsTabContent = () => {
         <section className="rounded-[8px] border border-[#E6E8EC] bg-white p-4 sm:p-5">
           <h2 className="text-[#4D5D80] text-[22px] font-semibold leading-tight">Testnet token faucet</h2>
           <p className="mt-2 text-[#6B7488] text-[14px] leading-relaxed">
-            Mint {acceptedTokenName} tokens to your connected wallet on {contracts.testnetChain.name}. Use these to
+            Mint {acceptedTokenName} tokens to your connected wallet on {appNetworkLabel}. Use these to
             deposit into the lending pool — your investment balance is tracked separately as pool shares.
           </p>
 

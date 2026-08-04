@@ -67,7 +67,7 @@ export function buildInvestmentReviewRows(
   poolName: string,
   poolMetrics: PoolMetrics | null,
   investorMetrics: InvestorMetrics | null,
-  options?: { gasFeeEstimateDisplay?: string; networkDisplayName?: string },
+  options?: { gasFeeEstimateDisplay?: string; networkDisplayName?: string; chainId?: number | null },
 ): InvestmentReviewRow[] {
   const apyRate = poolMetrics && Number.isFinite(poolMetrics.apy) ? poolMetrics.apy / 100 : FALLBACK_APY_RATE
   const apyLabel = poolMetrics ? displayPoolApyPercent(poolMetrics.apy) : INVESTMENT_POOL.apy
@@ -78,7 +78,10 @@ export function buildInvestmentReviewRows(
 
   return [
     { label: 'Token', value: 'USDC' },
-    { label: 'Network', value: options?.networkDisplayName ?? getAppChainDisplayName() },
+    {
+      label: 'Network',
+      value: options?.networkDisplayName ?? getAppChainDisplayName(options?.chainId),
+    },
     { label: 'Pool', value: poolName?.trim() || 'Lending pool' },
     { label: 'APY', value: apyLabel },
     {

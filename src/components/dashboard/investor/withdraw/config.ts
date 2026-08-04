@@ -29,7 +29,7 @@ export function buildWithdrawalReviewRows(
   poolMetrics: PoolMetrics | null,
   investorMetrics: InvestorMetrics | null,
   investmentBalanceDisplay: string,
-  options?: { gasFeeEstimateDisplay?: string; networkDisplayName?: string },
+  options?: { gasFeeEstimateDisplay?: string; networkDisplayName?: string; chainId?: number | null },
 ): WithdrawalReviewRow[] {
   const amountText = formatInvestAmountUsd(amount)
   const rows: WithdrawalReviewRow[] = []
@@ -59,7 +59,10 @@ export function buildWithdrawalReviewRows(
     { label: 'Net Amount', value: amountText, valueTone: 'primary' },
     { label: 'Destination', value: destinationWallet },
     { label: 'Gas Fee (est.)', value: options?.gasFeeEstimateDisplay ?? '—' },
-    { label: 'Network', value: options?.networkDisplayName ?? getAppChainDisplayName() },
+    {
+      label: 'Network',
+      value: options?.networkDisplayName ?? getAppChainDisplayName(options?.chainId),
+    },
   )
 
   return rows

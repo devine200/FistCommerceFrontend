@@ -17,6 +17,8 @@ import {
   isSignerMgmtOperationType,
 } from '@/admin/governance/formatSignerMgmtDecodedArgs'
 import { useGovernanceExecuteProposal } from '@/admin/governance/useGovernanceExecuteProposal'
+import GovernanceNonceWarningModal from '@/admin/governance/GovernanceNonceWarningModal'
+import { useGovernanceConfirmModal } from '@/admin/governance/useGovernanceConfirmModal'
 import { useGovernanceRestartSignatures } from '@/admin/governance/useGovernanceRestartSignatures'
 import { useGovernanceSignAndSubmit } from '@/admin/governance/useGovernanceSignAndSubmit'
 import { adminGovernanceProposalPath } from '@/api/adminActionResponse'
@@ -136,17 +138,30 @@ const AdminGovernanceProposalDetailPage = () => {
     proposalId ? selectMultisigProposalDetail(s.adminMultisig, proposalId) : null,
   )
   const { address, isConnected } = useActiveWallet()
+  const {
+    confirmNonceWarning,
+    confirmQueueJumpFromApiError,
+    modalProps: nonceWarningModalProps,
+    isModalOpen: nonceModalOpen,
+  } = useGovernanceConfirmModal()
   const { signAndSubmit, pending: signPending, error: signHookError, clearError: clearSignError } =
-    useGovernanceSignAndSubmit()
+    useGovernanceSignAndSubmit({ confirmNonceWarning })
   const {
     execute: executeOnChain,
     pending: executePending,
     error: executeHookError,
     errorMeta: executeErrorMeta,
     lastResult: executeHookResult,
+    resignRequired,
+    clearResignRequired,
     clearError: clearExecuteError,
     clearLastResult: clearExecuteResult,
-  } = useGovernanceExecuteProposal()
+  } = useGovernanceExecuteProposal({
+    confirmQueueJumpFromApiError,
+    onQueueJumpPrepared: () => {
+      if (proposalId) void dispatch(refreshMultisigProposalDetail(proposalId))
+    },
+  })
   const {
     restart: restartSignatures,
     pending: restartPending,
@@ -438,6 +453,7 @@ const AdminGovernanceProposalDetailPage = () => {
       sessionMatchesWallet &&
       !signPending &&
       !executePending &&
+      !nonceModalOpen &&
       actionStatus !== 'loading',
     [
       detail,
@@ -448,6 +464,7 @@ const AdminGovernanceProposalDetailPage = () => {
       sessionMatchesWallet,
       signPending,
       executePending,
+      nonceModalOpen,
       actionStatus,
     ],
   )
@@ -455,8 +472,8 @@ const AdminGovernanceProposalDetailPage = () => {
   const canExecute = useMemo(
     () =>
       Boolean(detail) &&
-      (nonceInfo?.canExecute ??
-        (Boolean(detail!.readyToExecute) && nonceInfo?.nonceStatus !== 'queued')) &&
+      !isNonceStale &&
+      (nonceInfo?.canExecute ?? Boolean(detail!.readyToExecute)) &&
       canUserExecuteGovernanceProposal({
         readyToExecute: Boolean(detail!.readyToExecute),
         status: detail!.status,
@@ -467,9 +484,11 @@ const AdminGovernanceProposalDetailPage = () => {
       }) &&
       !signPending &&
       !executePending &&
+      !nonceModalOpen &&
       actionStatus !== 'loading',
     [
       detail,
+      isNonceStale,
       nonceInfo,
       address,
       config?.signers,
@@ -477,6 +496,7 @@ const AdminGovernanceProposalDetailPage = () => {
       isConnected,
       signPending,
       executePending,
+      nonceModalOpen,
       actionStatus,
     ],
   )
@@ -504,6 +524,7 @@ const AdminGovernanceProposalDetailPage = () => {
 
   return (
     <AdminPageFrame>
+      <GovernanceNonceWarningModal {...nonceWarningModalProps} />
       <PrivilegedActionFeedbackLayer
         phase={governanceFeedback.phase}
         resolvedOutcome={null}
@@ -653,6 +674,23 @@ const AdminGovernanceProposalDetailPage = () => {
 
           {executeHookResult?.postExecuteSync ? (
             <BackendKeyAlignmentWarning postExecuteSync={executeHookResult.postExecuteSync} />
+          ) : null}
+
+          {resignRequired ? (
+            <div className="rounded-[10px] border border-[#FDE68A] bg-[#FFFBEB] px-5 py-4 text-[13px] text-[#92400E]">
+              <p className="font-semibold">Queue jump prepared — re-sign required</p>
+              <p className="mt-1">
+                Existing signatures were cleared and this proposal now uses the live on-chain nonce.
+                All owners must sign again before you can execute on-chain.
+              </p>
+              <button
+                type="button"
+                onClick={() => clearResignRequired()}
+                className="mt-2 text-[12px] font-semibold text-[#B45309] hover:underline"
+              >
+                Dismiss
+              </button>
+            </div>
           ) : null}
 
           <AdminPanel>

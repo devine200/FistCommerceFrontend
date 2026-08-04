@@ -97,6 +97,7 @@ function normalizeProposalNonceInfo(raw: unknown): ProposalNonceInfo | undefined
     nonceStatus: normalizeNonceStatus(pickStr(r, 'nonceStatus', 'nonce_status') || 'unfrozen'),
     queueSeq: pickNullableNumber(r, 'queueSeq', 'queue_seq'),
     canExecute: pickBool(r, 'canExecute', 'can_execute'),
+    requiresQueueJumpAck: pickBool(r, 'requiresQueueJumpAck', 'requires_queue_jump_ack'),
     canRestartSignatures: pickBool(r, 'canRestartSignatures', 'can_restart_signatures'),
     blockingProposalIds: blocking,
     restartCount: pickNumber(r, 'restartCount', 'restart_count'),
@@ -120,6 +121,9 @@ function normalizeNonceWarning(raw: unknown): NonceWarning | undefined {
     message,
     blockingProposalIds: blocking,
     willInvalidateOthers: pickBool(r, 'willInvalidateOthers', 'will_invalidate_others'),
+    liveNonce: pickNullableNumber(r, 'liveNonce', 'live_nonce'),
+    reservedNonce: pickNullableNumber(r, 'reservedNonce', 'reserved_nonce'),
+    requiresResign: pickBool(r, 'requiresResign', 'requires_resign'),
   }
 }
 

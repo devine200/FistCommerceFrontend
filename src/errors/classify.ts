@@ -25,6 +25,8 @@ export type ClassifiedAppError = {
 const API_CODE_BY_RESPONSE: Partial<Record<string, AppErrorCode>> = {
   MULTISIG_EXECUTE_IN_PROGRESS: 'MULTISIG_EXECUTE_IN_PROGRESS',
   MULTISIG_EXECUTE_QUEUED: 'MULTISIG_EXECUTE_QUEUED',
+  EXECUTE_QUEUE_JUMP_ACK_REQUIRED: 'EXECUTE_QUEUE_JUMP_ACK_REQUIRED',
+  MULTISIG_RESIGN_REQUIRED: 'MULTISIG_RESIGN_REQUIRED',
   MULTISIG_STALE_NONCE: 'MULTISIG_STALE_NONCE',
 }
 
@@ -208,6 +210,20 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
     return {
       code: 'MULTISIG_EXECUTE_IN_PROGRESS',
       message: messageForCode('MULTISIG_EXECUTE_IN_PROGRESS'),
+      raw: t,
+    }
+  }
+  if (/MULTISIG_RESIGN_REQUIRED|must sign again before executing|signatures were cleared/i.test(t)) {
+    return {
+      code: 'MULTISIG_RESIGN_REQUIRED',
+      message: messageForCode('MULTISIG_RESIGN_REQUIRED'),
+      raw: t,
+    }
+  }
+  if (/EXECUTE_QUEUE_JUMP_ACK_REQUIRED|queue jump acknowledgement|skip earlier open proposals/i.test(t)) {
+    return {
+      code: 'EXECUTE_QUEUE_JUMP_ACK_REQUIRED',
+      message: messageForCode('EXECUTE_QUEUE_JUMP_ACK_REQUIRED'),
       raw: t,
     }
   }

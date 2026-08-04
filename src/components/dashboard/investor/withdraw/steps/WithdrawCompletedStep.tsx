@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import kycPendingIllustration from '@/assets/kyc-inprogress.png'
 import type { WithdrawalCompletedMetric } from '@/components/dashboard/investor/withdraw/types'
 import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
+import { useAppSelector } from '@/store/hooks'
 
 interface WithdrawCompletedStepProps {
   /** Formatted USD string (includes `$` and grouping). */
@@ -21,7 +22,10 @@ const WithdrawCompletedStep = ({
   networkDisplayName,
 }: WithdrawCompletedStepProps) => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false)
-  const networkLabel = networkDisplayName ?? getAppChainDisplayName()
+  const walletChainId = useAppSelector((s) => s.wallet.chainId)
+  const authChainId = useAppSelector((s) => s.auth.chainId)
+  const networkLabel =
+    networkDisplayName ?? getAppChainDisplayName(walletChainId ?? authChainId)
   const withdrawalRef = useMemo(() => {
     const digits = amountDisplay.replace(/\D/g, '')
     const tail = digits.slice(-6).padStart(6, '0')

@@ -202,11 +202,14 @@ function asBigInt(value: unknown): bigint {
 export async function fetchMultisigExecutionPayload(
   accessToken: string | null | undefined,
   proposalId: string,
+  options?: { ackQueueJump?: boolean },
 ): Promise<MultisigExecutionPayload> {
   const id = proposalId.trim()
   if (!id) throw new Error('Missing proposal id.')
+  const path = `${PROPOSALS_PATH}${encodeURIComponent(id)}/execution-payload/`
+  const url = options?.ackQueueJump ? `${path}?ackQueueJump=true` : path
   const res = await fetchWithAuthRecovery(
-    apiUrl(`${PROPOSALS_PATH}${encodeURIComponent(id)}/execution-payload/`),
+    apiUrl(url),
     {
       method: 'GET',
       headers: authHeaders(accessToken),

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 
+import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 
 /** Human-readable token balance line for financial flows (invest, repay, etc.). */
@@ -12,7 +13,8 @@ export function useTokenBalanceLabel(actionWhenOffChain: string) {
     const formatted = contracts.mockTokenBalanceFormatted
     const amountLine = formatted === '—' ? 'Wallet balance: —' : `Wallet balance: ${formatted}`
     if (!contracts.isCorrectNetwork) {
-      return `${amountLine} (switch to ${contracts.testnetChain.name} to ${actionWhenOffChain}.)`
+      const networkName = getAppChainDisplayName(contracts.testnetChain.id)
+      return `${amountLine} (switch to ${networkName} to ${actionWhenOffChain}.)`
     }
     return amountLine
   }, [
@@ -21,6 +23,6 @@ export function useTokenBalanceLabel(actionWhenOffChain: string) {
     contracts.isContractsLoading,
     contracts.isCorrectNetwork,
     contracts.mockTokenBalanceFormatted,
-    contracts.testnetChain.name,
+    contracts.testnetChain.id,
   ])
 }

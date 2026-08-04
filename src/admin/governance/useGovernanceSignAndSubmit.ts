@@ -8,12 +8,21 @@ import {
 } from '@/api/multisig/proposals'
 import { isGovernanceSignerAddress } from '@/admin/governance/governanceSigner'
 import type { GovernanceSignSubmitResult } from '@/admin/governance/types'
+import {
+  nonceWarningToConfirmPayload,
+  type GovernanceConfirmModalApi,
+} from '@/admin/governance/useGovernanceConfirmModal'
 import { useAppSelector } from '@/store/hooks'
 import { ensureWalletChain, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
 import { signUserOpHashTypedData } from '@/wallet/signUserOpHash'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 
-export function useGovernanceSignAndSubmit() {
+export type UseGovernanceSignAndSubmitOptions = {
+  confirmNonceWarning?: GovernanceConfirmModalApi['confirmNonceWarning']
+}
+
+export function useGovernanceSignAndSubmit(options: UseGovernanceSignAndSubmitOptions = {}) {
+  const { confirmNonceWarning } = options
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const sessionWallet = useAppSelector((s) => s.auth.wallet)
   const { wallet, address, isConnected } = useActiveWallet()
@@ -50,13 +59,9 @@ export function useGovernanceSignAndSubmit() {
       try {
         const payload = await fetchMultisigSigningPayload(accessToken, id)
         if (payload.nonceWarning) {
-          const blocking =
-            payload.nonceWarning.blockingProposalIds.length > 0
-              ? `\n\nBlocking proposals: ${payload.nonceWarning.blockingProposalIds.join(', ')}`
-              : ''
-          const proceed = window.confirm(
-            `${payload.nonceWarning.message}${blocking}\n\nSign anyway?`,
-          )
+          const proceed = confirmNonceWarning
+            ? await confirmNonceWarning(nonceWarningToConfirmPayload(payload.nonceWarning))
+            : true
           if (!proceed) {
             return null
           }
@@ -100,7 +105,7 @@ export function useGovernanceSignAndSubmit() {
         setPending(false)
       }
     },
-    [accessToken, address, isConnected, sessionWallet, wallet],
+    [accessToken, address, confirmNonceWarning, isConnected, sessionWallet, wallet],
   )
 
   return { signAndSubmit, pending, error, clearError: () => setError(null) }

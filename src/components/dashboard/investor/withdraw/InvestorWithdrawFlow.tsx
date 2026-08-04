@@ -14,6 +14,7 @@ import WithdrawFinalConfirmationStep from '@/components/dashboard/investor/withd
 import WithdrawMethodConfirmationStep from '@/components/dashboard/investor/withdraw/steps/WithdrawMethodConfirmationStep'
 import { WithdrawalStep } from '@/components/dashboard/investor/withdraw/types'
 import { DashboardRequestFeedbackLayer } from '@/components/dashboard/shared/DashboardRequestFeedbackLayer'
+import { getAppChainDisplayName } from '@/contract_config/contractNetwork'
 import { useInvestorOnChainBalances } from '@/hooks/useInvestorOnChainBalances'
 import { useTestnetContracts } from '@/hooks/useTestnetContracts'
 import { useAppSelector } from '@/store/hooks'
@@ -95,7 +96,7 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
   }
 
   const withdrawOnChainHint = useMemo(() => {
-    const networkName = contracts.testnetChain.name
+    const networkName = getAppChainDisplayName(contracts.testnetChain.id)
     if (!contracts.isConnected) return `Connect your wallet on ${networkName} to withdraw from the pool.`
     if (!contracts.isCorrectNetwork) {
       return `Switch your wallet to ${networkName} to submit withdrawals.`
@@ -109,7 +110,7 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
     contracts.isCorrectNetwork,
     contracts.poolPositionHuman,
     contracts.poolPositionLoading,
-    contracts.testnetChain.name,
+    contracts.testnetChain.id,
   ])
 
   const handleAmountContinue = () => {
@@ -166,7 +167,8 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
               investmentBalanceDisplay,
               {
                 gasFeeEstimateDisplay: contracts.withdrawGasFeeLabel,
-                networkDisplayName: contracts.testnetChain.name,
+                networkDisplayName: getAppChainDisplayName(contracts.testnetChain.id),
+                chainId: contracts.testnetChain.id,
               },
             )}
             onContinue={() => setWithdrawalStep(WithdrawalStep.FinalConfirmation)}
@@ -192,7 +194,7 @@ const InvestorWithdrawFlow = ({ walletDisplay, step, onStepChange }: InvestorWit
             poolName={poolName}
             metrics={buildWithdrawalCompletedMetrics(displayAmount)}
             backToDashboardTo="/dashboard/investor/overview"
-            networkDisplayName={contracts.testnetChain.name}
+            networkDisplayName={getAppChainDisplayName(contracts.testnetChain.id)}
           />
         )
 

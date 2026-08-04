@@ -8,6 +8,7 @@ import {
 import {
   canMintTestTokens,
   getAcceptedTokenDefaultDecimals,
+  getAppChainDisplayName,
 } from '@/contract_config/contractNetwork'
 import { postMerchantRepaymentSubmit } from '@/api/payout'
 import { displayDashboardMetricString } from '@/api/metrics'
@@ -107,6 +108,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     resolveActiveAppChain(chainId) ??
     resolveActiveAppChain(authChainId) ??
     DEFAULT_APP_CHAIN
+  const contractsChainLabel = getAppChainDisplayName(contractsChain.id)
   const deployment = useMemo(
     () => getDeploymentForChainId(contractsChain.id),
     [contractsChain.id],
@@ -429,7 +431,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       if (!isCorrectNetwork)
         return {
           ok: false,
-          message: `Switch your wallet to ${contractsChain.name} to ${actionLabel}.`,
+          message: `Switch your wallet to ${contractsChainLabel} to ${actionLabel}.`,
         }
       if (!Number.isFinite(humanAmount) || humanAmount <= 0)
         return { ok: false, message: 'Enter an amount greater than zero.' }
@@ -442,7 +444,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
         }
       return { ok: true }
     },
-    [address, balanceBn, isConnected, isCorrectNetwork, mockTokenBalanceFormatted, tokenDecimals],
+    [address, balanceBn, contractsChainLabel, isConnected, isCorrectNetwork, mockTokenBalanceFormatted, tokenDecimals],
   )
 
   const canDepositHuman = useCallback(
@@ -481,7 +483,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       if (!isCorrectNetwork)
         return {
           ok: false,
-          message: `Switch your wallet to ${contractsChain.name} for withdrawals.`,
+          message: `Switch your wallet to ${contractsChainLabel} for withdrawals.`,
         }
       if (!Number.isFinite(humanAmount) || humanAmount <= 0)
         return { ok: false, message: 'Enter an amount greater than zero.' }
@@ -510,7 +512,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       }
       return { ok: true }
     },
-    [address, isConnected, isCorrectNetwork, poolPositionHuman, tokenDecimals, totalAssetsBn, totalSharesBn, userSharesBn],
+    [address, contractsChainLabel, isConnected, isCorrectNetwork, poolPositionHuman, tokenDecimals, totalAssetsBn, totalSharesBn, userSharesBn],
   )
 
   const depositFundingPool = useCallback(
@@ -581,7 +583,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       if (!isConnected || !address) throw new Error('Connect your wallet to mint test tokens.')
       if (!wallet) throw new Error('Wallet required')
       if (!isCorrectNetwork) {
-        throw new Error(`Switch your wallet to ${contractsChain.name} to mint test tokens.`)
+        throw new Error(`Switch your wallet to ${contractsChainLabel} to mint test tokens.`)
       }
 
       const amount = humanAmountToUnits(humanAmount, tokenDecimals)
@@ -608,7 +610,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
         setIsWritePending(false)
       }
     },
-    [address, isConnected, isCorrectNetwork, publicClient, refetchBalances, tokenDecimals, wallet],
+    [address, contractsChainLabel, isConnected, isCorrectNetwork, publicClient, refetchBalances, tokenDecimals, wallet],
   )
 
   const readPayoutRouterAllowance = useCallback(async (): Promise<bigint> => {
@@ -637,7 +639,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       if (!isConnected || !address) throw new Error('Connect your wallet to continue.')
       if (!wallet) throw new Error('Wallet required')
       if (!isCorrectNetwork)
-        throw new Error(`Switch your wallet to ${contractsChain.name} to approve tokens.`)
+        throw new Error(`Switch your wallet to ${contractsChainLabel} to approve tokens.`)
 
       const amount = humanAmountToUnits(humanAmount, tokenDecimals)
       if (amount <= 0n) throw new Error('Invalid amount')
@@ -681,6 +683,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     },
     [
       address,
+      contractsChainLabel,
       isConnected,
       isCorrectNetwork,
       payoutRouterAllowanceQuery,

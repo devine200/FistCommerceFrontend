@@ -2,7 +2,7 @@ import { arbitrum, arbitrumSepolia } from 'viem/chains'
 import { defineChain, type Chain } from 'viem'
 
 import localConfig from '@/contract_config/local-deployment-config.json'
-import { isLocalOnlyDeployMode } from '@/contract_config/contractNetwork'
+import { getContractNetworkMode, isLocalOnlyDeployMode } from '@/contract_config/contractNetwork'
 
 type LocalChainConfig = {
   chainId: number
@@ -67,8 +67,15 @@ export const MAINNET_CHAIN: Chain = defineChain({
   },
 })
 
-/** Privy / wrong-network default when no preference is set. */
-export const DEFAULT_APP_CHAIN: Chain = TESTNET_CHAIN
+/**
+ * Privy / wrong-network default when no wallet chain is set.
+ * Follows `VITE_CONTRACT_NETWORK` so mainnet deploys default to Arbitrum One.
+ */
+export const DEFAULT_APP_CHAIN: Chain = (() => {
+  if (isLocalOnlyDeployMode()) return LOCAL_CHAIN
+  if (getContractNetworkMode() === 'mainnet') return MAINNET_CHAIN
+  return TESTNET_CHAIN
+})()
 
 /**
  * Chains the product allows for login + contracts.
