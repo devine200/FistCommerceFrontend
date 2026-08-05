@@ -16,6 +16,7 @@ const HEADERS = [
   'Receivable Name',
   'Loan Amount',
   'Tenor rate',
+  'Duration',
   'Repayment Due',
   'Repayment Amount',
   'Debt Status',
@@ -71,7 +72,7 @@ export function AdminMerchantReceivablesTablePanel({
           className="max-w-[280px] w-full sm:w-auto"
         />
       </div>
-      <AdminTableShell minWidthClassName="min-w-[1100px]">
+      <AdminTableShell minWidthClassName="min-w-[1200px]">
         <AdminTableHeadRow labels={HEADERS} />
         <tbody className={['bg-white', loading ? 'opacity-60' : ''].join(' ')}>
           {items.length === 0 ? (
@@ -86,6 +87,9 @@ export function AdminMerchantReceivablesTablePanel({
                 <td className="px-5 py-4 text-[#0B1220] text-[14px] font-medium">{row.receivableName}</td>
                 <td className="px-5 py-4 text-[#0B1220] text-[14px] font-medium tabular-nums">{row.loanAmount}</td>
                 <td className="px-5 py-4 text-[#0B1220] text-[14px] font-medium">{row.apr}</td>
+                <td className="px-5 py-4 text-[#0B1220] text-[14px] font-medium">
+                  {row.loanDuration ?? '—'}
+                </td>
                 <td className="px-5 py-4">
                   <span className={`text-[14px] ${repaymentDueClass(row.repaymentDueVariant)}`}>{row.repaymentDue}</span>
                 </td>

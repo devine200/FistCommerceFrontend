@@ -25,6 +25,12 @@ export function formatAdminLoanMonitoringApr(apr: number | null): string {
   return `${apr.toLocaleString('en-US', { maximumFractionDigits: 2 })}%`
 }
 
+export function formatAdminLoanMonitoringDurationDays(days: number | null): string {
+  if (days == null || !Number.isFinite(days)) return '—'
+  const n = Math.max(0, Math.round(days))
+  return `${n.toLocaleString('en-US')} day${n === 1 ? '' : 's'}`
+}
+
 export function adminLoanMonitoringStatusLabel(status: AdminLoanMonitoringStatus): string {
   switch (status) {
     case 'active':

@@ -109,12 +109,19 @@ export function mapLoanDetailsToReceivableTableRow(
   const totalDisplay = formatMoneyDisplay(api.summary.totalAmount)
   const owedDisplay = formatMoneyDisplay(api.summary.amountOwed)
   const aprDisplay = formatPercentRate(api.summary.apr, 'tenor') ?? '—'
+  const durationDisplay =
+    api.repaymentDetails.loanDurationDays != null
+      ? `${api.repaymentDetails.loanDurationDays} day${
+          api.repaymentDetails.loanDurationDays === 1 ? '' : 's'
+        }`
+      : undefined
 
   return {
     id: loanId,
     receivableName: title,
     loanAmount: totalDisplay,
     apr: aprDisplay,
+    loanDuration: durationDisplay,
     repaymentDue: formatIsoDateForDisplay(api.repaymentDetails.repaymentDueDate),
     repaymentDueVariant: repaymentDueVariantFromStatus(
       api,

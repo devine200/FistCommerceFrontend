@@ -82,6 +82,12 @@ function mapProfileReceivableRow(row: AdminMerchantProfileReceivableRow): Receiv
     row.apr != null && Number.isFinite(row.apr)
       ? `${row.apr.toLocaleString('en-US', { maximumFractionDigits: 2 })}% for tenor`
       : '—'
+  const durationDisplay =
+    row.loanDurationDays != null && Number.isFinite(row.loanDurationDays)
+      ? `${Math.max(0, Math.round(row.loanDurationDays)).toLocaleString('en-US')} day${
+          Math.round(row.loanDurationDays) === 1 ? '' : 's'
+        }`
+      : '—'
   const debtVariant = debtStatusVariant(row.debtStatus)
   const interestFormatted = row.repaymentAmount.interest
     ? formatAdminMerchantMoney(row.repaymentAmount.interest)
@@ -92,6 +98,7 @@ function mapProfileReceivableRow(row: AdminMerchantProfileReceivableRow): Receiv
     receivableName: row.receivableName,
     loanAmount: formatAdminMerchantMoney(row.loanAmount),
     apr: aprDisplay,
+    loanDuration: durationDisplay,
     repaymentDue: row.repaymentDue.label?.trim() || '—',
     repaymentDueVariant: repaymentDueVariant(row.repaymentDue, row.debtStatus),
     repaymentAmount: formatAdminMerchantMoney(row.repaymentAmount.total),

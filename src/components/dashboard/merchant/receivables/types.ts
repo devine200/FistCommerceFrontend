@@ -17,6 +17,8 @@ export type ReceivableTableRow = {
   receivableName: string
   loanAmount: string
   apr: string
+  /** Formatted risk-tier duration, e.g. "90 days". */
+  loanDuration?: string
   repaymentDue: string
   repaymentDueVariant: RepaymentDueVariant
   repaymentAmount: string

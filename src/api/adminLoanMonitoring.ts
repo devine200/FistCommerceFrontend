@@ -37,6 +37,8 @@ export type AdminLoanMonitoringRow = {
   merchant: AdminLoanMonitoringMerchant
   amount: string
   apr: number | null
+  /** Risk-tier max tenor in days when available from the monitoring list. */
+  loanDurationDays: number | null
   status: AdminLoanMonitoringStatus
   statusLabel: string
   nextPayment: AdminLoanMonitoringNextPayment
@@ -238,6 +240,7 @@ export function normalizeLoanMonitoringRow(raw: unknown): AdminLoanMonitoringRow
     merchant: normalizeMerchant(r.merchant),
     amount: pickStr(r, 'amount') || '0.00',
     apr: pickNumber(r, 'apr'),
+    loanDurationDays: pickNumber(r, 'loanDurationDays', 'loan_duration_days'),
     status,
     statusLabel:
       pickStr(r, 'statusLabel', 'status_label') ||

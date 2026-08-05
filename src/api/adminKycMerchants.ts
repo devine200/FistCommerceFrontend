@@ -78,6 +78,8 @@ export type AdminMerchantProfileReceivableRow = {
   receivableName: string
   loanAmount: string
   apr: number | null
+  /** Risk-tier max tenor in days when available. */
+  loanDurationDays: number | null
   repaymentDue: AdminMerchantRepaymentDue
   repaymentAmount: AdminMerchantRepaymentAmount
   debtStatus: string
@@ -244,6 +246,7 @@ function normalizeProfileReceivableRow(raw: unknown): AdminMerchantProfileReceiv
     receivableName: pickStr(r, 'receivableName', 'receivable_name') || 'Receivable',
     loanAmount: pickStr(r, 'loanAmount', 'loan_amount') || '0.00',
     apr: pickNumber(r, 'apr'),
+    loanDurationDays: pickNumber(r, 'loanDurationDays', 'loan_duration_days'),
     repaymentDue: normalizeRepaymentDue(r.repaymentDue ?? r.repayment_due),
     repaymentAmount: normalizeRepaymentAmount(r.repaymentAmount ?? r.repayment_amount),
     debtStatus: pickStr(r, 'debtStatus', 'debt_status') || 'pending',

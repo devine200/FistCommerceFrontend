@@ -27,6 +27,7 @@ import {
   adminLoanMonitoringStatusLabel,
   formatAdminLoanMonitoringApr,
   formatAdminLoanMonitoringCount,
+  formatAdminLoanMonitoringDurationDays,
   formatAdminLoanMonitoringMoney,
   loanMonitoringPillVariant,
   nextPaymentIsOverdue,
@@ -46,7 +47,16 @@ type TabKey = (typeof TABS)[number]
 
 const TAB_ITEMS: AdminTabItem<TabKey>[] = TABS.map((t) => ({ value: t, label: t }))
 
-const TABLE_HEADERS = ['Receivable Name', 'Merchant', 'Amount', 'Tenor rate', 'Status', 'Next Payment', 'Action'] as const
+const TABLE_HEADERS = [
+  'Receivable Name',
+  'Merchant',
+  'Amount',
+  'Tenor rate',
+  'Duration',
+  'Status',
+  'Next Payment',
+  'Action',
+] as const
 
 function tabToApiFilter(tab: TabKey) {
   switch (tab) {
@@ -163,7 +173,7 @@ const AdminLoanMonitoringPage = () => {
           }
         />
 
-        <AdminTableShell minWidthClassName="min-w-[1060px]">
+        <AdminTableShell minWidthClassName="min-w-[1180px]">
           <AdminTableHeadRow labels={TABLE_HEADERS} />
           <tbody className="bg-white">
             {tableLoading ? (
@@ -196,6 +206,9 @@ const AdminLoanMonitoringPage = () => {
                     </td>
                     <td className="px-5 py-5 text-[#16A34A] text-[14px] font-medium">
                       {formatAdminLoanMonitoringApr(r.apr)}
+                    </td>
+                    <td className="px-5 py-5 text-[#0B1220] text-[14px] font-medium">
+                      {formatAdminLoanMonitoringDurationDays(r.loanDurationDays)}
                     </td>
                     <td className="px-5 py-5">
                       <AdminStatusPill variant={statusPillVariant(r.status)}>
