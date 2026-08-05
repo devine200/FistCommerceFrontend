@@ -9,6 +9,8 @@ import {
   canUserSignGovernanceProposal,
   sessionWalletMatchesConnected,
 } from '@/admin/governance/governanceSigner'
+import GovernanceNonceWarningModal from '@/admin/governance/GovernanceNonceWarningModal'
+import { useGovernanceConfirmModal } from '@/admin/governance/useGovernanceConfirmModal'
 import { useGovernanceSignAndSubmit } from '@/admin/governance/useGovernanceSignAndSubmit'
 import type { ResolvedGovernanceOutcome } from '@/admin/governance/types'
 import type { ProposalStatus } from '@/api/types/multisig'
@@ -36,7 +38,14 @@ export function AdminGovernanceOutcomeFlow({ open, outcome, onClose }: AdminGove
   const sessionWallet = useAppSelector((s) => s.auth.wallet)
   const { config } = useAppSelector((s) => s.adminMultisig)
   const { address, isConnected } = useActiveWallet()
-  const { signAndSubmit, pending, error, clearError } = useGovernanceSignAndSubmit()
+  const {
+    confirmNonceWarning,
+    modalProps: nonceWarningModalProps,
+    isModalOpen: nonceModalOpen,
+  } = useGovernanceConfirmModal()
+  const { signAndSubmit, pending, error, clearError } = useGovernanceSignAndSubmit({
+    confirmNonceWarning,
+  })
   const sessionMatchesWallet = sessionWalletMatchesConnected(sessionWallet, address)
   const [signProgress, setSignProgress] = useState<{
     validSignatureCount: number
@@ -113,7 +122,13 @@ export function AdminGovernanceOutcomeFlow({ open, outcome, onClose }: AdminGove
     isConnected,
   ])
 
-  if (!open || !outcome) return null
+  if (!open || !outcome) {
+    // Keep confirm mounted if it was already open (parent phase transition).
+    if (nonceModalOpen) {
+      return <GovernanceNonceWarningModal {...nonceWarningModalProps} />
+    }
+    return null
+  }
 
   const explorerBase = getDefaultBlockExplorerBase()
   const txUrl =
@@ -161,7 +176,13 @@ export function AdminGovernanceOutcomeFlow({ open, outcome, onClose }: AdminGove
     )
   }
 
+  // Hide the outcome panel while the nonce confirm is open so only one overlay is interactive.
+  const showOutcomePanel = !nonceModalOpen
+
   return (
+    <>
+      <GovernanceNonceWarningModal {...nonceWarningModalProps} />
+      {showOutcomePanel ? (
     <div className={overlayClass} role="dialog" aria-modal="true" aria-labelledby="gov-outcome-title">
       <div className="w-full max-w-md rounded-[12px] bg-white p-6 shadow-xl">
         <h3 id="gov-outcome-title" className="text-[#0B1220] text-[18px] font-bold">
@@ -253,7 +274,7 @@ export function AdminGovernanceOutcomeFlow({ open, outcome, onClose }: AdminGove
           {outcome.kind === 'proposal_queued' && canSignNow && !signProgress?.readyToExecute ? (
             <button
               type="button"
-              disabled={pending}
+              disabled={pending || nonceModalOpen}
               onClick={() => void handleSignNow()}
               className="h-11 rounded-[8px] border border-[#195EBC] text-[#195EBC] text-[14px] font-semibold hover:bg-[#E8EFFB] disabled:opacity-50"
             >
@@ -263,12 +284,15 @@ export function AdminGovernanceOutcomeFlow({ open, outcome, onClose }: AdminGove
           <button
             type="button"
             onClick={onClose}
-            className="h-10 text-[#6B7488] text-[14px] font-medium"
+            disabled={pending || nonceModalOpen}
+            className="h-10 text-[#6B7488] text-[14px] font-medium disabled:opacity-50"
           >
             Close
           </button>
         </div>
       </div>
     </div>
+      ) : null}
+    </>
   )
 }

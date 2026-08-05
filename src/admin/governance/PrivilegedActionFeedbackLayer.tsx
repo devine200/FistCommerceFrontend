@@ -23,6 +23,11 @@ export type PrivilegedActionFeedbackLayerProps = {
   errorPrimaryLabel?: string
   /** Aborts the in-flight request when the loading modal is dismissed. */
   onCancelLoading?: () => void
+  /**
+   * When true, never show the loading overlay (e.g. a confirm dialog is open).
+   * Prevents stacking under AdminConfirmModal.
+   */
+  suppressLoading?: boolean
 }
 
 export function PrivilegedActionFeedbackLayer({
@@ -38,18 +43,23 @@ export function PrivilegedActionFeedbackLayer({
   onRetry,
   errorPrimaryLabel,
   onCancelLoading,
+  suppressLoading = false,
 }: PrivilegedActionFeedbackLayerProps) {
   const showGovernanceOutcome =
     phase === 'succeeded' && resolvedOutcome?.kind === 'proposal_queued'
 
   const actionFeedbackModal = useMemo(() => {
-    if (phase === 'loading') {
+    if (phase === 'loading' && !suppressLoading) {
       return {
         open: true,
         variant: 'loading' as const,
         title: loadingTitle,
         description: loadingDescription,
       }
+    }
+
+    if (phase === 'loading' && suppressLoading) {
+      return { open: false, variant: 'loading' as const, title: '', description: '' }
     }
 
     if (phase === 'failed') {
@@ -95,9 +105,12 @@ export function PrivilegedActionFeedbackLayer({
     onDismiss,
     onRetry,
     errorPrimaryLabel,
+    suppressLoading,
   ])
 
   if (phase === 'idle' && !showGovernanceOutcome) return null
+  // Confirm is open during an in-flight action: hide this layer entirely so only confirm shows.
+  if (suppressLoading && phase === 'loading' && !showGovernanceOutcome) return null
 
   return (
     <>

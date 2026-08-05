@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from 'react'
 
+/** Above AdminActionFeedbackModal (z-70) so confirm never sits under loading. */
 const overlayClass =
-  'fixed inset-0 z-[70] flex items-center justify-center bg-black/25 backdrop-blur-[2px] p-5'
+  'fixed inset-0 z-[80] flex items-center justify-center bg-black/25 backdrop-blur-[2px] p-5'
 
 export type AdminConfirmModalVariant = 'default' | 'warning' | 'destructive'
 

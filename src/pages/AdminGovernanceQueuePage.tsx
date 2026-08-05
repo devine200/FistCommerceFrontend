@@ -11,6 +11,8 @@ import {
   canUserSignGovernanceProposal,
   sessionWalletMatchesConnected,
 } from '@/admin/governance/governanceSigner'
+import GovernanceNonceWarningModal from '@/admin/governance/GovernanceNonceWarningModal'
+import { useGovernanceConfirmModal } from '@/admin/governance/useGovernanceConfirmModal'
 import { useGovernanceSignAndSubmit } from '@/admin/governance/useGovernanceSignAndSubmit'
 import {
   governanceOperationLabel,
@@ -78,7 +80,14 @@ const AdminGovernanceQueuePage = () => {
   const sessionWallet = useAppSelector((s) => s.auth.wallet)
   const { proposals, proposalsCache, listStatus, config } = useAppSelector((s) => s.adminMultisig)
   const { address, isConnected } = useActiveWallet()
-  const { signAndSubmit, pending: signPending } = useGovernanceSignAndSubmit()
+  const {
+    confirmNonceWarning,
+    modalProps: nonceWarningModalProps,
+    isModalOpen: nonceModalOpen,
+  } = useGovernanceConfirmModal()
+  const { signAndSubmit, pending: signPending } = useGovernanceSignAndSubmit({
+    confirmNonceWarning,
+  })
   const [signingProposalId, setSigningProposalId] = useState<string | null>(null)
 
   const [statusTab, setStatusTab] = useState<StatusTab>('All')
@@ -170,7 +179,7 @@ const AdminGovernanceQueuePage = () => {
 
   const canQuickSign = useCallback(
     (row: (typeof allProposals)[number]) => {
-      if (signPending) return false
+      if (signPending || nonceModalOpen) return false
       if (row.nonce?.nonceStatus === 'stale') return false
       if (!sessionWalletMatchesConnected(sessionWallet, address)) return false
       return canUserSignGovernanceProposal({
@@ -181,7 +190,7 @@ const AdminGovernanceQueuePage = () => {
         isConnected,
       })
     },
-    [isConnected, address, sessionWallet, signPending, config?.signers],
+    [isConnected, address, sessionWallet, signPending, nonceModalOpen, config?.signers],
   )
 
   const explorerBase = getDefaultBlockExplorerBase()
@@ -189,6 +198,7 @@ const AdminGovernanceQueuePage = () => {
 
   return (
     <AdminPageFrame>
+      <GovernanceNonceWarningModal {...nonceWarningModalProps} />
       {config ? (
         <div className="rounded-[10px] border border-[#E6E8EC] bg-white px-5 py-4 text-[#6B7488] text-[13px]">
           Multisig {config.multisigAddress ? shortAddress(config.multisigAddress) : '—'} ·{' '}

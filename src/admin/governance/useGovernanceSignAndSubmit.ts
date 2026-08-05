@@ -59,12 +59,15 @@ export function useGovernanceSignAndSubmit(options: UseGovernanceSignAndSubmitOp
       try {
         const payload = await fetchMultisigSigningPayload(accessToken, id)
         if (payload.nonceWarning) {
+          // Hide loading overlay while the confirm modal is open (same z-index stack).
+          setPending(false)
           const proceed = confirmNonceWarning
             ? await confirmNonceWarning(nonceWarningToConfirmPayload(payload.nonceWarning))
             : true
           if (!proceed) {
             return null
           }
+          setPending(true)
         }
         if (!isGovernanceSignerAddress(address, payload.signers)) {
           throw new Error('Connected wallet is not a multisig signer for this proposal.')

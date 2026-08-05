@@ -18,6 +18,7 @@ import {
 } from '@/admin/governance/formatSignerMgmtDecodedArgs'
 import { useGovernanceExecuteProposal } from '@/admin/governance/useGovernanceExecuteProposal'
 import GovernanceNonceWarningModal from '@/admin/governance/GovernanceNonceWarningModal'
+import { useAdminConfirmDialog } from '@/admin/governance/useAdminConfirmDialog'
 import { useGovernanceConfirmModal } from '@/admin/governance/useGovernanceConfirmModal'
 import { useGovernanceRestartSignatures } from '@/admin/governance/useGovernanceRestartSignatures'
 import { useGovernanceSignAndSubmit } from '@/admin/governance/useGovernanceSignAndSubmit'
@@ -26,6 +27,7 @@ import type { NonceStatus, ProposalNonceInfo } from '@/api/types/multisig'
 import { proposalStatusLabel } from '@/api/multisig/normalize'
 import { normalizeMultisigSignerMgmtSync } from '@/api/multisig/normalize'
 import { getDefaultBlockExplorerBase, blockExplorerTxUrl } from '@/api/payout'
+import AdminConfirmModal from '@/components/admin/AdminConfirmModal'
 import { AdminPageFrame, AdminPanel, AdminStatusPill } from '@/components/admin/primitives'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import {
@@ -144,6 +146,12 @@ const AdminGovernanceProposalDetailPage = () => {
     modalProps: nonceWarningModalProps,
     isModalOpen: nonceModalOpen,
   } = useGovernanceConfirmModal()
+  const {
+    confirm: confirmAction,
+    modalProps: actionConfirmModalProps,
+    isOpen: actionConfirmOpen,
+  } = useAdminConfirmDialog()
+  const anyConfirmOpen = nonceModalOpen || actionConfirmOpen
   const { signAndSubmit, pending: signPending, error: signHookError, clearError: clearSignError } =
     useGovernanceSignAndSubmit({ confirmNonceWarning })
   const {
@@ -215,23 +223,33 @@ const AdminGovernanceProposalDetailPage = () => {
     void executeOnChain(proposalId)
   }, [executeOnChain, proposalId])
 
-  const handleRestartSignatures = useCallback(() => {
+  const handleRestartSignatures = useCallback(async () => {
     if (!proposalId) return
-    if (
-      !window.confirm(
-        'Clear all signatures and assign a new reserved nonce? Every owner must sign again.',
-      )
-    ) {
-      return
-    }
+    const ok = await confirmAction({
+      title: 'Restart signatures?',
+      description:
+        'Clear all signatures and assign a new reserved nonce. Every owner must sign again.',
+      confirmLabel: 'Restart signatures',
+      cancelLabel: 'Go back',
+      variant: 'warning',
+    })
+    if (!ok) return
     void restartSignatures(proposalId)
-  }, [proposalId, restartSignatures])
+  }, [proposalId, restartSignatures, confirmAction])
 
-  const handleCancel = useCallback(() => {
+  const handleCancel = useCallback(async () => {
     if (!proposalId) return
-    if (!window.confirm('Cancel this governance proposal?')) return
+    const ok = await confirmAction({
+      title: 'Cancel this proposal?',
+      description:
+        'This cancels the governance proposal and clears collected signatures. This cannot be undone.',
+      confirmLabel: 'Cancel proposal',
+      cancelLabel: 'Go back',
+      variant: 'destructive',
+    })
+    if (!ok) return
     void dispatch(cancelMultisigProposal(proposalId))
-  }, [dispatch, proposalId])
+  }, [dispatch, proposalId, confirmAction])
 
   const handleDismissActionFeedback = useCallback(() => {
     clearSignError()
@@ -247,7 +265,7 @@ const AdminGovernanceProposalDetailPage = () => {
   const handleRetryGovernanceAction = useCallback(() => {
     if (!proposalId) return
     if (restartHookError) {
-      void restartSignatures(proposalId)
+      void handleRestartSignatures()
       return
     }
     if (signHookError) {
@@ -260,7 +278,9 @@ const AdminGovernanceProposalDetailPage = () => {
           ? executeErrorMeta.blockingProposalIds
           : (detail?.nonce?.blockingProposalIds ?? [])
       if (
-        (executeErrorMeta?.code === 'MULTISIG_EXECUTE_QUEUED' || detail?.nonce?.nonceStatus === 'queued') &&
+        (executeErrorMeta?.code === 'MULTISIG_EXECUTE_QUEUED' ||
+          executeErrorMeta?.code === 'EXECUTE_QUEUE_JUMP_ACK_REQUIRED' ||
+          detail?.nonce?.nonceStatus === 'queued') &&
         blocking[0]
       ) {
         navigate(adminGovernanceProposalPath(blocking[0]))
@@ -268,15 +288,14 @@ const AdminGovernanceProposalDetailPage = () => {
         return
       }
       if (/stale|MULTISIG_STALE_NONCE|restart signatures/i.test(executeHookError)) {
-        handleRestartSignatures()
+        void handleRestartSignatures()
         return
       }
       void executeOnChain(proposalId)
       return
     }
     if (actionKind === 'cancel') {
-      if (!window.confirm('Cancel this governance proposal?')) return
-      void dispatch(cancelMultisigProposal(proposalId))
+      void handleCancel()
     }
   }, [
     proposalId,
@@ -290,9 +309,9 @@ const AdminGovernanceProposalDetailPage = () => {
     handleSign,
     executeOnChain,
     handleRestartSignatures,
+    handleCancel,
     clearExecuteError,
     navigate,
-    dispatch,
   ])
 
   const governanceErrorPrimaryLabel = useMemo(() => {
@@ -312,7 +331,8 @@ const AdminGovernanceProposalDetailPage = () => {
   }, [executeHookError, executeErrorMeta, detail?.nonce?.blockingProposalIds])
 
   const governanceFeedback = useMemo(() => {
-    if (restartPending) {
+    // Never show restart loading under a confirm dialog.
+    if (restartPending && !anyConfirmOpen) {
       return {
         phase: 'loading' as PrivilegedActionPhase,
         errorDescription: undefined as string | undefined,
@@ -332,7 +352,8 @@ const AdminGovernanceProposalDetailPage = () => {
         directSuccessTitle: 'Signatures restarted',
       }
     }
-    if (signPending) {
+    // Never stack the loading overlay over a confirm modal.
+    if (signPending && !anyConfirmOpen) {
       return {
         phase: 'loading' as PrivilegedActionPhase,
         errorDescription: undefined as string | undefined,
@@ -352,7 +373,7 @@ const AdminGovernanceProposalDetailPage = () => {
         directSuccessTitle: 'Proposal signed',
       }
     }
-    if (executePending) {
+    if (executePending && !anyConfirmOpen) {
       return {
         phase: 'loading' as PrivilegedActionPhase,
         errorDescription: undefined as string | undefined,
@@ -375,8 +396,8 @@ const AdminGovernanceProposalDetailPage = () => {
     }
     if (actionKind === 'cancel') {
       let phase: PrivilegedActionPhase = 'idle'
-      if (actionStatus === 'loading' || actionStatus === 'failed') {
-        phase = actionStatus
+      if ((actionStatus === 'loading' && !anyConfirmOpen) || actionStatus === 'failed') {
+        phase = actionStatus === 'loading' ? 'loading' : 'failed'
       } else if (actionStatus === 'succeeded') {
         phase = 'succeeded'
       }
@@ -404,6 +425,7 @@ const AdminGovernanceProposalDetailPage = () => {
     signHookError,
     executePending,
     executeHookError,
+    anyConfirmOpen,
     actionKind,
     actionStatus,
     actionError,
@@ -453,7 +475,7 @@ const AdminGovernanceProposalDetailPage = () => {
       sessionMatchesWallet &&
       !signPending &&
       !executePending &&
-      !nonceModalOpen &&
+      !anyConfirmOpen &&
       actionStatus !== 'loading',
     [
       detail,
@@ -464,7 +486,7 @@ const AdminGovernanceProposalDetailPage = () => {
       sessionMatchesWallet,
       signPending,
       executePending,
-      nonceModalOpen,
+      anyConfirmOpen,
       actionStatus,
     ],
   )
@@ -484,7 +506,7 @@ const AdminGovernanceProposalDetailPage = () => {
       }) &&
       !signPending &&
       !executePending &&
-      !nonceModalOpen &&
+      !anyConfirmOpen &&
       actionStatus !== 'loading',
     [
       detail,
@@ -496,7 +518,7 @@ const AdminGovernanceProposalDetailPage = () => {
       isConnected,
       signPending,
       executePending,
-      nonceModalOpen,
+      anyConfirmOpen,
       actionStatus,
     ],
   )
@@ -507,6 +529,7 @@ const AdminGovernanceProposalDetailPage = () => {
     !signPending &&
     !executePending &&
     !restartPending &&
+    !anyConfirmOpen &&
     actionStatus !== 'loading'
 
   const canCancel =
@@ -515,6 +538,7 @@ const AdminGovernanceProposalDetailPage = () => {
     detail!.status !== 'cancelled' &&
     !signPending &&
     !executePending &&
+    !anyConfirmOpen &&
     actionStatus !== 'loading'
 
   const signatureProgress =
@@ -525,6 +549,7 @@ const AdminGovernanceProposalDetailPage = () => {
   return (
     <AdminPageFrame>
       <GovernanceNonceWarningModal {...nonceWarningModalProps} />
+      <AdminConfirmModal {...actionConfirmModalProps} />
       <PrivilegedActionFeedbackLayer
         phase={governanceFeedback.phase}
         resolvedOutcome={null}
@@ -536,6 +561,7 @@ const AdminGovernanceProposalDetailPage = () => {
         onDismiss={handleDismissActionFeedback}
         onRetry={handleRetryGovernanceAction}
         errorPrimaryLabel={governanceErrorPrimaryLabel}
+        suppressLoading={anyConfirmOpen}
       />
 
       <button

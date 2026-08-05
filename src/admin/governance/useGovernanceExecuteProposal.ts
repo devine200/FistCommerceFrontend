@@ -159,8 +159,11 @@ export function useGovernanceExecuteProposal(options: UseGovernanceExecutePropos
             firstError.apiCode === 'EXECUTE_QUEUE_JUMP_ACK_REQUIRED' &&
             confirmQueueJumpFromApiError
           ) {
+            // Hide loading overlay while the confirm modal is open (same z-index stack).
+            setPending(false)
             const accepted = await confirmQueueJumpFromApiError(firstError)
             if (!accepted) return null
+            setPending(true)
             try {
               payload = await fetchExecutionPayloadWithRetry(accessToken, id, { ackQueueJump: true })
             } catch (ackError) {
