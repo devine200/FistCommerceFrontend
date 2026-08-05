@@ -316,10 +316,15 @@ export function AdminLoanMonitoringDetailView({
       ) : null}
 
       {rejectOpen ? (
-        <div className="fixed inset-0 z-80 flex items-center justify-center px-4" role="dialog" aria-modal="true" aria-label="Reject loan">
+        <div
+          className="fixed inset-0 z-80 flex items-end justify-center px-4 py-4 sm:items-center sm:py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Reject loan"
+        >
           <div className="absolute inset-0 bg-black/35" onClick={() => setRejectOpen(false)} aria-hidden />
-          <div className="relative w-full max-w-[920px] rounded-[10px] bg-white border border-[#E6E8EC] shadow-xl overflow-hidden">
-            <div className="px-8 py-6 border-b border-[#EDF0F4] flex items-center gap-4">
+          <div className="relative flex w-full max-w-[920px] max-h-[min(90dvh,800px)] flex-col overflow-hidden rounded-[10px] border border-[#E6E8EC] bg-white shadow-xl">
+            <div className="flex shrink-0 items-center gap-4 border-b border-[#EDF0F4] px-4 py-4 sm:px-8 sm:py-6">
               <button
                 type="button"
                 onClick={() => setRejectOpen(false)}
@@ -333,7 +338,7 @@ export function AdminLoanMonitoringDetailView({
               <h3 className="text-[#0B1220] font-bold text-[18px] leading-tight">Reject Loan</h3>
             </div>
 
-            <div className="px-8 py-8">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-8 sm:py-8">
               <p className="text-[#6B7488] text-[14px] mb-6">Select a reason for rejecting this loan</p>
 
               <div className="rounded-[8px] border border-[#EEF0F4] overflow-hidden">
@@ -345,7 +350,7 @@ export function AdminLoanMonitoringDetailView({
                       type="button"
                       onClick={() => setRejectReason(r.id)}
                       className={[
-                        'w-full px-6 py-5 flex items-start justify-between gap-6 text-left bg-white hover:bg-[#F9FAFB] transition-colors',
+                        'w-full px-4 py-4 sm:px-6 sm:py-5 flex items-start justify-between gap-4 sm:gap-6 text-left bg-white hover:bg-[#F9FAFB] transition-colors',
                         idx > 0 ? 'border-t border-[#EEF0F4]' : '',
                       ].join(' ')}
                     >
@@ -370,11 +375,13 @@ export function AdminLoanMonitoringDetailView({
                   )
                 })}
               </div>
+            </div>
 
+            <div className="shrink-0 border-t border-[#EDF0F4] px-4 py-4 sm:px-8 sm:py-5">
               <button
                 type="button"
                 onClick={handleConfirmReject}
-                className="mt-8 w-full h-[50px] rounded-[4px] bg-[#DC2626] text-white text-[15px] font-semibold hover:bg-[#b91c1c] transition-colors disabled:opacity-50 disabled:hover:bg-[#DC2626]"
+                className="w-full h-[50px] rounded-[4px] bg-[#DC2626] text-white text-[15px] font-semibold hover:bg-[#b91c1c] transition-colors disabled:opacity-50 disabled:hover:bg-[#DC2626]"
                 disabled={!rejectReason}
               >
                 Reject Loan
