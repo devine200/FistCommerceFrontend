@@ -22,6 +22,7 @@ import {
   formatLoanCurrency,
   riskTierSelectLabel,
 } from '@/utils/loanTierCalculations'
+import FistReceivableAgreementModal from '@/components/dashboard/merchant/loan/FistReceivableAgreementModal'
 
 type ApplyLoanLocationState = {
   restoreDraft?: boolean
@@ -117,6 +118,8 @@ const MerchantApplyLoanPage = () => {
     latePaymentPenalties: false,
     smartContractEnforcement: false,
   })
+  const [agreementModalOpen, setAgreementModalOpen] = useState(false)
+  const [hasReadAgreement, setHasReadAgreement] = useState(false)
 
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -304,7 +307,7 @@ const MerchantApplyLoanPage = () => {
     }
 
     if (!allChecked) {
-      setSubmitError('Please acknowledge all risk terms to continue.')
+      setSubmitError('Please complete all required acknowledgements to continue.')
       return
     }
 
@@ -565,48 +568,66 @@ const MerchantApplyLoanPage = () => {
         </section>
 
         <section className="rounded-[10px] border border-[#DFE2E8] bg-white p-4 sm:p-6">
-          <h2 className="text-[#6B7488] text-[14px] font-semibold">Risk Acknowledgement</h2>
+          <h2 className="text-[#6B7488] text-[14px] font-semibold">Required Acknowledgements</h2>
+          <p className="mt-3 text-[#0B1220] text-[13px] leading-relaxed">
+            By selecting the acknowledgements, signing with the connected wallet and submitting this
+            application, I confirm that I am authorized to bind the Merchant, that the submitted
+            invoice information is accurate, and that the Merchant accepts the Fist Receivable
+            Financing Agreement and Transaction Schedule for this receivable.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setAgreementModalOpen(true)}
+            className="mt-4 text-[#195EBC] text-[13px] font-semibold hover:underline text-left"
+          >
+            View Fist Receivable Financing Agreement
+            {hasReadAgreement ? (
+              <span className="ml-2 text-[#16A34A] font-medium no-underline">(read)</span>
+            ) : null}
+          </button>
 
           <div className="mt-4 flex flex-col gap-3">
-            <label className="flex items-center justify-between gap-4 border border-[#EDF0F4] rounded-[6px] px-4 py-3">
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={riskAcknowledgements.repaymentTerms}
-                  onChange={(e) => setRiskAcknowledgements((prev) => ({ ...prev, repaymentTerms: e.target.checked }))}
-                />
-                <span className="text-[#0B1220] text-[13px]">
-                  I understand <span className="text-[#195EBC] font-semibold">repayment terms</span> ↗
-                </span>
-              </div>
+            <label className="flex items-start gap-3 border border-[#EDF0F4] rounded-[6px] px-4 py-3">
+              <input
+                type="checkbox"
+                className="mt-0.5 shrink-0"
+                checked={riskAcknowledgements.repaymentTerms}
+                onChange={(e) => setRiskAcknowledgements((prev) => ({ ...prev, repaymentTerms: e.target.checked }))}
+              />
+              <span className="text-[#0B1220] text-[13px] leading-relaxed">
+                I have reviewed and accept the repayment amount, due date, fees and recourse terms for
+                this receivable.
+              </span>
             </label>
 
-            <label className="flex items-center justify-between gap-4 border border-[#EDF0F4] rounded-[6px] px-4 py-3">
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={riskAcknowledgements.latePaymentPenalties}
-                  onChange={(e) => setRiskAcknowledgements((prev) => ({ ...prev, latePaymentPenalties: e.target.checked }))}
-                />
-                <span className="text-[#0B1220] text-[13px]">
-                  I understand <span className="text-[#195EBC] font-semibold">late payment penalties</span> ↗
-                </span>
-              </div>
+            <label className="flex items-start gap-3 border border-[#EDF0F4] rounded-[6px] px-4 py-3">
+              <input
+                type="checkbox"
+                className="mt-0.5 shrink-0"
+                checked={riskAcknowledgements.latePaymentPenalties}
+                onChange={(e) =>
+                  setRiskAcknowledgements((prev) => ({ ...prev, latePaymentPenalties: e.target.checked }))
+                }
+              />
+              <span className="text-[#0B1220] text-[13px] leading-relaxed">
+                I have reviewed and accept the stated late-payment charges and default consequences.
+              </span>
             </label>
 
-            <label className="flex items-center justify-between gap-4 border border-[#EDF0F4] rounded-[6px] px-4 py-3">
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={riskAcknowledgements.smartContractEnforcement}
-                  onChange={(e) =>
-                    setRiskAcknowledgements((prev) => ({ ...prev, smartContractEnforcement: e.target.checked }))
-                  }
-                />
-                <span className="text-[#0B1220] text-[13px]">
-                  I agree to <span className="text-[#195EBC] font-semibold">smart contract enforcement</span> ↗
-                </span>
-              </div>
+            <label className="flex items-start gap-3 border border-[#EDF0F4] rounded-[6px] px-4 py-3">
+              <input
+                type="checkbox"
+                className="mt-0.5 shrink-0"
+                checked={riskAcknowledgements.smartContractEnforcement}
+                onChange={(e) =>
+                  setRiskAcknowledgements((prev) => ({ ...prev, smartContractEnforcement: e.target.checked }))
+                }
+              />
+              <span className="text-[#0B1220] text-[13px] leading-relaxed">
+                I authorize Fist&apos;s smart contracts to process the approved verification, funding,
+                payout, repayment and distribution instructions for this receivable.
+              </span>
             </label>
           </div>
 
@@ -647,6 +668,15 @@ const MerchantApplyLoanPage = () => {
           </div>
         </section>
       </div>
+
+      <FistReceivableAgreementModal
+        open={agreementModalOpen}
+        onClose={() => setAgreementModalOpen(false)}
+        onConfirmRead={() => {
+          setHasReadAgreement(true)
+          setAgreementModalOpen(false)
+        }}
+      />
     </DashboardLayout>
   )
 }
