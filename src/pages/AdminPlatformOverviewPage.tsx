@@ -10,7 +10,7 @@ import { refreshAdminDashboard, type AdminMetricCard } from '@/store/slices/admi
 import { adminChartHistoryToRechartsData } from '@/utils/mapAdminMetricsOverview'
 
 /** Narrow screens: 2×4 grid reading order (left then right per row) — matches mobile admin spec */
-const METRIC_MOBILE_ORDER = [1, 0, 2, 3, 4, 5, 6, 7] as const
+const METRIC_MOBILE_ORDER = [1, 0, 2, 3, 4, 5, 6, 7, 8] as const
 
 const ACTIVITY_ICON_24 = 'w-6 h-6 object-contain'
 

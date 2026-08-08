@@ -461,9 +461,9 @@ export async function fetchAdminLoanMonitoringDetail(
   return detail
 }
 
-export type AdminLoanReviewStatus = 'verified' | 'defaulted'
+export type AdminLoanReviewStatus = 'verified' | 'rejected'
 
-/** `POST /api/loan/admin/review` — approve (`verified`) or reject (`defaulted`) a loan. */
+/** `POST /api/loan/admin/review` — approve (`verified`) or reject (`rejected`) a loan. */
 export async function postAdminLoanReview(
   accessToken: string | null | undefined,
   params: { loanId: string; status: AdminLoanReviewStatus },

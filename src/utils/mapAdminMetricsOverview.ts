@@ -30,6 +30,11 @@ export function adminMetricsToMetricCards(metrics: AdminMetrics): AdminMetricCar
       iconSrc: adminIconDollar1,
     },
     {
+      title: 'Pool balance (USDC)',
+      value: displayDashboardCompactUsd(capital.liquidAssets),
+      iconSrc: adminIconDollar2,
+    },
+    {
       title: 'Active loans',
       value: formatCount(credit.activeLoans),
       iconSrc: adminIconCoin,
@@ -69,6 +74,7 @@ export function adminMetricsToMetricCards(metrics: AdminMetrics): AdminMetricCar
 
 export const PLACEHOLDER_ADMIN_METRIC_CARDS: AdminMetricCard[] = [
   { title: 'TVL', value: '—', iconSrc: adminIconDollar1 },
+  { title: 'Pool balance (USDC)', value: '—', iconSrc: adminIconDollar2 },
   { title: 'Active loans', value: '—', iconSrc: adminIconCoin },
   { title: 'Utilization', value: '—', iconSrc: adminIconDollar2 },
   { title: 'Protocol APY', value: '—', iconSrc: moneyIcon },

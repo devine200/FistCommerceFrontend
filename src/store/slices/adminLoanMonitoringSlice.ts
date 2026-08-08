@@ -276,7 +276,7 @@ export const rejectAdminLoanMonitoringLoan = createAsyncThunk(
     try {
       return await runLoanPrivilegedAction(
         loanId,
-        (signal) => postAdminLoanReview(accessToken, { loanId, status: 'defaulted' }, { signal }),
+        (signal) => postAdminLoanReview(accessToken, { loanId, status: 'rejected' }, { signal }),
         thunkApi,
       )
     } catch (e) {
