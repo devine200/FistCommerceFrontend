@@ -66,6 +66,7 @@ function findChangedTiers(baseline: ProtocolRiskTier[], next: ProtocolRiskTier[]
 
 const RiskAllocationPanel = () => {
   const accessToken = useAppSelector((s) => s.auth.accessToken)
+  const sessionChainId = useAppSelector((s) => s.auth.chainId)
   const [draft, setDraft] = useState<RiskAllocationState>(() => structuredClone(DEFAULT_RISK_ALLOCATION))
   const baselineTiersRef = useRef<ProtocolRiskTier[]>(DEFAULT_RISK_ALLOCATION.tiers)
   const baselineMaxMerchantRef = useRef<string>(DEFAULT_RISK_ALLOCATION.maxMerchantPercent)
@@ -132,7 +133,7 @@ const RiskAllocationPanel = () => {
 
   const refreshChainState = useCallback(async () => {
     const [tiersResult, settingsResult] = await Promise.allSettled([
-      fetchRiskTiers(),
+      fetchRiskTiers(sessionChainId),
       accessToken?.trim() ? fetchProtocolSettingsState(accessToken) : Promise.resolve(null),
     ])
 
@@ -156,13 +157,13 @@ const RiskAllocationPanel = () => {
         : structuredClone(DEFAULT_RISK_ALLOCATION.tiers)
 
     applyLoadedState(mapped, settings, settingsError)
-  }, [accessToken, applyLoadedState])
+  }, [accessToken, applyLoadedState, sessionChainId])
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
       const [tiersResult, settingsResult] = await Promise.allSettled([
-        fetchRiskTiers(),
+        fetchRiskTiers(sessionChainId),
         accessToken?.trim() ? fetchProtocolSettingsState(accessToken) : Promise.resolve(null),
       ])
       if (cancelled) return
@@ -191,7 +192,7 @@ const RiskAllocationPanel = () => {
     return () => {
       cancelled = true
     }
-  }, [accessToken, applyLoadedState])
+  }, [accessToken, applyLoadedState, sessionChainId])
 
   const handleSave = useCallback(async () => {
     setSaveNotice(null)

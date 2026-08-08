@@ -102,6 +102,7 @@ const MerchantApplyLoanPage = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
+  const sessionChainId = useAppSelector((s) => s.auth.chainId)
 
   const [amount, setAmount] = useState('')
   const [receiveableName, setReceiveableName] = useState('')
@@ -126,8 +127,8 @@ const MerchantApplyLoanPage = () => {
 
   /** One request per visit to this page — no refetch on focus, reconnect, or remount while cached. */
   const tiersQuery = useQuery({
-    queryKey: ['loan-risk-tiers'],
-    queryFn: fetchRiskTiers,
+    queryKey: ['loan-risk-tiers', sessionChainId],
+    queryFn: () => fetchRiskTiers(sessionChainId),
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 0,
     refetchOnMount: false,

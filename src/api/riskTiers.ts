@@ -1,4 +1,5 @@
 import { parseJsonResponse, requireApiBaseUrl } from '@/api/client'
+import { DEFAULT_APP_CHAIN } from '@/wallet/appChain'
 
 const RISK_TIERS_PATH = '/api/loan/risk-tiers/'
 
@@ -35,10 +36,20 @@ function normalizeRiskTier(raw: unknown): RiskTier | null {
 
 /**
  * `GET /api/loan/risk-tiers/` — list tiers with duration, flat tenor interest %, and active flag.
+ *
+ * The endpoint is chain-scoped via `chainId`. It is public (no auth session to infer the chain
+ * from), so `chainId` must be sent explicitly or the backend falls back to its default network.
+ * Defaults to the app's target chain (`DEFAULT_APP_CHAIN`, resolved from `VITE_CONTRACT_NETWORK`).
  */
-export async function fetchRiskTiers(): Promise<RiskTier[]> {
+export async function fetchRiskTiers(chainId?: number | null): Promise<RiskTier[]> {
   const base = requireApiBaseUrl()
-  const res = await fetch(`${base}${RISK_TIERS_PATH}`, {
+  const url = new URL(`${base}${RISK_TIERS_PATH}`)
+  const resolvedChainId =
+    typeof chainId === 'number' && Number.isFinite(chainId) && chainId > 0
+      ? Math.trunc(chainId)
+      : DEFAULT_APP_CHAIN.id
+  url.searchParams.set('chainId', String(resolvedChainId))
+  const res = await fetch(url.toString(), {
     method: 'GET',
     headers: { Accept: 'application/json' },
   })
