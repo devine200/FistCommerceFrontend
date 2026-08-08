@@ -5,6 +5,7 @@ export enum ReceivableStage {
   Matured = 'MATURED',
   Defaulted = 'DEFAULTED',
   Repaid = 'REPAID',
+  Rejected = 'REJECTED',
 }
 
 export function isReceivableVerified(stage: ReceivableStage) {

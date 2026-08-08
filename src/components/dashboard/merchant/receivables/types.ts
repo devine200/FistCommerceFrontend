@@ -10,7 +10,7 @@ export type ReceivableSummaryCard = {
 
 export type RepaymentDueVariant = 'upcoming' | 'overdue' | 'repaid'
 
-export type DebtStatusVariant = 'unpaid' | 'defaulted' | 'repaid'
+export type DebtStatusVariant = 'unpaid' | 'defaulted' | 'repaid' | 'rejected'
 
 export type ReceivableTableRow = {
   id: string

@@ -32,6 +32,7 @@ const repaymentDueClass = (variant: ReceivableTableRow['repaymentDueVariant']) =
 }
 
 const debtStatusClass = (variant: ReceivableTableRow['debtStatusVariant']) => {
+  if (variant === 'rejected') return 'text-[#DC2626] font-semibold'
   if (variant === 'defaulted' || variant === 'repaid') return 'text-[#195EBC] font-semibold'
   return 'text-[#B45309] font-semibold'
 }

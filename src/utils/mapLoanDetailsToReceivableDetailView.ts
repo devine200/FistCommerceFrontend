@@ -58,6 +58,7 @@ function apiStatusToStage(statusRaw: string | null | undefined): ReceivableStage
   if (s === 'paid_out' || s === 'matured') return ReceivableStage.Matured
   if (s === 'defaulted') return ReceivableStage.Defaulted
   if (s === 'repaid') return ReceivableStage.Repaid
+  if (s === 'rejected') return ReceivableStage.Rejected
   return ReceivableStage.Created
 }
 
@@ -75,6 +76,7 @@ function statusToDebtStatus(api: LoanDetailsResponse): {
   }
   const s = (api.lifecycle.status ?? '').trim().toLowerCase()
   if (s === 'repaid') return { debtStatus: 'Repaid', debtStatusVariant: 'repaid' }
+  if (s === 'rejected') return { debtStatus: 'Rejected', debtStatusVariant: 'rejected' }
   if (s === 'defaulted') return { debtStatus: 'Defaulted', debtStatusVariant: 'defaulted' }
   if (s === 'funded' || s === 'verified') return { debtStatus: 'Unpaid', debtStatusVariant: 'unpaid' }
   if (s === 'paid_out') return { debtStatus: 'Unpaid', debtStatusVariant: 'unpaid' }
@@ -318,9 +320,11 @@ export function mapLoanDetailsToReceivableDetailView(
     lifecycle: mergeLifecycle(api, fallback, stage),
     repaymentRows: mergeRepaymentRows(api, fallback),
     maturityBanner:
-      stage === ReceivableStage.Repaid
-        ? 'Loan repaid in full'
-        : pick(api.repaymentDetails.progress.label, fallback.maturityBanner) || fallback.maturityBanner,
+      stage === ReceivableStage.Rejected
+        ? 'Application rejected'
+        : stage === ReceivableStage.Repaid
+          ? 'Loan repaid in full'
+          : pick(api.repaymentDetails.progress.label, fallback.maturityBanner) || fallback.maturityBanner,
     basicInfo: mergeBasicInfo(api, fallback),
     documentName: verificationDocumentUrl ? LOAN_VERIFICATION_FILE_LABEL : fallback.documentName,
     documentUrl: verificationDocumentUrl,

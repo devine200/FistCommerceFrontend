@@ -39,6 +39,7 @@ const MerchantReceivableDetailContent = ({ detail }: MerchantReceivableDetailCon
   const documentHref = documentUrl?.trim() || null
   const { canRepay, disabledReason, isPaidOutToMerchant } = repayState
   const isFullyRepaid = stage === ReceivableStage.Repaid
+  const isRejected = stage === ReceivableStage.Rejected
 
   return (
     <div className="flex flex-col gap-6 pb-8">
@@ -47,7 +48,11 @@ const MerchantReceivableDetailContent = ({ detail }: MerchantReceivableDetailCon
           <div className="min-w-0">
             <h1 className="text-[#0B1220] font-bold text-[28px] lg:text-[34px] leading-tight">{row.receivableName}</h1>
             <p className="text-[#6B7488] text-[16px] mt-1.5">{subtitle}</p>
-            {isFullyRepaid ? (
+            {isRejected ? (
+              <p className="mt-2 inline-flex items-center rounded-[6px] bg-[#FEF2F2] border border-[#FECACA] px-3 py-1 text-[#B91C1C] text-[13px] font-medium">
+                Application rejected
+              </p>
+            ) : isFullyRepaid ? (
               <p className="mt-2 inline-flex items-center rounded-[6px] bg-[#EEF2FF] border border-[#C7D2FE] px-3 py-1 text-[#3730A3] text-[13px] font-medium">
                 Loan fully repaid
               </p>
