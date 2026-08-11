@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { formatEther, formatUnits, parseUnits, type Hash } from 'viem'
 import {
   getDeploymentForChainId,
@@ -12,7 +12,8 @@ import {
 } from '@/contract_config/contractNetwork'
 import { postMerchantRepaymentSubmit } from '@/api/payout'
 import { displayDashboardMetricString } from '@/api/metrics'
-import { useAppSelector } from '@/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { setWalletWritePending } from '@/store/slices/walletSlice'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
 import { DEFAULT_APP_CHAIN, isSupportedAppChainId, resolveActiveAppChain } from '@/wallet/appChain'
 import { getBufferedEip1559Fees } from '@/wallet/bufferedEip1559Fees'
@@ -99,6 +100,7 @@ export type UseTestnetContractsOptions = {
  * Smart-contract helpers for the wallet's active supported chain deployment.
  */
 export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
+  const dispatch = useAppDispatch()
   const { wallet, address, isConnected } = useActiveWallet()
   const chainId = useAppSelector((s) => s.wallet.chainId)
   const accessToken = useAppSelector((s) => s.auth.accessToken)
@@ -121,7 +123,13 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
   const fundingPoolAbi = deployment.FundingPool.abi
 
   const publicClient = useMemo(() => getPublicClient(contractsChain.id), [contractsChain.id])
-  const [isWritePending, setIsWritePending] = useState(false)
+  const isWritePending = useAppSelector((s) => s.wallet.writePending)
+  const setIsWritePending = useCallback(
+    (next: boolean) => {
+      dispatch(setWalletWritePending(next))
+    },
+    [dispatch],
+  )
 
   const isCorrectNetwork = isSupportedAppChainId(chainId) && chainId === contractsChain.id
   const readsEnabled = Boolean(

@@ -253,6 +253,10 @@ export function evaluateDashboardSession(ctx: AccessContext): AccessDecision {
   }
 
   if (!ctx.walletConnected || !ctx.walletAddress) {
+    // Token owns the session. Privy/wallet idle must not kick an onboarded user to onboarding.
+    if (isUsableApiAccessToken(ctx.accessToken)) {
+      return { allowed: true, redirectTo: null, reason: 'ok' }
+    }
     return {
       allowed: false,
       redirectTo: `/onboarding/${ctx.role}/connect-wallet`,

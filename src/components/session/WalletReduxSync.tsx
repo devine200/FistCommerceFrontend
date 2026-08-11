@@ -46,6 +46,11 @@ function isOnboardingPath(pathname: string): boolean {
   return pathname === '/onboarding' || pathname.startsWith('/onboarding/')
 }
 
+function hasUsableApiSession(): boolean {
+  const { accessToken, refreshToken } = store.getState().auth
+  return Boolean(refreshToken?.trim()) || isUsableApiAccessToken(accessToken)
+}
+
 /** Wallet disconnect / Privy logout routing for admin vs investor/merchant flows. */
 function resetWalletAppSessionAndRedirect(dispatch: AppDispatch, reason: SessionEndReason) {
   const { sessionKind, accessToken, role } = store.getState().auth
@@ -53,6 +58,15 @@ function resetWalletAppSessionAndRedirect(dispatch: AppDispatch, reason: Session
 
   // Admin sign-in screen: disconnect/reconnect is expected; stay on `/admin/login`.
   if (isAdminLoginPath(pathname)) return
+
+  // Privy/wallet idle flicker is not an API logout. Keep the token; signing flows reconnect.
+  if (
+    (reason === 'wallet_disconnected' || reason === 'privy_logout') &&
+    hasUsableApiSession()
+  ) {
+    dispatch(setWalletFromProvider({ isConnected: false, address: null, chainId: undefined }))
+    return
+  }
 
   // Mid-onboarding: wallet flicker / swap / chain change must not wipe progress or bounce to choose-role.
   // Tokens are wallet+chain-bound — clear them so Continue re-signs; keep role + step progress.
@@ -90,8 +104,9 @@ function resetWalletAppSessionAndRedirect(dispatch: AppDispatch, reason: Session
 }
 
 /**
- * Keeps Redux wallet mirror in sync with Privy; clears session on disconnect/wallet change.
- * Uses full reload after reset so no route is left mid-guard without a Router navigate.
+ * Keeps Redux wallet mirror in sync with Privy.
+ * Privy idle / empty wallet list does not destroy a valid API session.
+ * A stable wallet address or chain change still forces re-login.
  */
 export default function WalletReduxSync() {
   const dispatch = useAppDispatch()
@@ -159,6 +174,7 @@ export default function WalletReduxSync() {
   }, [dispatch, wallet, isConnected, address])
 
   const sessionWallet = useAppSelector((s) => s.auth.wallet)
+  const writePending = useAppSelector((s) => s.wallet.writePending)
   const wasConnected = useRef(false)
   const lastAddress = useRef<string | null>(null)
   /** Timer id (`number` in DOM; Node typings may use `Timeout`). */
@@ -231,9 +247,14 @@ export default function WalletReduxSync() {
     }
 
     // Recovering to the session-bound wallet is not a user-initiated swap.
-    if (sameWalletAddress(address, sessionWallet) || sameWalletAddress(address, lastAddress.current)) {
+    if (
+      writePending ||
+      sameWalletAddress(address, sessionWallet) ||
+      sameWalletAddress(address, lastAddress.current)
+    ) {
       clearPendingWalletChange()
     } else if (
+      !writePending &&
       wasConnected.current &&
       isConnected &&
       lastAddress.current &&
@@ -245,13 +266,15 @@ export default function WalletReduxSync() {
         walletChangeTimerRef.current = null
         const next = addressRef.current
         if (!next) return
-        if (sameWalletAddress(next, store.getState().auth.wallet)) return
+        const state = store.getState()
+        if (state.wallet.writePending) return
+        if (sameWalletAddress(next, state.auth.wallet)) return
         resetWalletAppSessionAndRedirect(dispatch, 'wallet_changed')
       }, WALLET_CHANGED_LOGOUT_MS)
     }
     wasConnected.current = isConnected
     lastAddress.current = address
-  }, [dispatch, privyReady, walletsReady, isConnected, address, authenticated, sessionWallet])
+  }, [dispatch, privyReady, walletsReady, isConnected, address, authenticated, sessionWallet, writePending])
 
   const wasAuthenticated = useRef(false)
   useEffect(() => {
@@ -314,7 +337,13 @@ export default function WalletReduxSync() {
       return
     }
     // Wait for a real provider chain before treating mismatch as a user switch.
-    if (!privyReady || !walletsReady || walletChainId == null) return
+    if (!privyReady || !walletsReady || walletChainId == null || writePending) {
+      if (writePending && chainLogoutTimerRef.current) {
+        clearTimeout(chainLogoutTimerRef.current)
+        chainLogoutTimerRef.current = null
+      }
+      return
+    }
 
     // Establish baseline after login without treating first sync as a change.
     if (lastBoundChainRef.current == null) {
@@ -342,10 +371,11 @@ export default function WalletReduxSync() {
       if (state.auth.chainId == null) return
       if (state.wallet.chainId == null) return
       if (state.wallet.chainId === state.auth.chainId) return
+      if (state.wallet.writePending) return
       lastBoundChainRef.current = null
       resetWalletAppSessionAndRedirect(dispatch, 'chain_mismatch')
     }, CHAIN_MISMATCH_LOGOUT_MS)
-  }, [dispatch, authChainId, accessToken, refreshToken, walletChainId, privyReady, walletsReady])
+  }, [dispatch, authChainId, accessToken, refreshToken, walletChainId, privyReady, walletsReady, writePending])
 
   return null
 }
