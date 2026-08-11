@@ -223,6 +223,7 @@ export default function ConnectWallet({ onContinue }: ConnectWalletProps) {
 
       const sessionChainId = loginRes.chainId ?? loginChain.id
       const sessionWallet = loginRes.wallet ?? address
+      setActiveWalletId(sessionWallet)
 
       const returningUser = loginRes.registered || loginRes.onboarded
       if (returningUser) {

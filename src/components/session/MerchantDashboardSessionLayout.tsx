@@ -17,6 +17,7 @@ export default function MerchantDashboardSessionLayout() {
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const role = useAppSelector((s) => s.auth.role)
+  const sessionExpired = useAppSelector((s) => s.auth.sessionExpired)
   const status = useAppSelector(selectMerchantDashboardStatus)
   const error = useAppSelector(selectMerchantDashboardError)
   const kycVerified = useAppSelector(selectIsKycVerified)
@@ -60,11 +61,13 @@ export default function MerchantDashboardSessionLayout() {
   }, [status])
 
   const feedbackPhase =
-    status === 'loading' && !loadingDismissed
-      ? 'loading'
-      : status === 'failed' && !errorDismissed
-        ? 'failed'
-        : 'idle'
+    sessionExpired
+      ? 'idle'
+      : status === 'loading' && !loadingDismissed
+        ? 'loading'
+        : status === 'failed' && !errorDismissed
+          ? 'failed'
+          : 'idle'
 
   return (
     <>

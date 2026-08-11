@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 
 import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { selectIsPersistReady } from '@/store/selectors/sessionSelectors'
 import { patchAuth, resetAuth } from '@/store/slices/authSlice'
 import { isSupportedAppChainId } from '@/wallet/appChain'
 
@@ -11,6 +12,7 @@ import { isSupportedAppChainId } from '@/wallet/appChain'
  */
 export default function AuthSessionChainGuard() {
   const dispatch = useAppDispatch()
+  const persistedReady = useAppSelector(selectIsPersistReady)
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const refreshToken = useAppSelector((s) => s.auth.refreshToken)
   const authChainId = useAppSelector((s) => s.auth.chainId)
@@ -18,6 +20,8 @@ export default function AuthSessionChainGuard() {
   const handledKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
+    if (!persistedReady) return
+
     const hasUsableTokens =
       Boolean(refreshToken?.trim()) || isUsableApiAccessToken(accessToken)
 
@@ -44,7 +48,7 @@ export default function AuthSessionChainGuard() {
       handledKeyRef.current = key
       dispatch(resetAuth())
     }
-  }, [dispatch, accessToken, refreshToken, authChainId, sessionExpired])
+  }, [dispatch, persistedReady, accessToken, refreshToken, authChainId, sessionExpired])
 
   return null
 }

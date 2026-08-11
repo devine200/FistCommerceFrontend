@@ -1,6 +1,8 @@
 import { useWallets, type ConnectedWallet } from '@privy-io/react-auth'
 import { useCallback, useMemo, useState } from 'react'
 
+import { useAppSelector } from '@/store/hooks'
+
 import { selectActiveWallet } from './selectActiveWallet'
 
 const ACTIVE_WALLET_STORAGE_KEY = 'fistcommerce.activeWalletId'
@@ -36,6 +38,7 @@ export type UseActiveWalletResult = {
 
 export function useActiveWallet(): UseActiveWalletResult {
   const { wallets, ready } = useWallets()
+  const sessionWallet = useAppSelector((s) => s.auth.wallet)
   const [activeWalletIdState, setActiveWalletIdState] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null
     return safeGetStorageItem(ACTIVE_WALLET_STORAGE_KEY)
@@ -49,9 +52,11 @@ export function useActiveWallet(): UseActiveWalletResult {
     }
   }, [])
 
+  const preferredWalletId = activeWalletIdState?.trim() || sessionWallet?.trim() || null
+
   const wallet = useMemo(() => {
-    return selectActiveWallet(wallets, { preferredWalletId: activeWalletIdState })
-  }, [wallets, activeWalletIdState])
+    return selectActiveWallet(wallets, { preferredWalletId })
+  }, [wallets, preferredWalletId])
 
   const address = wallet?.address ?? null
   const walletClientType = wallet?.walletClientType ?? null

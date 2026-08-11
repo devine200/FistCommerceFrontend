@@ -21,6 +21,7 @@ export default function InvestorDashboardSessionLayout() {
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const role = useAppSelector((s) => s.auth.role)
+  const sessionExpired = useAppSelector((s) => s.auth.sessionExpired)
   const status = useAppSelector(selectInvestorDashboardStatus)
   const error = useAppSelector(selectInvestorDashboardError)
   const { isConnected, address } = useActiveWallet()
@@ -55,11 +56,13 @@ export default function InvestorDashboardSessionLayout() {
   }, [status])
 
   const feedbackPhase =
-    status === 'loading' && !loadingDismissed
-      ? 'loading'
-      : status === 'failed' && !errorDismissed
-        ? 'failed'
-        : 'idle'
+    sessionExpired
+      ? 'idle'
+      : status === 'loading' && !loadingDismissed
+        ? 'loading'
+        : status === 'failed' && !errorDismissed
+          ? 'failed'
+          : 'idle'
 
   return (
     <>

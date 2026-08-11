@@ -9,6 +9,7 @@ export default function AdminDashboardSessionLayout() {
   const dispatch = useAppDispatch()
   const accessToken = useAppSelector((s) => s.auth.accessToken)
   const sessionKind = useAppSelector((s) => s.auth.sessionKind)
+  const sessionExpired = useAppSelector((s) => s.auth.sessionExpired)
   const status = useAppSelector((s) => s.adminDashboard.status)
   const error = useAppSelector((s) => s.adminDashboard.error)
   const [loadingDismissed, setLoadingDismissed] = useState(false)
@@ -37,11 +38,13 @@ export default function AdminDashboardSessionLayout() {
   }, [status])
 
   const feedbackPhase =
-    status === 'loading' && !loadingDismissed
-      ? 'loading'
-      : status === 'failed' && !errorDismissed
-        ? 'failed'
-        : 'idle'
+    sessionExpired
+      ? 'idle'
+      : status === 'loading' && !loadingDismissed
+        ? 'loading'
+        : status === 'failed' && !errorDismissed
+          ? 'failed'
+          : 'idle'
 
   return (
     <>

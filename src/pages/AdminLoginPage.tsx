@@ -47,7 +47,8 @@ const AdminLoginPage = () => {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const { ready: privyReady, login, connectWallet } = usePrivy()
-  const { wallet, address, isConnected, walletClientType, ready: walletsReady } = useActiveWallet()
+  const { wallet, address, isConnected, walletClientType, ready: walletsReady, setActiveWalletId } =
+    useActiveWallet()
 
   const [connecting, setConnecting] = useState(false)
   const [authInFlight, setAuthInFlight] = useState(false)
@@ -156,6 +157,7 @@ const AdminLoginPage = () => {
         chainId: loginChain.id,
       })
 
+      const sessionWallet = result.wallet ?? address
       dispatch(
         patchAuth({
           onboarded: true,
@@ -167,9 +169,10 @@ const AdminLoginPage = () => {
           sessionExpiredReason: null,
           user: { id: address },
           chainId: result.chainId ?? loginChain.id,
-          wallet: result.wallet ?? address,
+          wallet: sessionWallet,
         }),
       )
+      setActiveWalletId(sessionWallet)
       await persistor.flush()
       navigate(ADMIN_DASHBOARD_OVERVIEW_PATH, { replace: true })
     } catch (e) {

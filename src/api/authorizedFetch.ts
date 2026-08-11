@@ -203,9 +203,9 @@ async function resolveIsKycVerified(state: RootState): Promise<boolean> {
  * - **431 / 413 / narrow 400** (proxy “header too large”) + Token auth → session end (no refresh).
  * - **401** + Token auth:
  *   - KYC / verification denial body → return to caller (no refresh, no expiry).
- *   - Otherwise refresh once (coalesced) and retry once.
+ *   - Otherwise refresh once (coalesced) and retry once (admin and app sessions).
  *   - Refresh failure or second 401 → expire session only when unexpected for verification level.
- *   - Admin sessions skip refresh (wallet sign-in is the source of truth).
+ *     Admin sessions always expire if refresh is missing or fails.
  * - **403** is a permission/resource error for the caller (does not clear the session).
  *
  * Uses dynamic `import()` for the Redux store and session refresh so this module does not create a
@@ -269,21 +269,12 @@ export async function fetchWithAuthRecovery(
   const state = store.getState()
   const { sessionKind, authIssuedAt } = state.auth
   const isKycVerified = await resolveIsKycVerified(state)
-
-  // Admin API tokens come from wallet sign-in; do not rotate via the user refresh-token endpoint.
-  if (sessionKind === 'admin') {
-    if (isWithinFreshAuthGrace(authIssuedAt)) {
-      return res
-    }
-    await endSessionAfterAuthFailure('refresh_expired', {
-      failedAccessToken: requestAccessToken,
-      skipFreshAuthGrace: true,
-    })
-    return res
-  }
+  const isAdminSession = sessionKind === 'admin'
+  const shouldExpire =
+    isAdminSession || shouldExpireSessionOnAuthFailure(failureMessage, isKycVerified)
 
   if (hasAuthRetried(init)) {
-    if (shouldExpireSessionOnAuthFailure(failureMessage, isKycVerified)) {
+    if (shouldExpire) {
       await endSessionAfterAuthFailure('refresh_expired', {
         failedAccessToken: requestAccessToken,
         skipFreshAuthGrace: true,
@@ -294,7 +285,10 @@ export async function fetchWithAuthRecovery(
 
   const { refreshToken } = state.auth
   if (!refreshToken?.trim()) {
-    if (shouldExpireSessionOnAuthFailure(failureMessage, isKycVerified)) {
+    if (isAdminSession && isWithinFreshAuthGrace(authIssuedAt)) {
+      return res
+    }
+    if (shouldExpire) {
       await endSessionAfterAuthFailure('missing_refresh', {
         failedAccessToken: requestAccessToken,
       })
@@ -307,10 +301,16 @@ export async function fetchWithAuthRecovery(
   if (!tokens) {
     const latest = store.getState()
     const latestVerified = await resolveIsKycVerified(latest)
-    if (shouldExpireSessionOnAuthFailure(failureMessage, latestVerified)) {
+    const expireAfterRefreshFail =
+      latest.auth.sessionKind === 'admin' ||
+      shouldExpireSessionOnAuthFailure(failureMessage, latestVerified)
+    if (expireAfterRefreshFail) {
       await endSessionAfterAuthFailure('refresh_failed', {
         failedAccessToken: requestAccessToken,
-        skipFreshAuthGrace: latestVerified || isLikelyCredentialAuthFailureMessage(failureMessage),
+        skipFreshAuthGrace:
+          latest.auth.sessionKind === 'admin' ||
+          latestVerified ||
+          isLikelyCredentialAuthFailureMessage(failureMessage),
       })
     }
     return res

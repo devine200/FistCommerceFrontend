@@ -66,6 +66,7 @@ const isLoanMonitoringDetailPath = (path: string) =>
 
 export default function AdminFetchErrorModal() {
   const dispatch = useAppDispatch()
+  const sessionExpired = useAppSelector((s) => s.auth.sessionExpired)
   const { pathname } = useLocation()
   const { merchantId, investorId, loanId } = useParams<{
     merchantId?: string
@@ -332,7 +333,7 @@ export default function AdminFetchErrorModal() {
     }
   }, [errorKey, context?.open])
 
-  if (!context?.open) return null
+  if (sessionExpired || !context?.open) return null
 
   const modalOpen = dismissedKey !== errorKey
 

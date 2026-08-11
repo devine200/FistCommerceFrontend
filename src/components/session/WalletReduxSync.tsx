@@ -25,7 +25,17 @@ import { isUsableApiAccessToken } from '@/auth/accessTokenPolicy'
  * true. Resetting immediately clears Redux and forces choose-role; wait before treating disconnect
  * as real when the user is still Privy-authenticated.
  */
-const DISCONNECT_SESSION_RESET_MS = 2500
+const DISCONNECT_SESSION_RESET_MS = 10_000
+/** Provider `eth_chainId` often flickers across supported chains on tab restore. */
+const CHAIN_MISMATCH_LOGOUT_MS = 4_000
+/** Privy wallet-list order can hop (e.g. MetaMask appearing after the login wallet). */
+const WALLET_CHANGED_LOGOUT_MS = 4_000
+
+function sameWalletAddress(a: string | null | undefined, b: string | null | undefined): boolean {
+  const left = a?.trim().toLowerCase() ?? ''
+  const right = b?.trim().toLowerCase() ?? ''
+  return Boolean(left) && left === right
+}
 
 type Eip1193Emitter = {
   on?: (event: string, handler: (...args: unknown[]) => void) => void
@@ -148,20 +158,33 @@ export default function WalletReduxSync() {
     }
   }, [dispatch, wallet, isConnected, address])
 
+  const sessionWallet = useAppSelector((s) => s.auth.wallet)
   const wasConnected = useRef(false)
   const lastAddress = useRef<string | null>(null)
   /** Timer id (`number` in DOM; Node typings may use `Timeout`). */
   const disconnectResetTimerRef = useRef<number | null>(null)
+  const walletChangeTimerRef = useRef<number | null>(null)
+  const privyLogoutTimerRef = useRef<number | null>(null)
   const isConnectedRef = useRef(isConnected)
   const authenticatedRef = useRef(authenticated)
+  const addressRef = useRef(address)
   isConnectedRef.current = isConnected
   authenticatedRef.current = authenticated
+  addressRef.current = address
 
   useEffect(() => {
     return () => {
       if (disconnectResetTimerRef.current) {
         clearTimeout(disconnectResetTimerRef.current)
         disconnectResetTimerRef.current = null
+      }
+      if (walletChangeTimerRef.current) {
+        clearTimeout(walletChangeTimerRef.current)
+        walletChangeTimerRef.current = null
+      }
+      if (privyLogoutTimerRef.current) {
+        clearTimeout(privyLogoutTimerRef.current)
+        privyLogoutTimerRef.current = null
       }
     }
   }, [])
@@ -177,6 +200,12 @@ export default function WalletReduxSync() {
         disconnectResetTimerRef.current = null
       }
     }
+    const clearPendingWalletChange = () => {
+      if (walletChangeTimerRef.current) {
+        clearTimeout(walletChangeTimerRef.current)
+        walletChangeTimerRef.current = null
+      }
+    }
 
     if (isConnected) {
       clearPendingDisconnectReset()
@@ -189,6 +218,7 @@ export default function WalletReduxSync() {
       }
 
       // Still Privy-authenticated: only reset after a sustained disconnect (avoids idle flicker).
+      // If Privy `authenticated` is already false, the privy_logout debounce owns session end.
       if (authenticated) {
         clearPendingDisconnectReset()
         disconnectResetTimerRef.current = window.setTimeout(() => {
@@ -197,30 +227,67 @@ export default function WalletReduxSync() {
           if (!authenticatedRef.current) return
           runDisconnectReset()
         }, DISCONNECT_SESSION_RESET_MS)
-      } else {
-        runDisconnectReset()
       }
     }
-    // If user swaps wallet/address while “connected”, force re-auth (signature is wallet-bound).
-    if (wasConnected.current && isConnected && lastAddress.current && lastAddress.current !== address) {
-      resetWalletAppSessionAndRedirect(dispatch, 'wallet_changed')
+
+    // Recovering to the session-bound wallet is not a user-initiated swap.
+    if (sameWalletAddress(address, sessionWallet) || sameWalletAddress(address, lastAddress.current)) {
+      clearPendingWalletChange()
+    } else if (
+      wasConnected.current &&
+      isConnected &&
+      lastAddress.current &&
+      address &&
+      !sameWalletAddress(lastAddress.current, address)
+    ) {
+      if (walletChangeTimerRef.current) clearTimeout(walletChangeTimerRef.current)
+      walletChangeTimerRef.current = window.setTimeout(() => {
+        walletChangeTimerRef.current = null
+        const next = addressRef.current
+        if (!next) return
+        if (sameWalletAddress(next, store.getState().auth.wallet)) return
+        resetWalletAppSessionAndRedirect(dispatch, 'wallet_changed')
+      }, WALLET_CHANGED_LOGOUT_MS)
     }
     wasConnected.current = isConnected
     lastAddress.current = address
-  }, [dispatch, privyReady, walletsReady, isConnected, address, authenticated])
+  }, [dispatch, privyReady, walletsReady, isConnected, address, authenticated, sessionWallet])
 
   const wasAuthenticated = useRef(false)
   useEffect(() => {
     if (!privyReady) return
-    if (wasAuthenticated.current && !authenticated) {
+
+    const clearPrivyLogoutTimer = () => {
+      if (privyLogoutTimerRef.current) {
+        clearTimeout(privyLogoutTimerRef.current)
+        privyLogoutTimerRef.current = null
+      }
+    }
+
+    if (authenticated) {
+      clearPrivyLogoutTimer()
+      wasAuthenticated.current = true
+      return
+    }
+
+    if (!wasAuthenticated.current) return
+
+    // Privy can drop `authenticated` briefly on tab restore; wait it out.
+    if (privyLogoutTimerRef.current) clearTimeout(privyLogoutTimerRef.current)
+    privyLogoutTimerRef.current = window.setTimeout(() => {
+      privyLogoutTimerRef.current = null
+      if (authenticatedRef.current) return
       if (disconnectResetTimerRef.current) {
         clearTimeout(disconnectResetTimerRef.current)
         disconnectResetTimerRef.current = null
       }
+      if (walletChangeTimerRef.current) {
+        clearTimeout(walletChangeTimerRef.current)
+        walletChangeTimerRef.current = null
+      }
       resetWalletAppSessionAndRedirect(dispatch, 'privy_logout')
-    }
-    wasAuthenticated.current = authenticated
-  }, [dispatch, privyReady, walletsReady, authenticated, isConnected, address])
+    }, DISCONNECT_SESSION_RESET_MS)
+  }, [dispatch, privyReady, authenticated])
 
   // Chain change while logged in → automatic logout (app + admin).
   const authChainId = useAppSelector((s) => s.auth.chainId)
@@ -246,7 +313,8 @@ export default function WalletReduxSync() {
       lastBoundChainRef.current = authChainId
       return
     }
-    if (walletChainId == null) return
+    // Wait for a real provider chain before treating mismatch as a user switch.
+    if (!privyReady || !walletsReady || walletChainId == null) return
 
     // Establish baseline after login without treating first sync as a change.
     if (lastBoundChainRef.current == null) {
@@ -276,8 +344,8 @@ export default function WalletReduxSync() {
       if (state.wallet.chainId === state.auth.chainId) return
       lastBoundChainRef.current = null
       resetWalletAppSessionAndRedirect(dispatch, 'chain_mismatch')
-    }, 250)
-  }, [dispatch, authChainId, accessToken, refreshToken, walletChainId])
+    }, CHAIN_MISMATCH_LOGOUT_MS)
+  }, [dispatch, authChainId, accessToken, refreshToken, walletChainId, privyReady, walletsReady])
 
   return null
 }
