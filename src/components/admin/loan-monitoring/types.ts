@@ -12,6 +12,11 @@ export type LoanMonitoringAdminActions = {
   canFund: boolean
   /** Step 2 — disburse to merchant (`POST /api/payout/initiate/`). */
   canInitiatePayout: boolean
+  /**
+   * Unwind funded (not paid out) capital via disbursement reject →
+   * `FundingPool.cancelFundedReceivable`.
+   */
+  canCancelFunding: boolean
   canMarkDefaulted: boolean
   canWriteOffShortfall: boolean
   uiStatus: string
@@ -54,5 +59,6 @@ export type AdminLoanMonitoringActionKind =
   | 'reject'
   | 'fund'
   | 'initiatePayout'
+  | 'cancelFunding'
   | 'markDefaulted'
   | 'writeOffShortfall'

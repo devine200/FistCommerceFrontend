@@ -30,7 +30,7 @@ export function governanceOperationLabel(type: OperationType): string {
     case 'loan_fund':
       return 'Fund loan'
     case 'loan_reject_funded':
-      return 'Reject funded loan'
+      return 'Cancel funding'
     case 'payout_receivable':
       return 'Funding payout'
     case 'kyc_status':

@@ -13,6 +13,7 @@ import {
   type AdminLoanMonitoringRow,
   type AdminLoanMonitoringTabFilter,
 } from '@/api/adminLoanMonitoring'
+import { postRejectDisbursementRequest } from '@/api/adminRequests'
 import { fetchReceivablePayoutStatus, postAdminPayoutInitiate } from '@/api/payout'
 import { rejectUserFacing } from '@/errors/rejectUserFacing'
 import type {
@@ -362,6 +363,35 @@ export const initiateAdminLoanMonitoringPayout = createAsyncThunk(
   },
 )
 
+export const cancelFundingAdminLoanMonitoringLoan = createAsyncThunk(
+  'adminLoanMonitoring/cancelFunding',
+  async (params: AdminLoanMonitoringFundActionParams, thunkApi) => {
+    const state = thunkApi.getState() as RefreshAdminAuth
+    const accessToken = state.auth?.accessToken
+    if (!accessToken?.trim()) {
+      throw new Error('Sign in to cancel funding for this loan.')
+    }
+
+    const loanId = params.loanId.trim()
+    const receivableId = params.receivableId.trim()
+    if (!loanId) throw new Error('Missing loan id.')
+    if (!receivableId) throw new Error('Missing receivable id.')
+
+    try {
+      return await runLoanPrivilegedAction(
+        loanId,
+        (signal) => postRejectDisbursementRequest(accessToken, receivableId, { signal }),
+        thunkApi,
+      )
+    } catch (e) {
+      if (thunkApi.signal.aborted || isAbortError(e)) {
+        throw e
+      }
+      return thunkApi.rejectWithValue(rejectUserFacing(e, 'Could not complete loan action.'))
+    }
+  },
+)
+
 export const markAdminLoanMonitoringLoanDefaulted = createAsyncThunk(
   'adminLoanMonitoring/markDefaulted',
   async (params: AdminLoanMonitoringLoanActionParams, thunkApi) => {
@@ -610,6 +640,26 @@ const adminLoanMonitoringSlice = createSlice({
         state.lastActionOutcome = action.payload.outcome
       })
       .addCase(initiateAdminLoanMonitoringPayout.rejected, (state, action) => {
+        if (resetLoanActionOnAbort(state, action)) return
+        state.actionStatus = 'failed'
+        state.actionError =
+          (typeof action.payload === 'string' ? action.payload : null) ??
+          action.error.message ??
+          'Could not complete loan action.'
+      })
+      .addCase(cancelFundingAdminLoanMonitoringLoan.pending, (state, action) => {
+        state.actionStatus = 'loading'
+        state.actionError = null
+        state.actionLoanId = action.meta.arg.loanId
+        state.actionKind = 'cancelFunding'
+        state.lastActionOutcome = null
+      })
+      .addCase(cancelFundingAdminLoanMonitoringLoan.fulfilled, (state, action) => {
+        state.actionStatus = 'succeeded'
+        state.actionError = null
+        state.lastActionOutcome = action.payload.outcome
+      })
+      .addCase(cancelFundingAdminLoanMonitoringLoan.rejected, (state, action) => {
         if (resetLoanActionOnAbort(state, action)) return
         state.actionStatus = 'failed'
         state.actionError =

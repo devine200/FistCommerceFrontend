@@ -60,6 +60,14 @@ const MESSAGES: Record<AppErrorCode, string> = {
   MERCHANT_CONCENTRATION:
     'This loan would exceed the pool’s max merchant concentration limit. Try a smaller amount or contact support.',
   KYC_REQUIRED: 'Finish identity verification before continuing.',
+  PAYOUT_NOT_CONFIRMED_ON_CHAIN:
+    'The disbursement transaction was submitted, but on-chain payout is not confirmed yet. Status was left unchanged — verify the tx on a block explorer and retry if needed.',
+  FUND_NOT_CONFIRMED_ON_CHAIN:
+    'The funding transaction was submitted, but on-chain funding is not confirmed yet. Status was left unchanged — verify the tx and retry if needed.',
+  REJECT_NOT_CONFIRMED_ON_CHAIN:
+    'The cancel-funded transaction was submitted, but on-chain rejection is not confirmed yet. Status was left unchanged — verify the tx and retry if needed.',
+  REPAYMENT_NOT_CONFIRMED_ON_CHAIN:
+    'The repayment transaction was submitted, but on-chain repayment is not confirmed yet. Status was left unchanged — verify the tx and retry if needed.',
   UNKNOWN: 'Something went wrong. Please try again.',
 }
 

@@ -98,6 +98,7 @@ export type AdminLoanMonitoringAdminMeta = {
   canReject: boolean
   canFund: boolean
   canInitiatePayout: boolean
+  canCancelFunding: boolean
   canMarkDefaulted: boolean
   canWriteOffShortfall: boolean
   actions: string[]
@@ -279,10 +280,16 @@ function normalizeAdminMeta(raw: unknown): AdminLoanMonitoringAdminMeta {
       return normalized === 'write_off_shortfall' || normalized === 'write_off'
     })
   const canInitiatePayout =
-    pickBool(r, 'canInitiatePayout', 'can_initiate_payout') ||
+    pickBool(r, 'canInitiatePayout', 'can_initiate_payout', 'canPayout', 'can_payout') ||
     actions.some((a) => {
       const normalized = a.toLowerCase().replace(/-/g, '_')
       return normalized === 'initiate_payout' || normalized === 'payout' || normalized === 'fund_payout'
+    })
+  const canCancelFunding =
+    pickBool(r, 'canCancelFunding', 'can_cancel_funding') ||
+    actions.some((a) => {
+      const normalized = a.toLowerCase().replace(/-/g, '_')
+      return normalized === 'cancel_funding' || normalized === 'cancelfunding'
     })
   return {
     uiStatus: pickStr(r, 'uiStatus', 'ui_status'),
@@ -290,6 +297,7 @@ function normalizeAdminMeta(raw: unknown): AdminLoanMonitoringAdminMeta {
     canReject: pickBool(r, 'canReject', 'can_reject'),
     canFund: pickBool(r, 'canFund', 'can_fund'),
     canInitiatePayout,
+    canCancelFunding,
     canMarkDefaulted: pickBool(r, 'canMarkDefaulted', 'can_mark_defaulted'),
     canWriteOffShortfall,
     actions,

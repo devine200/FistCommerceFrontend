@@ -35,6 +35,7 @@ type AdminLoanMonitoringDetailViewProps = {
   onApprove: () => void
   onReject: () => void
   onApproveFunding: () => void
+  onCancelFunding: () => void
   onInitiatePayout: () => void
   onMarkDefaulted: () => void
   onWriteOffShortfall: () => void
@@ -48,6 +49,7 @@ export function AdminLoanMonitoringDetailView({
   onApprove,
   onReject,
   onApproveFunding,
+  onCancelFunding,
   onInitiatePayout,
   onMarkDefaulted,
   onWriteOffShortfall,
@@ -105,6 +107,7 @@ export function AdminLoanMonitoringDetailView({
   const canReject = admin.canReject && !actionLoading
   const canApprove = admin.canApprove && !actionLoading
   const canFundNow = canApproveFunding && !actionLoading
+  const canCancelFundingNow = admin.canCancelFunding && !actionLoading
   const canPayoutNow =
     Boolean(receivableId?.trim()) && fundingApprovalDone && !isPaidOut && !actionLoading
   const showLoanAcceptance = admin.canApprove || admin.canReject
@@ -254,25 +257,34 @@ export function AdminLoanMonitoringDetailView({
         >
           <h2 className="text-[#0B1220] font-bold text-[18px] mb-2">Funding payout</h2>
           <p className="text-[#6B7488] text-[14px] mb-5">
-            Release funds to the merchant wallet after funding approval. This sends ERC20 to the
-            merchant on-chain.
+            Release funds to the merchant wallet, or cancel funding to return capital to the pool.
           </p>
           {isPaidOut ? (
             <p className="text-[#16A34A] text-[14px] font-medium">Funds released to merchant</p>
           ) : (
-            <button
-              type="button"
-              disabled={!canPayoutNow}
-              onClick={onInitiatePayout}
-              className={actionButtonClass(canPayoutNow, 'primary')}
-            >
-              {actionLabel(actionLoading, actionKind, 'initiatePayout', 'Release funds')}
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button
+                type="button"
+                disabled={!canCancelFundingNow}
+                onClick={onCancelFunding}
+                className={actionButtonClass(canCancelFundingNow, 'danger')}
+              >
+                {actionLabel(actionLoading, actionKind, 'cancelFunding', 'Cancel funding')}
+              </button>
+              <button
+                type="button"
+                disabled={!canPayoutNow}
+                onClick={onInitiatePayout}
+                className={actionButtonClass(canPayoutNow, 'primary')}
+              >
+                {actionLabel(actionLoading, actionKind, 'initiatePayout', 'Release funds')}
+              </button>
+            </div>
           )}
-          {!isPaidOut && !canPayoutNow ? (
+          {!isPaidOut && !canPayoutNow && !canCancelFundingNow ? (
             <p className="mt-3 text-[#8B92A3] text-[13px] leading-relaxed">
               {fundingApprovalDone
-                ? 'Add the on-chain receivable id to release funds.'
+                ? 'Add the on-chain receivable id to manage payout.'
                 : 'Complete funding approval first.'}
             </p>
           ) : null}

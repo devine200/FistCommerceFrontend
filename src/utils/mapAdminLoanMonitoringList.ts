@@ -382,6 +382,7 @@ export function mapAdminLoanMonitoringDetailToView(
       canReject: payload.admin.canReject,
       canFund: payload.admin.canFund,
       canInitiatePayout: payload.admin.canInitiatePayout,
+      canCancelFunding: payload.admin.canCancelFunding && Boolean(receivableId) && !isPaidOut,
       canMarkDefaulted,
       canWriteOffShortfall: payload.admin.canWriteOffShortfall,
       uiStatus: payload.admin.uiStatus,

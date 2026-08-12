@@ -30,6 +30,14 @@ export function loanMonitoringPrivilegedActionLabels(kind: AdminLoanMonitoringAc
         errorTitle: 'Unable to release funds',
         directSuccessTitle: 'Funds released to merchant',
       }
+    case 'cancelFunding':
+      return {
+        loadingTitle: 'Cancelling funding',
+        loadingDescription:
+          'Returning allocated capital to the pool. This may create a governance proposal…',
+        errorTitle: 'Unable to cancel funding',
+        directSuccessTitle: 'Funding cancelled',
+      }
     case 'markDefaulted':
       return {
         loadingTitle: 'Marking loan as defaulted',

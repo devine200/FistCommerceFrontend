@@ -22,6 +22,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useCancellableThunkDispatch } from '@/hooks/useCancellableThunkDispatch'
 import {
   approveAdminLoanMonitoringLoan,
+  cancelFundingAdminLoanMonitoringLoan,
   clearAdminLoanMonitoringActionError,
   fundAdminLoanMonitoringLoan,
   initiateAdminLoanMonitoringPayout,
@@ -109,6 +110,10 @@ const AdminLoanMonitoringDetailPage = () => {
       dispatchCancellable(
         initiateAdminLoanMonitoringPayout({ loanId, receivableId: detail.receivableId }),
       )
+    } else if (actionKind === 'cancelFunding' && detail?.receivableId) {
+      dispatchCancellable(
+        cancelFundingAdminLoanMonitoringLoan({ loanId, receivableId: detail.receivableId }),
+      )
     } else if (actionKind === 'markDefaulted') {
       dispatchCancellable(markAdminLoanMonitoringLoanDefaulted({ loanId }))
     } else if (actionKind === 'writeOffShortfall') {
@@ -135,6 +140,13 @@ const AdminLoanMonitoringDetailPage = () => {
     if (!loanId || !detail?.receivableId || actionLoading) return
     dispatchCancellable(
       initiateAdminLoanMonitoringPayout({ loanId, receivableId: detail.receivableId }),
+    )
+  }, [dispatchCancellable, loanId, detail?.receivableId, actionLoading])
+
+  const handleCancelFunding = useCallback(() => {
+    if (!loanId || !detail?.receivableId || actionLoading) return
+    dispatchCancellable(
+      cancelFundingAdminLoanMonitoringLoan({ loanId, receivableId: detail.receivableId }),
     )
   }, [dispatchCancellable, loanId, detail?.receivableId, actionLoading])
 
@@ -201,6 +213,7 @@ const AdminLoanMonitoringDetailPage = () => {
           onApprove={handleApprove}
           onReject={handleReject}
           onApproveFunding={handleApproveFunding}
+          onCancelFunding={handleCancelFunding}
           onInitiatePayout={handleInitiatePayout}
           onMarkDefaulted={handleMarkDefaulted}
           onWriteOffShortfall={handleWriteOffShortfall}
