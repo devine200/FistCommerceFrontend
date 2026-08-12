@@ -43,7 +43,7 @@ import {
 import { payoutWithdrawalsListCacheKey } from '@/utils/payoutWithdrawalsListCache'
 import { getListPaginationMeta, listPaginationOffset } from '@/utils/listPagination'
 
-const STATUS_TABS = ['All', 'Pending', 'Approved', 'Rejected'] as const
+const STATUS_TABS = ['All', 'Pending', 'Approved', 'Rejected', 'Executed', 'Expired'] as const
 
 type StatusTab = (typeof STATUS_TABS)[number]
 
@@ -61,6 +61,10 @@ function statusTabToFilter(tab: StatusTab) {
       return 'approved' as const
     case 'Rejected':
       return 'rejected' as const
+    case 'Executed':
+      return 'executed' as const
+    case 'Expired':
+      return 'expired' as const
     default:
       return 'all' as const
   }

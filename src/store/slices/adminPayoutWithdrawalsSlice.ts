@@ -57,6 +57,8 @@ const emptyCounts: AdminRequestCounts = {
   pending: 0,
   approved: 0,
   rejected: 0,
+  executed: 0,
+  expired: 0,
   withdrawalVolume: '0.00',
 }
 

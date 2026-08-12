@@ -14,7 +14,7 @@ export const WITHDRAW_QUICK_AMOUNTS = [500, 1000, 2500, 5000] as const
 export const WITHDRAWAL_METHOD = 'Standard Withdrawal'
 export const WITHDRAWAL_PROCESSING_TIME = '24-48 hrs'
 export const WITHDRAWAL_WARNING =
-  "Standard withdrawals are processed within 24-48 hours. You'll receive a confirmation once the transaction is complete."
+  'Withdrawal requests require admin approval. After approval, claim your funds from the lending pool page using Withdraw.'
 
 /** Total on-chain pool position — shown as “Investment balance”. */
 export function getInvestmentBalanceDisplay(investmentBalanceDisplay: string): string {
@@ -75,6 +75,6 @@ export function buildWithdrawalCompletedMetrics(amount: number): WithdrawalCompl
     { label: 'Amount', value: amountText },
     { label: 'Net Received', value: amountText },
     { label: 'Method', value: 'Standard' },
-    { label: 'Status', value: 'Processing' },
+    { label: 'Status', value: 'Pending approval' },
   ]
 }

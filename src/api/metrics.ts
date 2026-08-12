@@ -394,6 +394,115 @@ export async function fetchInvestorTransactions(
   return data.transactions
 }
 
+/** `GET /api/metrics/investor/withdrawal-requests/` */
+export type InvestorWithdrawalRequestStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'executed'
+  | 'expired'
+
+export type InvestorWithdrawalRequestRow = {
+  id: string
+  requestKey: string
+  amount: string
+  amountDisplay: string
+  date: string
+  dateDisplay: string
+  occurredAt: string
+  expiresAt: string | null
+  status: InvestorWithdrawalRequestStatus
+  statusLabel: string
+  actions: { canWithdraw: boolean }
+}
+
+export type InvestorWithdrawalRequestsResult = {
+  results: InvestorWithdrawalRequestRow[]
+  total: number
+}
+
+export type FetchInvestorWithdrawalRequestsParams = {
+  limit?: number
+  offset?: number
+}
+
+function normalizeInvestorWithdrawalStatus(raw: string): InvestorWithdrawalRequestStatus {
+  const t = raw.trim().toLowerCase()
+  if (t === 'approved') return 'approved'
+  if (t === 'rejected') return 'rejected'
+  if (t === 'executed') return 'executed'
+  if (t === 'expired') return 'expired'
+  return 'pending'
+}
+
+function mapInvestorWithdrawalRequestRow(raw: unknown): InvestorWithdrawalRequestRow | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const requestKey = pickStringField(row, 'requestKey', 'request_key')
+  if (!requestKey) return null
+  const actionsRaw =
+    row.actions && typeof row.actions === 'object' && !Array.isArray(row.actions)
+      ? (row.actions as Record<string, unknown>)
+      : {}
+  const status = normalizeInvestorWithdrawalStatus(
+    pickStringField(row, 'status') || pickStringField(row, 'statusLabel', 'status_label'),
+  )
+  return {
+    id: pickStringField(row, 'id') || requestKey,
+    requestKey,
+    amount: pickStringField(row, 'amount') || '0.00',
+    amountDisplay: pickStringField(row, 'amountDisplay', 'amount_display') || '—',
+    date: pickStringField(row, 'date'),
+    dateDisplay: pickStringField(row, 'dateDisplay', 'date_display') || pickStringField(row, 'date') || '—',
+    occurredAt: pickStringField(row, 'occurredAt', 'occurred_at'),
+    expiresAt: pickStringField(row, 'expiresAt', 'expires_at') || null,
+    status,
+    statusLabel: pickStringField(row, 'statusLabel', 'status_label') || status,
+    actions: {
+      canWithdraw:
+        typeof actionsRaw.canWithdraw === 'boolean'
+          ? actionsRaw.canWithdraw
+          : typeof actionsRaw.can_withdraw === 'boolean'
+            ? actionsRaw.can_withdraw
+            : status === 'approved',
+    },
+  }
+}
+
+export async function fetchInvestorWithdrawalRequests(
+  accessToken: string | null | undefined,
+  params?: FetchInvestorWithdrawalRequestsParams,
+): Promise<InvestorWithdrawalRequestsResult> {
+  const base = apiBaseUrl()
+  const limit = Math.min(Math.max(params?.limit ?? 50, 1), 200)
+  const offset = Math.max(params?.offset ?? 0, 0)
+  const q = new URLSearchParams()
+  q.set('limit', String(limit))
+  q.set('offset', String(offset))
+  const res = await fetchWithAuthRecovery(
+    `${base}/api/metrics/investor/withdrawal-requests/?${q.toString()}`,
+    {
+      method: 'GET',
+      headers: authHeaders(accessToken),
+    },
+  )
+  const raw = await parseJsonResponse<unknown>(res)
+  const record =
+    raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
+  const list = Array.isArray(record.results) ? record.results : []
+  const results = list
+    .map(mapInvestorWithdrawalRequestRow)
+    .filter((row): row is InvestorWithdrawalRequestRow => row != null)
+  const totalRaw = record.total
+  const total =
+    typeof totalRaw === 'number' && Number.isFinite(totalRaw)
+      ? totalRaw
+      : typeof totalRaw === 'string' && totalRaw.trim()
+        ? Number(totalRaw)
+        : results.length
+  return { results, total: Number.isFinite(total) ? total : results.length }
+}
+
 /** `GET /api/metrics/merchant/transactions` */
 export type MerchantTransactionApi = {
   transaction_type: string

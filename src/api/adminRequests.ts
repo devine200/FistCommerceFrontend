@@ -3,11 +3,17 @@ import { apiUrl, parseJsonResponse } from '@/api/client'
 import { fetchWithAuthRecovery } from '@/api/authorizedFetch'
 
 /** Status filter for `GET /api/metrics/admin/requests/`. */
-export type AdminRequestStatusFilter = 'all' | 'pending' | 'approved' | 'rejected'
+export type AdminRequestStatusFilter =
+  | 'all'
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'executed'
+  | 'expired'
 
 export type AdminRequestTypeFilter = 'all' | 'withdrawal' | 'disbursement'
 
-export type AdminRequestStatus = 'pending' | 'approved' | 'rejected'
+export type AdminRequestStatus = 'pending' | 'approved' | 'rejected' | 'executed' | 'expired'
 
 export type AdminRequestType = 'withdrawal' | 'disbursement'
 
@@ -56,6 +62,8 @@ export type AdminRequestCounts = {
   pending: number
   approved: number
   rejected: number
+  executed: number
+  expired: number
   withdrawalVolume: string
 }
 
@@ -156,9 +164,11 @@ function pickListRequestKey(record: Record<string, unknown>): string {
 
 function normalizeRequestStatus(raw: string): AdminRequestStatus {
   const t = raw.trim().toLowerCase()
-  if (t === 'approved' || t === 'executed' || t === 'completed' || t === 'paid_out' || t === 'paid out') {
+  if (t === 'approved' || t === 'completed' || t === 'paid_out' || t === 'paid out') {
     return 'approved'
   }
+  if (t === 'executed') return 'executed'
+  if (t === 'expired') return 'expired'
   if (t === 'rejected') return 'rejected'
   if (t === 'pending_governance' || t === 'pending governance' || t === 'pending') return 'pending'
   return 'pending'
@@ -218,7 +228,12 @@ function normalizeRequestActions(
     }
   }
 
-  if (status === 'approved' || status === 'rejected') {
+  if (
+    status === 'approved' ||
+    status === 'rejected' ||
+    status === 'executed' ||
+    status === 'expired'
+  ) {
     return {
       canApprove: false,
       canReject: false,
@@ -328,6 +343,8 @@ function normalizeRequestCounts(raw: unknown): AdminRequestCounts {
     pending: pickNumber(r, 'pending'),
     approved: pickNumber(r, 'approved'),
     rejected: pickNumber(r, 'rejected'),
+    executed: pickNumber(r, 'executed'),
+    expired: pickNumber(r, 'expired'),
     withdrawalVolume: pickStr(r, 'withdrawalVolume', 'withdrawal_volume') || '0.00',
   }
 }

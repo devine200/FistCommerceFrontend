@@ -816,6 +816,51 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     ],
   )
 
+  const executeFundingPoolWithdraw = useCallback(
+    async (requestId: `0x${string}`): Promise<Hash> => {
+      if (!wallet) throw new Error('Wallet required')
+      if (!isConnected || !address) throw new Error('Connect your wallet to withdraw.')
+      if (!isCorrectNetwork) {
+        throw new Error(`Switch your wallet to ${contractsChain.name} to withdraw.`)
+      }
+      const key = requestId.trim().toLowerCase() as `0x${string}`
+      if (!/^0x[0-9a-f]{64}$/.test(key)) {
+        throw new Error('Invalid withdrawal request id.')
+      }
+
+      setIsWritePending(true)
+      try {
+        await ensureWalletChain(wallet, contractsChain.id)
+        const walletClient = await getWalletClientFromPrivyWallet(wallet, contractsChain.id)
+        const gasFees = await getBufferedEip1559Fees(publicClient)
+        const hash = await walletClient.writeContract({
+          address: fundingPoolAddress,
+          abi: fundingPoolAbi,
+          functionName: 'executeWithdrawalRequest',
+          args: [key],
+          chain: contractsChain,
+          account: (address as `0x${string}`) ?? null,
+          ...gasFees,
+        })
+        await publicClient.waitForTransactionReceipt({ hash })
+        await refetchBalances()
+        return hash
+      } finally {
+        setIsWritePending(false)
+      }
+    },
+    [
+      address,
+      contractsChain.id,
+      contractsChain.name,
+      isConnected,
+      isCorrectNetwork,
+      publicClient,
+      refetchBalances,
+      wallet,
+    ],
+  )
+
   return {
     chainId,
     accountAddress: address,
@@ -851,6 +896,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
     mintMockTokens,
     repayReceivable,
     requestFundingPoolWithdraw,
+    executeFundingPoolWithdraw,
     depositGasFeeLabel,
     withdrawGasFeeLabel,
     isDepositGasEstimating: depositGasQuery.isPending,

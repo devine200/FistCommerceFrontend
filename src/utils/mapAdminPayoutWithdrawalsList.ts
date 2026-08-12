@@ -43,6 +43,10 @@ export function payoutWithdrawalStatusLabel(
       return 'Approved'
     case 'rejected':
       return 'Rejected'
+    case 'executed':
+      return 'Executed'
+    case 'expired':
+      return 'Expired'
     default:
       return 'Pending'
   }
@@ -61,6 +65,10 @@ export function payoutWithdrawalStatusPillVariant(
       return 'approved'
     case 'rejected':
       return 'rejected'
+    case 'executed':
+      return 'active'
+    case 'expired':
+      return 'neutral'
     default:
       return 'pending'
   }

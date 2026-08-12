@@ -4,6 +4,7 @@ import InvestorMyStatsSection from '@/components/dashboard/investor/lending-pool
 import InvestorPoolPerformanceSection from '@/components/dashboard/investor/lending-pool-detail/InvestorPoolPerformanceSection'
 import InvestorPoolStrategySection from '@/components/dashboard/investor/lending-pool-detail/InvestorPoolStrategySection'
 import InvestorSmartContractAndTransactionsSection from '@/components/dashboard/investor/lending-pool-detail/InvestorSmartContractAndTransactionsSection'
+import InvestorWithdrawalRequestsSection from '@/components/dashboard/investor/lending-pool-detail/InvestorWithdrawalRequestsSection'
 import type { ListPaginationMeta } from '@/utils/listPagination'
 
 interface InvestorLendingPoolDetailPageContentProps {
@@ -34,6 +35,7 @@ const InvestorLendingPoolDetailPageContent = ({
         howItWorksTo={howItWorksTo}
       />
       <InvestorMyStatsSection stats={config.myStats} investTo={investTo} withdrawTo={withdrawTo} />
+      <InvestorWithdrawalRequestsSection />
       <InvestorPoolPerformanceSection stats={config.poolPerformanceStats} />
       <InvestorPoolStrategySection intro={config.strategyIntro} features={config.strategyFeatures} />
       <InvestorSmartContractAndTransactionsSection
