@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 
 import type { LifecycleStepVariant } from '@/components/dashboard/merchant/receivables/receivableDetailTypes'
+import { isLifecycleStepCompleted } from '@/types/receivables'
 
 import type { AdminLoanMonitoringActionKind, LoanMonitoringDetailView } from './types'
 
@@ -62,7 +63,7 @@ export function AdminLoanMonitoringDetailView({
     documentName,
     documentUrl,
     lifecycle,
-    lifecycleCompletedCount,
+    lifecycleStage,
     repaymentRows,
     maturityBanner,
     receivableId,
@@ -408,7 +409,7 @@ export function AdminLoanMonitoringDetailView({
           <h2 className="text-[#0B1220] font-bold text-[18px] mb-6">Receivable Lifecycle</h2>
           <ol className="m-0 p-0 list-none flex flex-col gap-8">
             {lifecycle.map((step, i) => {
-              const completed = i < lifecycleCompletedCount
+              const completed = isLifecycleStepCompleted(lifecycleStage, i)
               return (
                 <li key={`${step.label}-${i}`} className="flex gap-4 min-w-0">
                   <div

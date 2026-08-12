@@ -48,6 +48,8 @@ const DEMO_REPAYMENT: ReceivableDetailView['repaymentRows'] = [
   { label: 'Repayment due date', value: '24-05-2026' },
   { label: 'Loan Duration', value: '45 Days' },
   { label: 'Repayment Structure', value: 'Bullet' },
+  { label: 'Amount repaid', value: '$0.00' },
+  { label: 'Amount left', value: '$400,000.00' },
   { label: 'Grace Period', value: 'N/A' },
   { label: 'Late Payment Penalty', value: '0.6% APR per month' },
 ]

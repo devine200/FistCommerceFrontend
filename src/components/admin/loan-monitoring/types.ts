@@ -1,4 +1,5 @@
 import type { ReceivableLifecycleStep } from '@/components/dashboard/merchant/receivables/receivableDetailTypes'
+import type { ReceivableStage } from '@/types/receivables'
 
 export type LoanMonitoringFieldRow = {
   label: string
@@ -47,6 +48,8 @@ export type LoanMonitoringDetailView = {
   documentName: string
   documentUrl: string | null
   lifecycle: ReceivableLifecycleStep[]
+  /** Drives Receivable Lifecycle step highlighting from `details.lifecycle.status`. */
+  lifecycleStage: ReceivableStage
   lifecycleCompletedCount: number
   repaymentRows: LoanMonitoringFieldRow[]
   maturityBanner: string

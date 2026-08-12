@@ -10,6 +10,11 @@ import type { AdminPillVariant } from '@/components/admin/primitives/types'
 import type { ReceivableLifecycleStep } from '@/components/dashboard/merchant/receivables/receivableDetailTypes'
 import { LOAN_VERIFICATION_FILE_LABEL } from '@/components/dashboard/merchant/receivables/receivableDetailTypes'
 import type { LoanMonitoringDetailView } from '@/components/admin/loan-monitoring/types'
+import {
+  lifecycleCompletedCount as receivableLifecycleCompletedCount,
+  ReceivableStage,
+} from '@/types/receivables'
+import { resolveLoanRepaymentAmountLabels } from '@/utils/loanRepaymentAmounts'
 
 export function formatAdminLoanMonitoringCount(value: number): string {
   if (!Number.isFinite(value)) return '—'
@@ -182,22 +187,54 @@ function loanStatusRank(status: string): number {
   }
 }
 
+/**
+ * Map on-chain lifecycle status → Receivable Lifecycle UI stage.
+ * Kept separate from `loanStatusRank` (funding/payout gates).
+ * `paid_out` stays on Funded — payout is not maturity.
+ */
+function adminLoanLifecycleStatusToStage(status: string): ReceivableStage {
+  switch (status.trim().toLowerCase()) {
+    case 'verified':
+      return ReceivableStage.Verified
+    case 'funded':
+    case 'approved':
+    case 'paid_out':
+      return ReceivableStage.Funded
+    case 'matured':
+      return ReceivableStage.Matured
+    case 'defaulted':
+      return ReceivableStage.Defaulted
+    case 'repaid':
+      return ReceivableStage.Repaid
+    case 'rejected':
+      return ReceivableStage.Rejected
+    default:
+      return ReceivableStage.Created
+  }
+}
+
 function lifecycleCompletedCountFromLoanStatus(status: string): number {
-  const rank = loanStatusRank(status)
-  return rank > 0 ? rank : 1
+  return receivableLifecycleCompletedCount(adminLoanLifecycleStatusToStage(status))
 }
 
 function buildLifecycleSteps(lifecycle: Record<string, unknown>): ReceivableLifecycleStep[] {
-  const status = pickString(lifecycle, 'status') ?? 'created'
-  const rank = loanStatusRank(status)
+  const status = (pickString(lifecycle, 'status') ?? 'created').trim().toLowerCase()
+  const stage = adminLoanLifecycleStatusToStage(status)
   const createdAt = lifecycle.createdAt ?? lifecycle.created_at
   const verifiedAt = lifecycle.verifiedAt ?? lifecycle.verified_at
   const maturedAt = lifecycle.maturedAt ?? lifecycle.matured_at
   const defaultedAt = lifecycle.defaultedAt ?? lifecycle.defaulted_at
+  const repaidAt = lifecycle.repaidAt ?? lifecycle.repaid_at
 
-  const fundedDate = rank >= 3 ? verifiedAt ?? maturedAt : null
-  const defaultedDate = rank >= 6 ? defaultedAt ?? maturedAt : null
-  const repaidDate = rank >= 7 ? maturedAt : null
+  const fundedDate =
+    stage === ReceivableStage.Funded ||
+    stage === ReceivableStage.Matured ||
+    stage === ReceivableStage.Defaulted ||
+    stage === ReceivableStage.Repaid
+      ? verifiedAt ?? maturedAt
+      : null
+  const defaultedDate = stage === ReceivableStage.Defaulted ? defaultedAt ?? maturedAt : null
+  const repaidDate = stage === ReceivableStage.Repaid ? repaidAt ?? maturedAt : null
 
   return [
     {
@@ -242,7 +279,11 @@ function buildLifecycleSteps(lifecycle: Record<string, unknown>): ReceivableLife
   ]
 }
 
-function buildRepaymentRows(repaymentDetails: Record<string, unknown>): { label: string; value: string }[] {
+function buildRepaymentRows(
+  repaymentDetails: Record<string, unknown>,
+  summary: Record<string, unknown>,
+  monitoring: AdminLoanMonitoringDetailPayload['monitoring'],
+): { label: string; value: string }[] {
   const durationRaw = repaymentDetails.loanDurationDays ?? repaymentDetails.loan_duration_days
   const durationValue =
     durationRaw == null || durationRaw === ''
@@ -252,6 +293,14 @@ function buildRepaymentRows(repaymentDetails: Record<string, unknown>): { label:
         : /days/i.test(String(durationRaw))
           ? formatFieldValue(durationRaw)
           : `${formatFieldValue(durationRaw)} Days`
+
+  const repaymentAmounts = resolveLoanRepaymentAmountLabels({
+    funding: pickString(summary, 'funding'),
+    totalAmount:
+      pickString(summary, 'totalAmount', 'total_amount') ??
+      (monitoring.amount.trim() ? monitoring.amount : null),
+    amountOwed: pickString(summary, 'amountOwed', 'amount_owed'),
+  })
 
   return [
     {
@@ -267,6 +316,8 @@ function buildRepaymentRows(repaymentDetails: Record<string, unknown>): { label:
         repaymentDetails.repaymentStructure ?? repaymentDetails.repayment_structure ?? 'Bullet',
       ),
     },
+    { label: 'Amount repaid', value: repaymentAmounts.amountRepaid },
+    { label: 'Amount left', value: repaymentAmounts.amountLeft },
     { label: 'Grace Period', value: 'N/A' },
     { label: 'Late Payment Penalty', value: '0.6% APR per month' },
   ]
@@ -341,6 +392,7 @@ export function mapAdminLoanMonitoringDetailToView(
   const { monitoring, basicInformation, uploadedDocuments, defaultManagement, details } = payload
   const lifecycle = asObj(details.lifecycle)
   const repaymentDetails = asObj(details.repaymentDetails ?? details.repayment_details)
+  const summary = asObj(details.summary)
 
   const document = resolveUploadedDocument(uploadedDocuments)
   const loanStatus = pickString(lifecycle, 'status') ?? 'created'
@@ -370,8 +422,9 @@ export function mapAdminLoanMonitoringDetailToView(
     documentName: verificationDocumentName(document.name, document.url),
     documentUrl: document.url,
     lifecycle: buildLifecycleSteps(lifecycle),
+    lifecycleStage: adminLoanLifecycleStatusToStage(loanStatus),
     lifecycleCompletedCount: lifecycleCompletedCountFromLoanStatus(loanStatus),
-    repaymentRows: buildRepaymentRows(repaymentDetails),
+    repaymentRows: buildRepaymentRows(repaymentDetails, summary, monitoring),
     maturityBanner: resolveMaturityBanner(repaymentDetails, monitoring),
     defaultManagement: {
       ...defaultManagement,

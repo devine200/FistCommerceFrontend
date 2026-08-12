@@ -9,6 +9,7 @@ import type { ReceivableTableRow } from '@/components/dashboard/merchant/receiva
 import type { MerchantLoanTableRowData } from '@/components/dashboard/merchant/lending-pool-detail/types'
 import { ReceivableStage } from '@/types/receivables'
 import { parseMoneyToHuman } from '@/utils/mapLoanDetailsToRepayReviewView'
+import { resolveLoanRepaymentAmountLabels } from '@/utils/loanRepaymentAmounts'
 import { isLoanFullyRepaid, type MerchantReceivableRepayState } from '@/utils/merchantReceivableRepayEligibility'
 
 function formatIsoDateForDisplay(iso: string | null | undefined): string {
@@ -200,6 +201,12 @@ function mergeRepaymentRows(
     return { label: fb?.label ?? label, value: formatted === '—' && fb?.value ? fb.value : formatted }
   }
 
+  const repaymentAmounts = resolveLoanRepaymentAmountLabels({
+    funding: api.summary.funding,
+    totalAmount: api.summary.totalAmount,
+    amountOwed: api.summary.amountOwed,
+  })
+
   return [
     get('Repayment due date', api.repaymentDetails.repaymentDueDate),
     get(
@@ -209,6 +216,20 @@ function mergeRepaymentRows(
         : null,
     ),
     get('Repayment Structure', api.repaymentDetails.repaymentStructure),
+    {
+      label: 'Amount repaid',
+      value:
+        repaymentAmounts.amountRepaid !== '—'
+          ? repaymentAmounts.amountRepaid
+          : (byLabel.get('amount repaid')?.value ?? '—'),
+    },
+    {
+      label: 'Amount left',
+      value:
+        repaymentAmounts.amountLeft !== '—'
+          ? repaymentAmounts.amountLeft
+          : (byLabel.get('amount left')?.value ?? '—'),
+    },
     byLabel.get('grace period') ?? { label: 'Grace Period', value: 'N/A' },
     byLabel.get('late payment penalty') ?? {
       label: 'Late Payment Penalty',
