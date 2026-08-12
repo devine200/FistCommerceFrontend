@@ -435,7 +435,8 @@ export function mapAdminLoanMonitoringDetailToView(
       canReject: payload.admin.canReject,
       canFund: payload.admin.canFund,
       canInitiatePayout: payload.admin.canInitiatePayout,
-      canCancelFunding: payload.admin.canCancelFunding && Boolean(receivableId) && !isPaidOut,
+      // Lifecycle only (same gate as release funds): enabled while funded and not yet paid out.
+      canCancelFunding: Boolean(receivableId) && fundingApprovalDone && !isPaidOut,
       canMarkDefaulted,
       canWriteOffShortfall: payload.admin.canWriteOffShortfall,
       uiStatus: payload.admin.uiStatus,

@@ -108,9 +108,10 @@ export function AdminLoanMonitoringDetailView({
   const canReject = admin.canReject && !actionLoading
   const canApprove = admin.canApprove && !actionLoading
   const canFundNow = canApproveFunding && !actionLoading
-  const canCancelFundingNow = admin.canCancelFunding && !actionLoading
   const canPayoutNow =
     Boolean(receivableId?.trim()) && fundingApprovalDone && !isPaidOut && !actionLoading
+  // Cancel stays available until funds are released — same lifecycle gate as payout.
+  const canCancelFundingNow = canPayoutNow
   const showLoanAcceptance = admin.canApprove || admin.canReject
   const canMarkDefaulted =
     admin.canMarkDefaulted && defaultManagement.canMarkDefaulted && !actionLoading
