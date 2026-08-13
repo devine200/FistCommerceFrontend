@@ -41,6 +41,10 @@ const MESSAGES: Record<AppErrorCode, string> = {
   EXEC_TX_REVERTED: 'On-chain execution reverted. Contact ops with the transaction details.',
   EXEC_CONFIRM_FAILED:
     'The transaction may have succeeded on-chain, but the server couldn’t confirm it. Share the transaction hash with ops.',
+  EXEC_CONFIRM_PENDING:
+    'The transaction mined on-chain, but confirmation is still pending. Tap Confirm transaction — do not submit a new one.',
+  MULTISIG_ALREADY_EXECUTED_ON_CHAIN:
+    'This proposal already succeeded on-chain. Refresh the page — do not submit another transaction.',
   MULTISIG_EXECUTE_IN_PROGRESS:
     'Another multisig execution is still in progress. Wait a few seconds and try again.',
   MULTISIG_EXECUTE_QUEUED:

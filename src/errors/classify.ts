@@ -274,6 +274,28 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
   if (/EntryPoint handleOps transaction reverted/i.test(t)) {
     return { code: 'EXEC_TX_REVERTED', message: messageForCode('EXEC_TX_REVERTED'), raw: t }
   }
+  if (
+    /MULTISIG_ALREADY_EXECUTED_ON_CHAIN|already succeeded on-chain|do not submit another handleOps/i.test(
+      t,
+    )
+  ) {
+    return {
+      code: 'MULTISIG_ALREADY_EXECUTED_ON_CHAIN',
+      message: messageForCode('MULTISIG_ALREADY_EXECUTED_ON_CHAIN'),
+      raw: t,
+    }
+  }
+  if (
+    /mined on-chain, but (the server could not confirm|confirmation failed)|Confirm transaction|EXEC_CONFIRM_PENDING/i.test(
+      t,
+    )
+  ) {
+    return {
+      code: 'EXEC_CONFIRM_PENDING',
+      message: messageForCode('EXEC_CONFIRM_PENDING'),
+      raw: t,
+    }
+  }
   if (/confirm-execute|couldn.?t confirm/i.test(t) && context === 'governance_execute') {
     return { code: 'EXEC_CONFIRM_FAILED', message: messageForCode('EXEC_CONFIRM_FAILED'), raw: t }
   }

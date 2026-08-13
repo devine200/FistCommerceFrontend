@@ -10,12 +10,18 @@ import {
 } from '@/api/multisig/proposals'
 import type { ExecuteProposalResult } from '@/api/types/multisig'
 import { isGovernanceSignerAddress } from '@/admin/governance/governanceSigner'
+import { userOpSuccessFromHandleOpsReceipt } from '@/admin/governance/userOpReceipt'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import {
   clearAdminMultisigActionError,
   refreshMultisigConfig,
   refreshMultisigProposalDetail,
 } from '@/store/slices/adminMultisigSlice'
+import {
+  clearMultisigPendingExecute,
+  getMultisigPendingExecute,
+  setMultisigPendingExecute,
+} from '@/session/multisigPendingExecute'
 import { DEFAULT_APP_CHAIN, getAppChainById } from '@/wallet/appChain'
 import { ensureWalletChain, getPublicClient, getWalletClientFromPrivyWallet } from '@/wallet/viemClients'
 import { useActiveWallet } from '@/wallet/useActiveWallet'
@@ -62,6 +68,17 @@ function isExecuteInProgressError(error: unknown): boolean {
   return error.status === 409 && /multisig execution is in progress/i.test(error.message)
 }
 
+function isAlreadyExecutedOnChainError(error: unknown): boolean {
+  if (!(error instanceof ApiRequestError)) return false
+  if (error.apiCode === 'MULTISIG_ALREADY_EXECUTED_ON_CHAIN') return true
+  return (
+    error.status === 409 &&
+    /already succeeded on-chain|already executed on-chain|do not submit another handleOps/i.test(
+      error.message,
+    )
+  )
+}
+
 async function fetchExecutionPayloadWithRetry(
   accessToken: string,
   proposalId: string,
@@ -85,6 +102,8 @@ async function fetchExecutionPayloadWithRetry(
 export type GovernanceExecuteErrorMeta = {
   code: AppErrorCode | null
   blockingProposalIds: string[]
+  /** When set, retry should confirm this mined hash — not broadcast a new handleOps. */
+  pendingConfirmTxHash: string | null
 }
 
 function formatExecuteErrorMessage(error: unknown, blockingIds: string[]): string {
@@ -113,6 +132,35 @@ export function useGovernanceExecuteProposal(options: UseGovernanceExecutePropos
   const [errorMeta, setErrorMeta] = useState<GovernanceExecuteErrorMeta | null>(null)
   const [lastResult, setLastResult] = useState<ExecuteProposalResult | null>(null)
   const [resignRequired, setResignRequired] = useState(false)
+  /** Reactive flag: mined hash exists and retry must confirm-only. */
+  const [pendingConfirmActive, setPendingConfirmActive] = useState(false)
+
+  const syncPendingConfirmFlag = useCallback((proposalId: string) => {
+    setPendingConfirmActive(Boolean(getMultisigPendingExecute(proposalId)?.txHash))
+  }, [])
+
+  const finishSuccess = useCallback(
+    async (proposalId: string, result: ExecuteProposalResult) => {
+      clearMultisigPendingExecute(proposalId)
+      setPendingConfirmActive(false)
+      setLastResult(result)
+      await dispatch(refreshMultisigProposalDetail(proposalId)).unwrap()
+      await dispatch(refreshMultisigConfig()).unwrap().catch(() => {})
+      return result
+    },
+    [dispatch],
+  )
+
+  const confirmMinedHash = useCallback(
+    async (proposalId: string, txHash: string): Promise<ExecuteProposalResult> => {
+      if (!accessToken?.trim()) {
+        throw new Error('Sign in to confirm proposal execution.')
+      }
+      const result = await postMultisigProposalConfirmExecute(accessToken, proposalId, txHash)
+      return finishSuccess(proposalId, result)
+    },
+    [accessToken, finishSuccess],
+  )
 
   const execute = useCallback(
     async (proposalId: string): Promise<ExecuteProposalResult | null> => {
@@ -150,10 +198,69 @@ export function useGovernanceExecuteProposal(options: UseGovernanceExecutePropos
       setLastResult(null)
       dispatch(clearAdminMultisigActionError())
       try {
+        // If a prior handleOps already mined for this proposal, only confirm — never re-broadcast.
+        const pendingExecute = getMultisigPendingExecute(id)
+        setPendingConfirmActive(Boolean(pendingExecute?.txHash))
+        if (pendingExecute?.txHash) {
+          try {
+            return await confirmMinedHash(id, pendingExecute.txHash)
+          } catch (confirmError) {
+            if (isAlreadyExecutedOnChainError(confirmError)) {
+              clearMultisigPendingExecute(id)
+              setPendingConfirmActive(false)
+              await dispatch(refreshMultisigProposalDetail(id)).unwrap().catch(() => {})
+              setLastResult({
+                message: 'Proposal already executed on-chain.',
+                txHash: pendingExecute.txHash,
+              })
+              return {
+                message: 'Proposal already executed on-chain.',
+                txHash: pendingExecute.txHash,
+              }
+            }
+            setErrorMeta({
+              code: 'EXEC_CONFIRM_PENDING',
+              blockingProposalIds: blockingProposalIdsFromApiError(confirmError),
+              pendingConfirmTxHash: pendingExecute.txHash,
+            })
+            setPendingConfirmActive(true)
+            setError(
+              formatExecuteErrorMessage(
+                confirmError instanceof Error
+                  ? confirmError
+                  : new Error(
+                      'The transaction mined on-chain, but confirmation failed. Retry confirmation — do not submit a new transaction.',
+                    ),
+                blockingProposalIdsFromApiError(confirmError),
+              ),
+            )
+            return null
+          }
+        }
+
         let payload: Awaited<ReturnType<typeof fetchMultisigExecutionPayload>>
         try {
           payload = await fetchExecutionPayloadWithRetry(accessToken, id)
         } catch (firstError) {
+          if (isAlreadyExecutedOnChainError(firstError)) {
+            clearMultisigPendingExecute(id)
+            setPendingConfirmActive(false)
+            await dispatch(refreshMultisigProposalDetail(id)).unwrap().catch(() => {})
+            const txFromDetails =
+              firstError instanceof ApiRequestError &&
+              firstError.apiDetails &&
+              typeof firstError.apiDetails.txHash === 'string'
+                ? String(firstError.apiDetails.txHash)
+                : ''
+            setLastResult({
+              message: 'Proposal already executed on-chain.',
+              txHash: txFromDetails,
+            })
+            return {
+              message: 'Proposal already executed on-chain.',
+              txHash: txFromDetails,
+            }
+          }
           if (
             firstError instanceof ApiRequestError &&
             firstError.apiCode === 'EXECUTE_QUEUE_JUMP_ACK_REQUIRED' &&
@@ -167,6 +274,13 @@ export function useGovernanceExecuteProposal(options: UseGovernanceExecutePropos
             try {
               payload = await fetchExecutionPayloadWithRetry(accessToken, id, { ackQueueJump: true })
             } catch (ackError) {
+              if (isAlreadyExecutedOnChainError(ackError)) {
+                clearMultisigPendingExecute(id)
+                setPendingConfirmActive(false)
+                await dispatch(refreshMultisigProposalDetail(id)).unwrap().catch(() => {})
+                setLastResult({ message: 'Proposal already executed on-chain.', txHash: '' })
+                return { message: 'Proposal already executed on-chain.', txHash: '' }
+              }
               if (
                 ackError instanceof ApiRequestError &&
                 ackError.apiCode === 'MULTISIG_RESIGN_REQUIRED'
@@ -217,20 +331,80 @@ export function useGovernanceExecuteProposal(options: UseGovernanceExecutePropos
         const publicClient = getPublicClient(payload.chainId)
         const receipt = await publicClient.waitForTransactionReceipt({ hash: hash as Hex })
         if (receipt.status !== 'success') {
+          clearMultisigPendingExecute(id)
+          setPendingConfirmActive(false)
           throw new Error('EntryPoint handleOps transaction reverted.')
         }
-        const result = await postMultisigProposalConfirmExecute(accessToken, id, hash)
-        setLastResult(result)
-        await dispatch(refreshMultisigProposalDetail(id)).unwrap()
-        await dispatch(refreshMultisigConfig()).unwrap().catch(() => {})
-        return result
+
+        setMultisigPendingExecute({
+          proposalId: id,
+          txHash: hash,
+          chainId: payload.chainId,
+          savedAt: Date.now(),
+        })
+        setPendingConfirmActive(true)
+
+        const userOpOk = userOpSuccessFromHandleOpsReceipt(receipt)
+        if (userOpOk === false) {
+          // Keep pending cleared — a failed UserOp must not be re-confirmed as success.
+          clearMultisigPendingExecute(id)
+          setPendingConfirmActive(false)
+          // Backend may still heal if an earlier success already applied the effect.
+          try {
+            return await confirmMinedHash(id, hash)
+          } catch {
+            throw new Error(
+              'EntryPoint handleOps mined but the UserOperation failed (UserOperationEvent.success=false). Inner call reverted.',
+            )
+          }
+        }
+
+        try {
+          return await confirmMinedHash(id, hash)
+        } catch (confirmError) {
+          if (isAlreadyExecutedOnChainError(confirmError)) {
+            clearMultisigPendingExecute(id)
+            setPendingConfirmActive(false)
+            await dispatch(refreshMultisigProposalDetail(id)).unwrap().catch(() => {})
+            setLastResult({ message: 'Proposal already executed on-chain.', txHash: hash })
+            return { message: 'Proposal already executed on-chain.', txHash: hash }
+          }
+          // Outer tx + UserOp succeeded; do not invite a new handleOps.
+          setErrorMeta({
+            code: 'EXEC_CONFIRM_PENDING',
+            blockingProposalIds: blockingProposalIdsFromApiError(confirmError),
+            pendingConfirmTxHash: hash,
+          })
+          setPendingConfirmActive(true)
+          setError(
+            toAppUserFacingError(confirmError, {
+              fallback:
+                'The transaction mined on-chain, but the server could not confirm it yet. Tap Confirm transaction — do not submit a new one.',
+              context: 'governance_execute',
+            }),
+          )
+          return null
+        }
       } catch (e) {
+        if (isAlreadyExecutedOnChainError(e)) {
+          clearMultisigPendingExecute(id)
+          setPendingConfirmActive(false)
+          await dispatch(refreshMultisigProposalDetail(id)).unwrap().catch(() => {})
+          setLastResult({ message: 'Proposal already executed on-chain.', txHash: '' })
+          return { message: 'Proposal already executed on-chain.', txHash: '' }
+        }
         const blockingIds = blockingProposalIdsFromApiError(e)
         const apiCode =
           e instanceof ApiRequestError && e.apiCode?.trim()
             ? (e.apiCode.trim() as AppErrorCode)
             : null
-        setErrorMeta({ code: apiCode, blockingProposalIds: blockingIds })
+        const pendingHash = getMultisigPendingExecute(id)?.txHash ?? null
+        setPendingConfirmActive(Boolean(pendingHash))
+        setErrorMeta({
+          code: apiCode,
+          blockingProposalIds: blockingIds,
+          pendingConfirmTxHash: pendingHash,
+        })
         setError(formatExecuteErrorMessage(e, blockingIds))
         return null
       } finally {
@@ -241,6 +415,7 @@ export function useGovernanceExecuteProposal(options: UseGovernanceExecutePropos
       accessToken,
       address,
       configSigners,
+      confirmMinedHash,
       confirmQueueJumpFromApiError,
       dispatch,
       isConnected,
@@ -263,5 +438,10 @@ export function useGovernanceExecuteProposal(options: UseGovernanceExecutePropos
       setErrorMeta(null)
     },
     clearLastResult: () => setLastResult(null),
+    /** True when a mined hash is waiting for confirm-only retry. */
+    hasPendingConfirm: (proposalId: string) =>
+      pendingConfirmActive || Boolean(getMultisigPendingExecute(proposalId)?.txHash),
+    pendingConfirmActive,
+    syncPendingConfirmFlag,
   }
 }

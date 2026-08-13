@@ -164,12 +164,21 @@ const AdminGovernanceProposalDetailPage = () => {
     clearResignRequired,
     clearError: clearExecuteError,
     clearLastResult: clearExecuteResult,
+    hasPendingConfirm,
+    pendingConfirmActive,
+    syncPendingConfirmFlag,
   } = useGovernanceExecuteProposal({
     confirmQueueJumpFromApiError,
     onQueueJumpPrepared: () => {
       if (proposalId) void dispatch(refreshMultisigProposalDetail(proposalId))
     },
   })
+  const pendingConfirmExecute = Boolean(
+    pendingConfirmActive ||
+      (proposalId && hasPendingConfirm(proposalId)) ||
+      executeErrorMeta?.pendingConfirmTxHash ||
+      executeErrorMeta?.code === 'EXEC_CONFIRM_PENDING',
+  )
   const {
     restart: restartSignatures,
     pending: restartPending,
@@ -182,7 +191,8 @@ const AdminGovernanceProposalDetailPage = () => {
     if (!proposalId?.trim() || !accessToken?.trim() || sessionKind !== 'admin') return
     void dispatch(refreshMultisigConfig())
     void dispatch(refreshMultisigProposalDetail(proposalId))
-  }, [dispatch, proposalId, accessToken, sessionKind])
+    syncPendingConfirmFlag(proposalId)
+  }, [dispatch, proposalId, accessToken, sessionKind, syncPendingConfirmFlag])
 
   const shouldPollDetail = useMemo(() => {
     if (!detail) return false
@@ -323,12 +333,20 @@ const AdminGovernanceProposalDetailPage = () => {
       if (executeErrorMeta?.code === 'MULTISIG_EXECUTE_QUEUED' && blocking.length) {
         return 'Open blocking proposal'
       }
+      if (pendingConfirmExecute) {
+        return 'Confirm transaction'
+      }
       if (/stale|MULTISIG_STALE_NONCE|restart signatures/i.test(executeHookError)) {
         return 'Restart signatures'
       }
     }
     return undefined
-  }, [executeHookError, executeErrorMeta, detail?.nonce?.blockingProposalIds])
+  }, [
+    executeHookError,
+    executeErrorMeta,
+    detail?.nonce?.blockingProposalIds,
+    pendingConfirmExecute,
+  ])
 
   const governanceFeedback = useMemo(() => {
     // Never show restart loading under a confirm dialog.
@@ -377,9 +395,12 @@ const AdminGovernanceProposalDetailPage = () => {
       return {
         phase: 'loading' as PrivilegedActionPhase,
         errorDescription: undefined as string | undefined,
-        loadingTitle: 'Executing proposal',
-        loadingDescription:
-          'Submitting EntryPoint.handleOps from your connected wallet…',
+        loadingTitle: pendingConfirmExecute
+          ? 'Confirming transaction'
+          : 'Executing proposal',
+        loadingDescription: pendingConfirmExecute
+          ? 'Confirming the mined transaction with the server — not submitting a new one…'
+          : 'Submitting EntryPoint.handleOps from your connected wallet…',
         errorTitle: 'Unable to execute proposal',
         directSuccessTitle: 'Proposal executed',
       }
@@ -390,7 +411,9 @@ const AdminGovernanceProposalDetailPage = () => {
         errorDescription: executeHookError,
         loadingTitle: 'Executing proposal',
         loadingDescription: '',
-        errorTitle: 'Unable to execute proposal',
+        errorTitle: pendingConfirmExecute
+          ? 'Confirm mined transaction'
+          : 'Unable to execute proposal',
         directSuccessTitle: 'Proposal executed',
       }
     }
@@ -425,6 +448,8 @@ const AdminGovernanceProposalDetailPage = () => {
     signHookError,
     executePending,
     executeHookError,
+    executeErrorMeta,
+    pendingConfirmExecute,
     anyConfirmOpen,
     actionKind,
     actionStatus,
@@ -737,7 +762,13 @@ const AdminGovernanceProposalDetailPage = () => {
                 onClick={handleExecute}
                 className="h-10 px-5 rounded-[4px] bg-[#16A34A] text-white text-[14px] font-semibold disabled:opacity-40"
               >
-                {executePending ? 'Executing…' : 'Execute'}
+                {executePending
+                  ? pendingConfirmExecute
+                    ? 'Confirming…'
+                    : 'Executing…'
+                  : pendingConfirmExecute
+                    ? 'Confirm transaction'
+                    : 'Execute'}
               </button>
               <button
                 type="button"
