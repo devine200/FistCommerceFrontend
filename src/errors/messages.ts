@@ -12,6 +12,8 @@ const MESSAGES: Record<AppErrorCode, string> = {
   API_MESSAGE: 'Something went wrong. Please try again.',
   WALLET_NOT_CONNECTED: 'Connect your wallet to continue.',
   WALLET_REJECTED: 'You cancelled the request in your wallet. Try again when you are ready.',
+  WALLET_NONCE_CONFLICT:
+    'Couldn’t send the transaction (wallet nonce conflict). Wait a moment, then try again.',
   WRONG_NETWORK: 'Switch your wallet to the correct network to continue.',
   CHAIN_SWITCH_REJECTED: 'Network switch was cancelled. Approve the prompt in your wallet.',
   CHAIN_SWITCH_FAILED:
@@ -61,6 +63,10 @@ const MESSAGES: Record<AppErrorCode, string> = {
   DEPOSITS_PAUSED: 'Deposits are temporarily paused. Try again later.',
   WITHDRAWALS_PAUSED: 'Withdrawals are temporarily paused. Try again later.',
   FUNDING_PAUSED: 'New funding and loan requests are temporarily paused. Try again later.',
+  POOL_ILLIQUID:
+    'The funding pool does not have enough liquid funds right now. Try again later.',
+  WITHDRAWAL_INACTIVE:
+    'This withdrawal can’t be claimed (expired, already claimed, or not approved). Refresh the list.',
   MERCHANT_CONCENTRATION:
     'This loan would exceed the pool’s max merchant concentration limit. Try a smaller amount or contact support.',
   KYC_REQUIRED: 'Finish identity verification before continuing.',

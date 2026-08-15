@@ -823,6 +823,9 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       if (!isCorrectNetwork) {
         throw new Error(`Switch your wallet to ${contractsChain.name} to withdraw.`)
       }
+      if (isWritePending) {
+        throw new Error('A wallet transaction is already in progress. Wait for it to finish.')
+      }
       const key = requestId.trim().toLowerCase() as `0x${string}`
       if (!/^0x[0-9a-f]{64}$/.test(key)) {
         throw new Error('Invalid withdrawal request id.')
@@ -855,6 +858,7 @@ export function useTestnetContracts(opts?: UseTestnetContractsOptions) {
       contractsChain.name,
       isConnected,
       isCorrectNetwork,
+      isWritePending,
       publicClient,
       refetchBalances,
       wallet,

@@ -82,7 +82,7 @@ function isGasEstimateWrapperText(text: string): boolean {
 function scoreErrorCandidate(text: string): number {
   let score = 0
   if (/execution reverted|reverted with|custom error/i.test(text)) score += 40
-  if (/DepositsPaused|WithdrawalsPaused|FundingPaused|insufficient|allowance|concentration|kyc/i.test(text))
+  if (/DepositsPaused|WithdrawalsPaused|FundingPaused|insufficient|allowance|concentration|kyc|illiquid|inactive request/i.test(text))
     score += 30
   if (isGasEstimateWrapperText(text)) score -= 50
   if (/ContractFunction|Request Arguments|Docs:|Version:|viem@/i.test(text)) score -= 20
@@ -195,154 +195,186 @@ function isServicerInsufficientNativeText(text: string): boolean {
   return /servicer|relay(?:er)?|ops wallet|protocol wallet/i.test(text)
 }
 
-function classifyFromText(text: string, context: AppErrorContext): ClassifiedAppError | null {
-  const t = text.trim()
-  if (!t) return null
+function isGovernanceContext(context: AppErrorContext): boolean {
+  return context === 'governance_sign' || context === 'governance_execute'
+}
 
+function codeResult(code: AppErrorCode, raw: string): ClassifiedAppError {
+  return { code, message: messageForCode(code), raw }
+}
+
+/** Multisig / EntryPoint / proposal-queue errors — governance contexts only. */
+function classifyGovernanceFromText(t: string, context: AppErrorContext): ClassifiedAppError | null {
   if (/AA24|signature error/i.test(t)) {
-    return { code: 'EXEC_SIM_AA24', message: messageForCode('EXEC_SIM_AA24'), raw: t }
+    return codeResult('EXEC_SIM_AA24', t)
   }
   if (/AA25|invalid account nonce/i.test(t)) {
-    return { code: 'MULTISIG_STALE_NONCE', message: messageForCode('MULTISIG_STALE_NONCE'), raw: t }
+    return codeResult('MULTISIG_STALE_NONCE', t)
   }
-  if (
-    /Frozen UserOp nonce .* stale|nonce drifted before submit|on-chain nonce is/i.test(t)
-  ) {
-    return { code: 'MULTISIG_STALE_NONCE', message: messageForCode('MULTISIG_STALE_NONCE'), raw: t }
+  if (/Frozen UserOp nonce .* stale|nonce drifted before submit|on-chain nonce is/i.test(t)) {
+    return codeResult('MULTISIG_STALE_NONCE', t)
   }
   if (/another multisig execution is in progress|MULTISIG_EXECUTE_IN_PROGRESS/i.test(t)) {
-    return {
-      code: 'MULTISIG_EXECUTE_IN_PROGRESS',
-      message: messageForCode('MULTISIG_EXECUTE_IN_PROGRESS'),
-      raw: t,
-    }
+    return codeResult('MULTISIG_EXECUTE_IN_PROGRESS', t)
   }
   if (/MULTISIG_RESIGN_REQUIRED|must sign again before executing|signatures were cleared/i.test(t)) {
-    return {
-      code: 'MULTISIG_RESIGN_REQUIRED',
-      message: messageForCode('MULTISIG_RESIGN_REQUIRED'),
-      raw: t,
-    }
+    return codeResult('MULTISIG_RESIGN_REQUIRED', t)
   }
   if (/EXECUTE_QUEUE_JUMP_ACK_REQUIRED|queue jump acknowledgement|skip earlier open proposals/i.test(t)) {
-    return {
-      code: 'EXECUTE_QUEUE_JUMP_ACK_REQUIRED',
-      message: messageForCode('EXECUTE_QUEUE_JUMP_ACK_REQUIRED'),
-      raw: t,
-    }
+    return codeResult('EXECUTE_QUEUE_JUMP_ACK_REQUIRED', t)
   }
   if (/MULTISIG_EXECUTE_QUEUED|queued at nonce|execute earlier proposals first/i.test(t)) {
-    return {
-      code: 'MULTISIG_EXECUTE_QUEUED',
-      message: messageForCode('MULTISIG_EXECUTE_QUEUED'),
-      raw: t,
-    }
+    return codeResult('MULTISIG_EXECUTE_QUEUED', t)
   }
   if (/EntryPoint handleOps simulation failed|handleOps simulation failed/i.test(t)) {
     const decoded = decodeEmbeddedAsciiHex(t)
     if (decoded && /AA24|signature/i.test(decoded)) {
-      return { code: 'EXEC_SIM_AA24', message: messageForCode('EXEC_SIM_AA24'), raw: t }
+      return codeResult('EXEC_SIM_AA24', t)
     }
-    return { code: 'EXEC_SIM_FAILED', message: messageForCode('EXEC_SIM_FAILED'), raw: t }
+    return codeResult('EXEC_SIM_FAILED', t)
   }
 
   if (
     /missing required EIP-712 typedData|typedData is incomplete/i.test(t) ||
     (context === 'governance_sign' && /signing payload.*missing/i.test(t))
   ) {
-    return { code: 'SIGN_PAYLOAD_MISSING', message: messageForCode('SIGN_PAYLOAD_MISSING'), raw: t }
+    return codeResult('SIGN_PAYLOAD_MISSING', t)
   }
   if (
     /typedData domain\.|verifyingContract|userOpHashToSign|primaryType must be/i.test(t) ||
     /does not match (payload chainId|multisigAddress|userOpHashToSign)/i.test(t)
   ) {
-    return { code: 'SIGN_PAYLOAD_MISMATCH', message: messageForCode('SIGN_PAYLOAD_MISMATCH'), raw: t }
+    return codeResult('SIGN_PAYLOAD_MISMATCH', t)
   }
   if (/Wallet could not EIP-712-sign|signTypedData/i.test(t)) {
     if (/user rejected|denied|cancelled|canceled/i.test(t)) {
-      return { code: 'WALLET_REJECTED', message: messageForCode('WALLET_REJECTED'), raw: t }
+      return codeResult('WALLET_REJECTED', t)
     }
-    return { code: 'SIGN_TYPED_DATA_FAILED', message: messageForCode('SIGN_TYPED_DATA_FAILED'), raw: t }
+    return codeResult('SIGN_TYPED_DATA_FAILED', t)
   }
 
   if (
     /Execution payload response was missing required fields/i.test(t) ||
     /execution data from the server is incomplete/i.test(t)
   ) {
-    return { code: 'EXEC_PAYLOAD_MALFORMED', message: messageForCode('EXEC_PAYLOAD_MALFORMED'), raw: t }
+    return codeResult('EXEC_PAYLOAD_MALFORMED', t)
   }
   if (/EntryPoint handleOps transaction reverted/i.test(t)) {
-    return { code: 'EXEC_TX_REVERTED', message: messageForCode('EXEC_TX_REVERTED'), raw: t }
+    return codeResult('EXEC_TX_REVERTED', t)
   }
   if (
     /MULTISIG_ALREADY_EXECUTED_ON_CHAIN|already succeeded on-chain|do not submit another handleOps/i.test(
       t,
     )
   ) {
-    return {
-      code: 'MULTISIG_ALREADY_EXECUTED_ON_CHAIN',
-      message: messageForCode('MULTISIG_ALREADY_EXECUTED_ON_CHAIN'),
-      raw: t,
-    }
+    return codeResult('MULTISIG_ALREADY_EXECUTED_ON_CHAIN', t)
   }
   if (
     /mined on-chain, but (the server could not confirm|confirmation failed)|Confirm transaction|EXEC_CONFIRM_PENDING/i.test(
       t,
     )
   ) {
-    return {
-      code: 'EXEC_CONFIRM_PENDING',
-      message: messageForCode('EXEC_CONFIRM_PENDING'),
-      raw: t,
-    }
+    return codeResult('EXEC_CONFIRM_PENDING', t)
   }
   if (/confirm-execute|couldn.?t confirm/i.test(t) && context === 'governance_execute') {
-    return { code: 'EXEC_CONFIRM_FAILED', message: messageForCode('EXEC_CONFIRM_FAILED'), raw: t }
+    return codeResult('EXEC_CONFIRM_FAILED', t)
   }
 
   if (/must match the wallet used for this admin login|Reconnect the wallet used/i.test(t)) {
-    return { code: 'SESSION_WALLET_MISMATCH', message: messageForCode('SESSION_WALLET_MISMATCH'), raw: t }
+    return codeResult('SESSION_WALLET_MISMATCH', t)
   }
   if (/not (an on-chain )?multisig (signer|owner)/i.test(t)) {
-    return { code: 'NOT_MULTISIG_OWNER', message: messageForCode('NOT_MULTISIG_OWNER'), raw: t }
+    return codeResult('NOT_MULTISIG_OWNER', t)
   }
 
+  return null
+}
+
+/**
+ * Normal user wallet / contract writes — never surfaces proposal / Restart signatures copy.
+ */
+function classifyUserTxFromText(t: string): ClassifiedAppError | null {
+  if (/AA25|invalid account nonce/i.test(t)) {
+    return codeResult('WALLET_NONCE_CONFLICT', t)
+  }
+  // Nonce-ish wallet failures that are not ERC-4337 proposal queue language.
+  if (
+    /nonce too (?:low|high)|replacement transaction underpriced|already known|Frozen UserOp nonce|nonce drifted before submit/i.test(
+      t,
+    )
+  ) {
+    return codeResult('WALLET_NONCE_CONFLICT', t)
+  }
+
+  // Explicit FundingPool / product reverts (before generic CONTRACT_REVERT humanize).
+  if (/\billiquid\b/i.test(t)) {
+    return codeResult('POOL_ILLIQUID', t)
+  }
+  if (
+    /inactive request|already executed|request not found|already approved|you must wait .* between requests/i.test(
+      t,
+    )
+  ) {
+    return codeResult('WITHDRAWAL_INACTIVE', t)
+  }
+
+  // Ignore governance/UserOp fingerprints in user-tx context (fall through to shared mapping).
+  if (
+    /MULTISIG_|EXECUTE_QUEUE_JUMP|EntryPoint handleOps|userOpHashToSign|Frozen UserOp nonce|queued at nonce|execute earlier proposals|Restart signatures/i.test(
+      t,
+    )
+  ) {
+    return null
+  }
+
+  return null
+}
+
+/** Shared wallet / protocol / gas / revert parsing for both tracks. */
+function classifySharedFromText(t: string): ClassifiedAppError | null {
   if (/user rejected|user denied|rejected the request|ACTION_REJECTED|4001|cancelled the request in your wallet/i.test(t)) {
-    return { code: 'WALLET_REJECTED', message: messageForCode('WALLET_REJECTED'), raw: t }
+    return codeResult('WALLET_REJECTED', t)
   }
 
-  // Contract domain reasons before gas/estimate wrappers (estimate often wraps these).
   if (/deposits?[\s_]*paused|DepositsPaused/i.test(t)) {
-    return { code: 'DEPOSITS_PAUSED', message: messageForCode('DEPOSITS_PAUSED'), raw: t }
+    return codeResult('DEPOSITS_PAUSED', t)
   }
   if (/withdrawals?[\s_]*paused|WithdrawalsPaused/i.test(t)) {
-    return { code: 'WITHDRAWALS_PAUSED', message: messageForCode('WITHDRAWALS_PAUSED'), raw: t }
+    return codeResult('WITHDRAWALS_PAUSED', t)
   }
   if (/funding[\s_]*paused|FundingPaused/i.test(t)) {
-    return { code: 'FUNDING_PAUSED', message: messageForCode('FUNDING_PAUSED'), raw: t }
+    return codeResult('FUNDING_PAUSED', t)
   }
   if (/\bpaused\b/i.test(t) && /protocol|controller/i.test(t)) {
-    return { code: 'PROTOCOL_PAUSED', message: messageForCode('PROTOCOL_PAUSED'), raw: t }
+    return codeResult('PROTOCOL_PAUSED', t)
   }
   if (/max.?merchant|merchant.?concentration|concentration.?limit|setMaxMerchantBps/i.test(t)) {
-    return {
-      code: 'MERCHANT_CONCENTRATION',
-      message: messageForCode('MERCHANT_CONCENTRATION'),
-      raw: t,
-    }
+    return codeResult('MERCHANT_CONCENTRATION', t)
   }
   if (/kyc.*(required|incomplete|not verified)|complete.*(kyc|identity|verification)/i.test(t)) {
-    return { code: 'KYC_REQUIRED', message: messageForCode('KYC_REQUIRED'), raw: t }
+    return codeResult('KYC_REQUIRED', t)
   }
   if (/insufficient allowance|exceeds allowance|approve tokens/i.test(t)) {
-    return { code: 'ALLOWANCE_REQUIRED', message: messageForCode('ALLOWANCE_REQUIRED'), raw: t }
+    return codeResult('ALLOWANCE_REQUIRED', t)
   }
   if (/transfer amount exceeds balance|insufficient token balance/i.test(t)) {
-    return { code: 'INSUFFICIENT_TOKEN', message: messageForCode('INSUFFICIENT_TOKEN'), raw: t }
+    return codeResult('INSUFFICIENT_TOKEN', t)
+  }
+
+  // Prefer named product reverts even when wrapped as "execution reverted: …"
+  if (/\billiquid\b/i.test(t)) {
+    return codeResult('POOL_ILLIQUID', t)
+  }
+  if (/inactive request|already executed/i.test(t)) {
+    return codeResult('WITHDRAWAL_INACTIVE', t)
   }
 
   const quoted = t.match(/execution reverted:\s*"([^"]+)"/i)?.[1]?.trim()
   if (quoted) {
+    const named = classifyUserTxFromText(quoted) ?? classifyUserTxFromText(`execution reverted: ${quoted}`)
+    if (named && (named.code === 'POOL_ILLIQUID' || named.code === 'WITHDRAWAL_INACTIVE')) {
+      return { ...named, raw: t }
+    }
     return {
       code: 'CONTRACT_REVERT',
       message: clipped(humanizeRevertToken(quoted), 220),
@@ -351,6 +383,8 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
   }
   const reason = t.match(/reverted with the following reason:\s*([^\n.]+)/i)?.[1]?.trim()
   if (reason) {
+    if (/\billiquid\b/i.test(reason)) return codeResult('POOL_ILLIQUID', t)
+    if (/inactive request|already executed/i.test(reason)) return codeResult('WITHDRAWAL_INACTIVE', t)
     return {
       code: 'CONTRACT_REVERT',
       message: clipped(humanizeRevertToken(reason), 220),
@@ -359,6 +393,10 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
   }
   const reasonString = t.match(/reverted with reason string\s+'([^']+)'/i)?.[1]?.trim()
   if (reasonString) {
+    if (/\billiquid\b/i.test(reasonString)) return codeResult('POOL_ILLIQUID', t)
+    if (/inactive request|already executed/i.test(reasonString)) {
+      return codeResult('WITHDRAWAL_INACTIVE', t)
+    }
     return {
       code: 'CONTRACT_REVERT',
       message: clipped(humanizeRevertToken(reasonString), 220),
@@ -374,22 +412,17 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
     }
   }
 
-  // Servicer/ops gas (loan fund, repay submit, admin writes) — not the end-user wallet.
   if (isServicerInsufficientNativeText(t) || isAccountPrefundGasText(t)) {
-    return {
-      code: 'SERVICER_INSUFFICIENT_NATIVE',
-      message: messageForCode('SERVICER_INSUFFICIENT_NATIVE'),
-      raw: t,
-    }
+    return codeResult('SERVICER_INSUFFICIENT_NATIVE', t)
   }
   if (isInsufficientNativeGasText(t)) {
-    return { code: 'INSUFFICIENT_NATIVE', message: messageForCode('INSUFFICIENT_NATIVE'), raw: t }
+    return codeResult('INSUFFICIENT_NATIVE', t)
   }
   if (/max fee per gas less than block base fee/i.test(t)) {
-    return { code: 'GAS_PRICE_STALE', message: messageForCode('GAS_PRICE_STALE'), raw: t }
+    return codeResult('GAS_PRICE_STALE', t)
   }
   if (/^request failed \(\d+\)$/i.test(t) || /^(bad request|unauthorized|forbidden|not found)$/i.test(t)) {
-    return { code: 'API_MESSAGE', message: messageForCode('API_MESSAGE'), raw: t }
+    return codeResult('API_MESSAGE', t)
   }
 
   if (/Network switch .* was cancelled/i.test(t)) {
@@ -399,7 +432,6 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
     return { code: 'CHAIN_SWITCH_FAILED', message: t, raw: t }
   }
 
-  // Last resort: strip gas-estimate wrapper fluff and surface a short cleaned message.
   if (isGasEstimateWrapperText(t)) {
     const cleaned = stripHexNoise(t)
       .replace(/EstimateGasExecutionError:?/gi, '')
@@ -409,11 +441,30 @@ function classifyFromText(text: string, context: AppErrorContext): ClassifiedApp
       .replace(/\s+/g, ' ')
       .trim()
     if (cleaned && !looksTechnical(cleaned) && cleaned.length >= 8) {
+      if (/\billiquid\b/i.test(cleaned)) return codeResult('POOL_ILLIQUID', t)
+      if (/inactive request|already executed/i.test(cleaned)) {
+        return codeResult('WITHDRAWAL_INACTIVE', t)
+      }
       return { code: 'CONTRACT_REVERT', message: clipped(cleaned, 220), raw: t }
     }
   }
 
   return null
+}
+
+function classifyFromText(text: string, context: AppErrorContext): ClassifiedAppError | null {
+  const t = text.trim()
+  if (!t) return null
+
+  if (isGovernanceContext(context)) {
+    const gov = classifyGovernanceFromText(t, context)
+    if (gov) return gov
+  } else {
+    const user = classifyUserTxFromText(t)
+    if (user) return user
+  }
+
+  return classifySharedFromText(t)
 }
 
 function classifyApiRequestError(error: ApiRequestError): ClassifiedAppError {

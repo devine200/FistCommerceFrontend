@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
   fetchInvestorWithdrawalRequests,
@@ -37,6 +37,8 @@ const InvestorWithdrawalRequestsSection = () => {
   const [executingKey, setExecutingKey] = useState<string | null>(null)
   const [feedbackPhase, setFeedbackPhase] = useState<'idle' | 'loading' | 'failed'>('idle')
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
+  const withdrawInFlightRef = useRef(false)
+  const lastWithdrawRowRef = useRef<InvestorWithdrawalRequestRow | null>(null)
   const contracts = useTestnetContracts()
 
   const loadRequests = useCallback(async () => {
@@ -63,26 +65,36 @@ const InvestorWithdrawalRequestsSection = () => {
     void loadRequests()
   }, [accessToken, loadRequests])
 
-  const handleWithdraw = async (row: InvestorWithdrawalRequestRow) => {
-    if (!row.actions.canWithdraw) return
-    setExecutingKey(row.requestKey)
-    setFeedbackPhase('loading')
-    setFeedbackError(null)
-    try {
-      await contracts.executeFundingPoolWithdraw(row.requestKey as `0x${string}`)
-      setFeedbackPhase('idle')
-      await loadRequests()
-    } catch (e) {
-      const message = toAppUserFacingError(e, {
-        fallback: 'Could not execute withdrawal. Please try again.',
-        context: 'withdraw',
-      })
-      setFeedbackError(message)
-      setFeedbackPhase('failed')
-    } finally {
-      setExecutingKey(null)
-    }
-  }
+  const handleWithdraw = useCallback(
+    async (row: InvestorWithdrawalRequestRow) => {
+      if (!row.actions.canWithdraw) return
+      // Sync lock: React state alone cannot stop a double-click before re-render.
+      if (withdrawInFlightRef.current || contracts.isWritePending) return
+      withdrawInFlightRef.current = true
+      lastWithdrawRowRef.current = row
+      setExecutingKey(row.requestKey)
+      setFeedbackPhase('loading')
+      setFeedbackError(null)
+      try {
+        await contracts.executeFundingPoolWithdraw(row.requestKey as `0x${string}`)
+        setFeedbackPhase('idle')
+        await loadRequests()
+      } catch (e) {
+        const message = toAppUserFacingError(e, {
+          fallback: 'Could not execute withdrawal. Please try again.',
+          context: 'withdraw',
+        })
+        setFeedbackError(message)
+        setFeedbackPhase('failed')
+      } finally {
+        withdrawInFlightRef.current = false
+        setExecutingKey(null)
+      }
+    },
+    [contracts, loadRequests],
+  )
+
+  const anyWithdrawBusy = executingKey != null || contracts.isWritePending
 
   const activeFeedbackPhase =
     executingKey || contracts.isWritePending ? 'loading' : feedbackPhase
@@ -100,8 +112,12 @@ const InvestorWithdrawalRequestsSection = () => {
           setFeedbackError(null)
         }}
         onRetry={() => {
+          const row = lastWithdrawRowRef.current
           setFeedbackPhase('idle')
           setFeedbackError(null)
+          if (row?.actions.canWithdraw) {
+            void handleWithdraw(row)
+          }
         }}
       />
       <section className="rounded-[12px] border border-[#E6E8EC] bg-white p-6 lg:p-8 shadow-sm">
@@ -116,7 +132,7 @@ const InvestorWithdrawalRequestsSection = () => {
             type="button"
             onClick={() => void loadRequests()}
             className="text-[#195EBC] text-[14px] font-semibold hover:underline self-start sm:self-auto"
-            disabled={loading}
+            disabled={loading || anyWithdrawBusy}
           >
             Refresh
           </button>
@@ -145,7 +161,7 @@ const InvestorWithdrawalRequestsSection = () => {
                 </thead>
                 <tbody>
                   {rows.map((row) => {
-                    const busy = executingKey === row.requestKey || contracts.isWritePending
+                    const rowBusy = executingKey === row.requestKey
                     return (
                       <tr key={row.requestKey} className="border-t border-[#E6E8EC]">
                         <td className="px-4 py-3 text-[14px] font-medium text-[#0B1220] font-mono">
@@ -162,11 +178,11 @@ const InvestorWithdrawalRequestsSection = () => {
                           {row.actions.canWithdraw ? (
                             <button
                               type="button"
-                              disabled={busy}
+                              disabled={anyWithdrawBusy}
                               onClick={() => void handleWithdraw(row)}
                               className="h-9 px-4 rounded-[6px] bg-[#195EBC] text-white text-[13px] font-semibold hover:bg-[#154a9a] disabled:opacity-60 disabled:cursor-not-allowed"
                             >
-                              {busy ? 'Withdrawing…' : 'Withdraw'}
+                              {rowBusy ? 'Withdrawing…' : 'Withdraw'}
                             </button>
                           ) : (
                             <span className="text-[13px] text-[#8B92A3]">—</span>

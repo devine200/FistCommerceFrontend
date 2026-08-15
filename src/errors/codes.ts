@@ -11,6 +11,8 @@ export type AppErrorCode =
   | 'API_MESSAGE'
   | 'WALLET_NOT_CONNECTED'
   | 'WALLET_REJECTED'
+  /** User EOA / wallet nonce conflict — not multisig proposal nonce. */
+  | 'WALLET_NONCE_CONFLICT'
   | 'WRONG_NETWORK'
   | 'CHAIN_SWITCH_REJECTED'
   | 'CHAIN_SWITCH_FAILED'
@@ -44,6 +46,10 @@ export type AppErrorCode =
   | 'DEPOSITS_PAUSED'
   | 'WITHDRAWALS_PAUSED'
   | 'FUNDING_PAUSED'
+  /** FundingPool redeem / executeWithdrawalRequest: not enough liquid assets. */
+  | 'POOL_ILLIQUID'
+  /** Withdrawal request expired, rejected, not approved, or already claimed. */
+  | 'WITHDRAWAL_INACTIVE'
   | 'MERCHANT_CONCENTRATION'
   | 'KYC_REQUIRED'
   | 'PAYOUT_NOT_CONFIRMED_ON_CHAIN'
