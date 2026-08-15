@@ -318,17 +318,16 @@ export async function postMultisigProposalCancel(
   await parseAdminWriteResponse(res)
 }
 
-/** `POST /api/multisig/proposals/withdrawal-approve/` */
+/** `POST /api/multisig/proposals/withdrawal-approve/` — investor resolved on-chain from request_id */
 export async function postMultisigCreateWithdrawalApproveProposal(
   accessToken: string | null | undefined,
-  body: { requestId: string; user?: string },
+  body: { requestId: string },
 ) {
   const res = await fetchWithAuthRecovery(apiUrl(`${PROPOSALS_PATH}withdrawal-approve/`), {
     method: 'POST',
     headers: jsonAuthHeaders(accessToken),
     body: JSON.stringify({
       request_id: body.requestId.trim(),
-      ...(body.user?.trim() ? { user: body.user.trim() } : {}),
     }),
   })
   return parseAdminWriteResponse(res)

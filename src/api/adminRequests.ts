@@ -412,19 +412,16 @@ export async function fetchAdminRequestsList(
 export async function postApproveWithdrawalRequest(
   accessToken: string | null | undefined,
   requestId: string,
-  options?: { user?: string; signal?: AbortSignal },
+  options?: { signal?: AbortSignal },
 ): Promise<AdminWriteOutcome> {
   const key = encodePathParam(requestId)
-  const body: Record<string, string> = {}
-  const user = options?.user?.trim()
-  if (user) body.user = user
 
   const res = await fetchWithAuthRecovery(
     apiUrl(`${REQUESTS_LIST_PATH}withdrawals/${key}/approve/`),
     {
       method: 'POST',
       headers: jsonAuthHeaders(accessToken),
-      body: JSON.stringify(body),
+      body: JSON.stringify({}),
       signal: options?.signal,
     },
   )

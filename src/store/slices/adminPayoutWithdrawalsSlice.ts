@@ -99,7 +99,6 @@ export type RefreshAdminPayoutWithdrawalsParams = {
 export type AdminRequestActionParams = {
   actionId: string
   type: AdminRequestType
-  userWallet?: string
 }
 
 type RefreshAdminAuth = {
@@ -177,7 +176,6 @@ export const approveAdminRequest = createAsyncThunk(
       let outcome: AdminWriteOutcome
       if (params.type === 'withdrawal') {
         outcome = await postApproveWithdrawalRequest(accessToken, actionId, {
-          user: params.userWallet,
           signal: thunkApi.signal,
         })
       } else {

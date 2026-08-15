@@ -168,16 +168,10 @@ const AdminPayoutWithdrawalManagementPage = () => {
   )
 
   const handleDecision = useCallback(
-    (actionId: string, type: AdminRequestType, partyWallet: string, decision: 'approve' | 'reject') => {
+    (actionId: string, type: AdminRequestType, decision: 'approve' | 'reject') => {
       if (!actionId.trim()) return
       if (decision === 'approve') {
-        dispatchCancellable(
-          approveAdminRequest({
-            actionId,
-            type,
-            userWallet: type === 'withdrawal' ? partyWallet : undefined,
-          }),
-        )
+        dispatchCancellable(approveAdminRequest({ actionId, type }))
       } else {
         dispatchCancellable(rejectAdminRequest({ actionId, type }))
       }
@@ -212,15 +206,8 @@ const AdminPayoutWithdrawalManagementPage = () => {
       dispatchCancellable(rejectAdminRequest({ actionId, type: actionType }))
       return
     }
-    const row = results.find((r) => adminRequestRowActionId(r) === actionId)
-    dispatchCancellable(
-      approveAdminRequest({
-        actionId,
-        type: actionType,
-        userWallet: actionType === 'withdrawal' ? row?.party.wallet : undefined,
-      }),
-    )
-  }, [dispatchCancellable, actionRequestId, actionType, actionKind, results])
+    dispatchCancellable(approveAdminRequest({ actionId, type: actionType }))
+  }, [dispatchCancellable, actionRequestId, actionType, actionKind])
 
   const actionPhase =
     actionStatus === 'idle' ? ('idle' as const) : actionStatus
@@ -369,7 +356,7 @@ const AdminPayoutWithdrawalManagementPage = () => {
                           type="button"
                           className="h-9 px-4 rounded-[4px] bg-[#DC2626] text-white text-[13px] font-semibold hover:bg-[#b91c1c] transition-colors disabled:opacity-40 disabled:hover:bg-[#DC2626] disabled:cursor-not-allowed"
                           disabled={!canReject}
-                          onClick={() => handleDecision(rowActionId, r.type, r.party.wallet, 'reject')}
+                          onClick={() => handleDecision(rowActionId, r.type, 'reject')}
                         >
                           Reject
                         </button>
@@ -377,7 +364,7 @@ const AdminPayoutWithdrawalManagementPage = () => {
                           type="button"
                           className="h-9 px-4 rounded-[4px] bg-[#195EBC] text-white text-[13px] font-semibold hover:bg-[#154a9a] transition-colors disabled:opacity-40 disabled:hover:bg-[#195EBC] disabled:cursor-not-allowed"
                           disabled={!canApprove}
-                          onClick={() => handleDecision(rowActionId, r.type, r.party.wallet, 'approve')}
+                          onClick={() => handleDecision(rowActionId, r.type, 'approve')}
                         >
                           Approve
                         </button>
