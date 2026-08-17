@@ -313,6 +313,8 @@ export function normalizeProposalDetail(raw: unknown): ProposalDetail | null {
     simulationError: pickNullableStr(r, 'simulationError', 'simulation_error'),
     preconditions,
     executionTxHash: pickNullableStr(r, 'executionTxHash', 'execution_tx_hash'),
+    submittedTxHash: pickNullableStr(r, 'submittedTxHash', 'submitted_tx_hash'),
+    userOpHash: pickNullableStr(r, 'userOpHash', 'user_op_hash'),
     relatedType: pickNullableStr(r, 'relatedType', 'related_type'),
     relatedId: pickNullableStr(r, 'relatedId', 'related_id'),
     threshold: pickNumber(r, 'threshold'),

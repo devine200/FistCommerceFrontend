@@ -167,6 +167,8 @@ export type ProposalDetail = {
   simulationError: string | null
   preconditions: MultisigPrecondition[]
   executionTxHash: string | null
+  submittedTxHash: string | null
+  userOpHash: string | null
   relatedType: string | null
   relatedId: string | null
   threshold: number
