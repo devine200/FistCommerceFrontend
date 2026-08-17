@@ -3448,7 +3448,7 @@
     ]
   },
   "AllocationController": {
-    "address": "0x188515AA36DC7eCfe4c523d4675c3169b15c2D13",
+    "address": "0x3e159e1dB48bB7cF2B89eBF98342ae8581F92266",
     "abi": [
       {
         "inputs": [
@@ -3478,9 +3478,9 @@
             "type": "address"
           },
           {
-            "internalType": "address",
-            "name": "_previousAllocator",
-            "type": "address"
+            "internalType": "address[]",
+            "name": "_previousAllocators",
+            "type": "address[]"
           }
         ],
         "stateMutability": "nonpayable",
@@ -3658,6 +3658,19 @@
         "anonymous": false,
         "inputs": [
           {
+            "indexed": false,
+            "internalType": "address[]",
+            "name": "allocators",
+            "type": "address[]"
+          }
+        ],
+        "name": "PreviousAllocatorsSet",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
             "indexed": true,
             "internalType": "address",
             "name": "oldController",
@@ -3708,6 +3721,25 @@
           }
         ],
         "name": "ReceivableCreated",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "bytes32",
+            "name": "receivableId",
+            "type": "bytes32"
+          },
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "fromAllocator",
+            "type": "address"
+          }
+        ],
+        "name": "ReceivableImported",
         "type": "event"
       },
       {
@@ -3836,6 +3868,25 @@
           }
         ],
         "name": "RiskExposureReduced",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "uint8",
+            "name": "tierId",
+            "type": "uint8"
+          },
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "fromAllocator",
+            "type": "address"
+          }
+        ],
+        "name": "RiskTierImported",
         "type": "event"
       },
       {
@@ -4146,7 +4197,13 @@
         "type": "function"
       },
       {
-        "inputs": [],
+        "inputs": [
+          {
+            "internalType": "bytes32[]",
+            "name": "requiredMerchants",
+            "type": "bytes32[]"
+          }
+        ],
         "name": "finalizeMigration",
         "outputs": [],
         "stateMutability": "nonpayable",
@@ -4396,12 +4453,58 @@
             "type": "bytes32"
           },
           {
+            "internalType": "address",
+            "name": "fromAllocator",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "start",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "count",
+            "type": "uint256"
+          }
+        ],
+        "name": "importMerchantReceivables",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "merchantId",
+            "type": "bytes32"
+          },
+          {
             "internalType": "bytes32[]",
             "name": "receivableIds",
             "type": "bytes32[]"
           }
         ],
         "name": "importMerchantState",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "merchantId",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "fromAllocator",
+            "type": "address"
+          }
+        ],
+        "name": "importMerchantStateFrom",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
@@ -4442,6 +4545,25 @@
         "name": "increaseExposure",
         "outputs": [],
         "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "name": "isPreviousAllocator",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "view",
         "type": "function"
       },
       {
@@ -4572,6 +4694,30 @@
         "type": "function"
       },
       {
+        "inputs": [
+          {
+            "internalType": "bytes32[]",
+            "name": "requiredMerchants",
+            "type": "bytes32[]"
+          }
+        ],
+        "name": "migrationReady",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "ready",
+            "type": "bool"
+          },
+          {
+            "internalType": "string",
+            "name": "reason",
+            "type": "string"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
         "inputs": [],
         "name": "previousAllocator",
         "outputs": [
@@ -4585,6 +4731,38 @@
         "type": "function"
       },
       {
+        "inputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "name": "previousAllocators",
+        "outputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "previousAllocatorsLength",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
         "inputs": [],
         "name": "protocolController",
         "outputs": [
@@ -4592,6 +4770,25 @@
             "internalType": "address",
             "name": "",
             "type": "address"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "",
+            "type": "bytes32"
+          }
+        ],
+        "name": "receivableImported",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
           }
         ],
         "stateMutability": "view",
@@ -4824,6 +5021,25 @@
         "name": "revokeRole",
         "outputs": [],
         "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint8",
+            "name": "",
+            "type": "uint8"
+          }
+        ],
+        "name": "riskTierImported",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "view",
         "type": "function"
       },
       {
