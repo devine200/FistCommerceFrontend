@@ -3448,7 +3448,7 @@
     ]
   },
   "AllocationController": {
-    "address": "0x3e159e1dB48bB7cF2B89eBF98342ae8581F92266",
+    "address": "0x24220271285f6D87926a34CaCB7dC2EFAa3834e7",
     "abi": [
       {
         "inputs": [
@@ -4143,6 +4143,24 @@
         "type": "function"
       },
       {
+        "inputs": [
+          {
+            "internalType": "bytes32",
+            "name": "merchantId",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32[]",
+            "name": "requiredReceivableIds",
+            "type": "bytes32[]"
+          }
+        ],
+        "name": "completeMerchant",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
         "inputs": [],
         "name": "complianceRegistry",
         "outputs": [
@@ -4201,6 +4219,11 @@
           {
             "internalType": "bytes32[]",
             "name": "requiredMerchants",
+            "type": "bytes32[]"
+          },
+          {
+            "internalType": "bytes32[]",
+            "name": "requiredReceivables",
             "type": "bytes32[]"
           }
         ],
@@ -4512,6 +4535,19 @@
       {
         "inputs": [
           {
+            "internalType": "bytes32[]",
+            "name": "receivableIds",
+            "type": "bytes32[]"
+          }
+        ],
+        "name": "importReceivables",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
             "internalType": "uint8[]",
             "name": "tierIds",
             "type": "uint8[]"
@@ -4698,6 +4734,11 @@
           {
             "internalType": "bytes32[]",
             "name": "requiredMerchants",
+            "type": "bytes32[]"
+          },
+          {
+            "internalType": "bytes32[]",
+            "name": "requiredReceivables",
             "type": "bytes32[]"
           }
         ],
