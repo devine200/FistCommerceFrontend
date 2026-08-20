@@ -8,6 +8,8 @@ import LendingPoolDetailHeroBanner from '@/components/dashboard/merchant/lending
 import LendingPoolDetailOverview from '@/components/dashboard/merchant/lending-pool-detail/LendingPoolDetailOverview'
 import MerchantLoansTable from '@/components/dashboard/merchant/lending-pool-detail/MerchantLoansTable'
 import type { LendingPoolDetailConfig } from '@/components/dashboard/merchant/lending-pool-detail/types'
+import type { RecentTx } from '@/components/dashboard/investor/lending-pool-detail/types'
+import { RecentTransactionsSection } from '@/components/dashboard/shared/RecentTransactionsSection'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppSelector } from '@/store/hooks'
@@ -17,10 +19,16 @@ import {
   selectMerchantReceivablesError,
   selectMerchantReceivablesStatus,
 } from '@/store/selectors/merchantReceivablesSelectors'
+import type { ListPaginationMeta } from '@/utils/listPagination'
 
 interface LendingPoolDetailPageContentProps {
   config: LendingPoolDetailConfig
   onApplyToBorrow?: () => void
+  recentTransactions: RecentTx[]
+  recentTransactionsPaginationMeta: ListPaginationMeta
+  onRecentTransactionsPageChange: (page: number) => void
+  recentTransactionsLoading?: boolean
+  recentTransactionsExplorerHref?: string | null
 }
 
 function fmtUsd(v: unknown): string | null {
@@ -59,7 +67,15 @@ function mergeRowsFromPoolMetrics<Row extends { label: string; value: string }>(
   })
 }
 
-const LendingPoolDetailPageContent = ({ config, onApplyToBorrow }: LendingPoolDetailPageContentProps) => {
+const LendingPoolDetailPageContent = ({
+  config,
+  onApplyToBorrow,
+  recentTransactions,
+  recentTransactionsPaginationMeta,
+  onRecentTransactionsPageChange,
+  recentTransactionsLoading = false,
+  recentTransactionsExplorerHref = null,
+}: LendingPoolDetailPageContentProps) => {
   const navigate = useNavigate()
   const poolMetrics = useAppSelector(selectMerchantPoolMetrics)
   const loans = useAppSelector(selectMerchantLoanTableRows)
@@ -100,6 +116,13 @@ const LendingPoolDetailPageContent = ({ config, onApplyToBorrow }: LendingPoolDe
         termsForLoanRows={config.termsForLoanRows}
       />
       <MerchantLoansTable loans={loans} status={status} error={error} />
+      <RecentTransactionsSection
+        transactions={recentTransactions}
+        paginationMeta={recentTransactionsPaginationMeta}
+        onPageChange={onRecentTransactionsPageChange}
+        loading={recentTransactionsLoading}
+        contractExplorerHref={recentTransactionsExplorerHref}
+      />
     </div>
   )
 }

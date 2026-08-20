@@ -7,6 +7,8 @@ export type ListPaginationProps = {
   loading?: boolean
   className?: string
   variant?: 'admin' | 'dashboard'
+  /** When true, show Prev / page numbers / Next even if there is only one page. */
+  alwaysShow?: boolean
 }
 
 function buttonClassName(active: boolean, variant: ListPaginationProps['variant']): string {
@@ -28,8 +30,9 @@ export function ListPagination({
   loading = false,
   className = '',
   variant = 'admin',
+  alwaysShow = false,
 }: ListPaginationProps) {
-  if (meta.totalItems <= meta.pageSize) return null
+  if (!alwaysShow && meta.totalItems <= meta.pageSize) return null
 
   const pageNumbers = buildPaginationPageNumbers(meta.page, meta.totalPages)
   const summary =

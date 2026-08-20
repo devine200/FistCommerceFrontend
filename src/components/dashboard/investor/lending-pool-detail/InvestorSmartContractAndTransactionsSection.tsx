@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react'
 
 import type { ContractField, RecentTx } from '@/components/dashboard/investor/lending-pool-detail/types'
+import { RecentTransactionsSection } from '@/components/dashboard/shared/RecentTransactionsSection'
 import { POOL_SECTION_TITLE } from '@/components/dashboard/shared/poolDetailTypography'
-import { ListPagination } from '@/components/shared/ListPagination'
 import type { ListPaginationMeta } from '@/utils/listPagination'
 
 interface InvestorSmartContractAndTransactionsSectionProps {
@@ -13,35 +13,6 @@ interface InvestorSmartContractAndTransactionsSectionProps {
   paginationMeta: ListPaginationMeta
   onPageChange: (page: number) => void
   loading?: boolean
-}
-
-function ExternalLinkGlyph({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width={16}
-      height={16}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-      <polyline points="15 3 21 3 21 9" />
-      <line x1="10" y1="14" x2="21" y2="3" />
-    </svg>
-  )
-}
-
-const EMPTY_TRANSACTIONS_MESSAGE = 'No recent transactions yet.'
-
-const amountClass = (tone: RecentTx['amountTone']) => {
-  if (tone === 'positive') return 'text-[#16A34A] font-bold text-[15px] tabular-nums'
-  if (tone === 'negative') return 'text-[#0B1220] font-bold text-[15px] tabular-nums'
-  return 'text-[#0B1220] font-semibold text-[15px] tabular-nums'
 }
 
 const InvestorSmartContractAndTransactionsSection = ({
@@ -78,20 +49,20 @@ const InvestorSmartContractAndTransactionsSection = ({
             >
               <span className="text-[#8B92A3] text-[13px] font-medium leading-snug">{row.label}</span>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-h-[24px]">
-                <span className="text-[#0B1220] font-semibold text-[15px] leading-snug">{row.value}</span>
+                <span className="text-[#0B1220] text-[15px] font-semibold break-all">{row.value}</span>
+                {row.badge ? (
+                  <span className="rounded-full bg-[#E8EFFB] text-[#195EBC] text-[11px] font-semibold px-2 py-0.5">
+                    {row.badge}
+                  </span>
+                ) : null}
                 {isAddress ? (
                   <button
                     type="button"
-                    onClick={() => copyAddress(row)}
-                    className="text-[#195EBC] text-[13px] font-semibold hover:underline ml-0.5"
+                    onClick={() => void copyAddress(row)}
+                    className="text-[#195EBC] text-[13px] font-semibold hover:underline"
                   >
                     {copied ? 'Copied' : 'Copy'}
                   </button>
-                ) : null}
-                {row.badge ? (
-                  <span className="inline-flex items-center rounded-full border border-[#86EFAC] bg-[#DCFCE7] text-[#166534] text-[11px] font-semibold px-2 py-0.5 leading-none">
-                    {row.badge}
-                  </span>
                 ) : null}
               </div>
             </div>
@@ -100,67 +71,14 @@ const InvestorSmartContractAndTransactionsSection = ({
       </div>
 
       <div className="mt-8 pt-8 border-t border-[#E6E8EC]">
-        <div className="flex flex-row flex-wrap items-center justify-between gap-3 mb-4">
-          <h2 className={POOL_SECTION_TITLE}>Recent Transactions</h2>
-          {contractExplorerHref ? (
-            <a
-              href={contractExplorerHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[#195EBC] text-[15px] font-semibold hover:underline shrink-0"
-            >
-              View on Arbiscan
-              <ExternalLinkGlyph className="opacity-90" />
-            </a>
-          ) : null}
-        </div>
-
-        <div className="rounded-[10px] border border-[#E6E8EC] overflow-hidden bg-white">
-          {loading ? (
-            <p className="px-4 py-8 text-[#6B7488] text-[14px]">Loading recent transactions…</p>
-          ) : transactions.length === 0 ? (
-            <p className="px-4 py-8 text-[#6B7488] text-[14px]">{EMPTY_TRANSACTIONS_MESSAGE}</p>
-          ) : (
-            <ul className="divide-y divide-[#E6E8EC]">
-              {transactions.map((tx) => (
-                <li key={tx.id}>
-                  <div className="flex flex-col gap-3 py-3 px-4 sm:flex-row sm:items-center sm:gap-8">
-                    <div className="min-w-0 flex-1 flex flex-col gap-1.5">
-                      {tx.walletExplorerHref ? (
-                        <a
-                          href={tx.walletExplorerHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex w-fit max-w-full rounded-[6px] border border-[#E8EBF0] bg-[#F4F7F9] px-2.5 py-1 text-[#195EBC] text-[13px] font-medium tracking-tight hover:bg-[#E8EFFB]"
-                        >
-                          {tx.walletShort}
-                        </a>
-                      ) : (
-                        <span className="inline-flex w-fit max-w-full rounded-[6px] border border-[#E8EBF0] bg-[#F4F7F9] px-2.5 py-1 text-[#195EBC] text-[13px] font-medium tracking-tight">
-                          {tx.walletShort}
-                        </span>
-                      )}
-                      <span className="text-[#0B1220] font-bold text-[15px] leading-tight">{tx.type}</span>
-                    </div>
-                    <div className="flex flex-row items-center justify-between gap-6 sm:justify-end sm:shrink-0 sm:min-w-56">
-                      <p className={`text-left sm:text-right sm:flex-1 ${amountClass(tx.amountTone)}`}>{tx.amount}</p>
-                      <p className="text-[#8B92A3] text-[13px] text-right whitespace-nowrap sm:min-w-22">
-                        {tx.timeAgo}
-                      </p>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          <ListPagination
-            meta={paginationMeta}
-            onPageChange={onPageChange}
-            loading={loading}
-            variant="dashboard"
-            className="border-t border-[#E6E8EC]"
-          />
-        </div>
+        <RecentTransactionsSection
+          transactions={transactions}
+          paginationMeta={paginationMeta}
+          onPageChange={onPageChange}
+          loading={loading}
+          contractExplorerHref={contractExplorerHref}
+          bordered={false}
+        />
       </div>
     </section>
   )

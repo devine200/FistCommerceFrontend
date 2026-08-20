@@ -44,6 +44,8 @@ export type RecentTxApi = {
 /** JSON body for recent transactions (strict DRF shape). */
 export type RecentTxResponse = {
   transactions: RecentTxApi[]
+  /** Total matching rows across pages (pagination). */
+  total?: number
 }
 
 function readEnvTrim(key: string): string {
